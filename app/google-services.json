@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "438386949837",
+    "project_id": "closenest-44914",
+    "storage_bucket": "closenest-44914.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:438386949837:android:2e79a4ba8f13252e48f384",
+        "android_client_info": {
+          "package_name": "com.example.closenest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAP7XMj2a9CBan39n60LIFQyFjZ-kITues"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
