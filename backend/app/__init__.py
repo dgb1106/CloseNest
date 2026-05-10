@@ -1,0 +1,1 @@
+"""CloseNest FastAPI backend package."""

@@ -1,3 +1,110 @@
 <resources>
     <string name="app_name">CloseNest</string>
+
+    <string name="tab_map">Bản đồ</string>
+    <string name="tab_relationships">Danh bạ</string>
+    <string name="tab_add">Thêm</string>
+    <string name="tab_notifications">Thông báo</string>
+    <string name="tab_profile">Hồ sơ</string>
+
+    <string name="relationships_title">Danh bạ của bạn</string>
+    <string name="relationships_subtitle">Những người bạn muốn giữ liên lạc được gom lại ở đây, gọn và ấm.</string>
+    <string name="relationship_add_person">Thêm người mới</string>
+    <string name="relationship_summary_title">Giữ nhịp quan tâm thật nhẹ nhàng</string>
+    <string name="relationship_search_label">Tìm theo tên, email hoặc số điện thoại</string>
+    <string name="relationship_card_meta">%1$s · %2$s</string>
+    <string name="relationship_suggestion_label">Gợi ý tiếp theo</string>
+    <string name="relationship_no_interaction_yet">Chưa có lần tương tác nào</string>
+    <string name="relationship_last_interaction_today">hôm nay</string>
+    <string name="relationship_last_interaction_template">%1$s gần nhất: %2$s</string>
+    <string name="relationship_suggestion_check_in">Bạn đã im lặng hơi lâu với %1$s. Gửi một lời hỏi thăm ngắn nhé.</string>
+    <string name="relationship_suggestion_call">%1$s có vẻ phù hợp cho một cuộc gọi nhanh trong hôm nay.</string>
+    <string name="relationship_suggestion_meet">Nếu tiện, thử rủ %1$s một buổi cà phê hoặc đi dạo ngắn.</string>
+    <string name="relationships_empty_title">Chưa có ai trong danh bạ thân quen</string>
+    <string name="relationships_empty_body">Bạn có thể bắt đầu thật tối giản: chỉ cần tên và một tag là đủ để lưu lại.</string>
+    <string name="relationships_empty_filtered_title">Không thấy kết quả phù hợp</string>
+    <string name="relationships_empty_filtered_body">Thử bỏ bộ lọc hoặc tìm bằng email, số điện thoại để thấy đủ hơn.</string>
+    <string name="relationships_reset_filters">Xóa bộ lọc</string>
+
+    <string name="relationship_tag_family">Gia đình</string>
+    <string name="relationship_tag_friend">Bạn bè</string>
+    <string name="relationship_tag_close_friend">Bạn thân</string>
+    <string name="relationship_tag_classmate">Bạn học</string>
+    <string name="relationship_tag_coworker">Đồng nghiệp</string>
+    <string name="relationship_tag_mentor">Mentor</string>
+    <string name="relationship_tag_partner">Người yêu</string>
+    <string name="relationship_tag_other">Khác</string>
+
+    <string name="relationship_priority_low">Nhẹ</string>
+    <string name="relationship_priority_medium">Vừa</string>
+    <string name="relationship_priority_high">Ưu tiên</string>
+
+    <string name="interaction_type_meet">Gặp mặt</string>
+    <string name="interaction_type_chat">Trò chuyện</string>
+    <string name="interaction_type_call">Gọi điện</string>
+    <string name="interaction_type_message">Nhắn tin</string>
+    <string name="interaction_type_gift">Tặng quà</string>
+    <string name="interaction_type_date">Hẹn hò</string>
+    <string name="interaction_type_other">Tương tác</string>
+
+    <string name="attention_needs_attention">Nên hỏi thăm</string>
+    <string name="attention_warm">Đang ấm</string>
+    <string name="attention_recently_connected">Mới kết nối</string>
+
+    <string name="suggested_action_check_in">Nhắn hỏi thăm</string>
+    <string name="suggested_action_call">Gọi điện</string>
+    <string name="suggested_action_meet">Rủ gặp</string>
+
+    <string name="add_relationship_title">Thêm người mới</string>
+    <string name="action_back">Quay lại</string>
+    <string name="add_relationship_saving">Đang lưu...</string>
+    <string name="add_relationship_save">Lưu vào danh bạ</string>
+    <string name="add_relationship_intro_title">Bắt đầu thật đơn giản</string>
+    <string name="add_relationship_intro_body">Tên và tag là đủ để tạo hồ sơ. Các chi tiết khác có thể thêm sau khi bạn sẵn sàng.</string>
+    <string name="add_relationship_name_label">Tên người này</string>
+    <string name="add_relationship_name_error">Tên không được để trống.</string>
+    <string name="add_relationship_tag_label">Mối quan hệ này là ai với bạn?</string>
+    <string name="add_relationship_show_more">Thêm chi tiết liên hệ</string>
+    <string name="add_relationship_hide_more">Ẩn bớt chi tiết</string>
+    <string name="add_relationship_phone_label">Số điện thoại</string>
+    <string name="add_relationship_email_label">Email</string>
+    <string name="add_relationship_email_error">Email chưa đúng định dạng.</string>
+    <string name="add_relationship_birthday_label">Ngày sinh</string>
+    <string name="add_relationship_birthday_hint">Nhập theo dạng dd/MM/yyyy nếu bạn muốn lưu ngay.</string>
+    <string name="add_relationship_birthday_error">Ngày sinh cần đúng dạng dd/MM/yyyy.</string>
+    <string name="add_relationship_priority_label">Mức ưu tiên quan tâm</string>
+    <string name="add_relationship_interests_label">Sở thích</string>
+    <string name="add_relationship_interests_hint">Ngăn cách nhiều sở thích bằng dấu phẩy.</string>
+    <string name="add_relationship_notes_label">Ghi chú nhẹ</string>
+    <string name="add_relationship_unknown_error">Có lỗi nhỏ khi lưu. Bạn thử lại một lần nữa nhé.</string>
+
+    <string name="add_hub_title">Bạn muốn ghi lại điều gì hôm nay?</string>
+    <string name="add_hub_subtitle">Tab thêm nhanh là nơi bắt đầu những cập nhật ngắn, không cần điền dài dòng.</string>
+    <string name="add_hub_relationship_title">Thêm người mới</string>
+    <string name="add_hub_relationship_body">Lưu hồ sơ một mối quan hệ mới với lượng thông tin tối thiểu.</string>
+    <string name="add_hub_interaction_title">Log tương tác</string>
+    <string name="add_hub_interaction_body">Luồng này sẽ phù hợp để tick nhanh đã chat, gọi hoặc gặp mặt.</string>
+    <string name="add_hub_memory_title">Ghi lại kỷ niệm</string>
+    <string name="add_hub_memory_body">Sau đó bạn có thể gắn ảnh, thời gian và địa điểm cho những khoảnh khắc đáng nhớ.</string>
+    <string name="add_hub_soon">Sắp có</string>
+
+    <string name="notifications_placeholder_title">Thông báo dịu nhẹ</string>
+    <string name="notifications_placeholder_body">Phần nhắc nhở và gợi ý hành động sẽ nối tiếp sau khi flow quan hệ và tương tác hoàn chỉnh.</string>
+    <string name="profile_placeholder_title">Hồ sơ cá nhân</string>
+    <string name="profile_placeholder_body">Profile sẽ là nơi xem streak, cài đặt riêng tư và quản lý dữ liệu của bạn.</string>
+
+    <plurals name="relationship_summary_people">
+        <item quantity="one">%d người đang có trong danh bạ thân quen của bạn.</item>
+        <item quantity="other">%d người đang có trong danh bạ thân quen của bạn.</item>
+    </plurals>
+
+    <plurals name="relationship_summary_attention">
+        <item quantity="one">%d người nên được hỏi thăm nhẹ hôm nay.</item>
+        <item quantity="other">%d người nên được hỏi thăm nhẹ hôm nay.</item>
+    </plurals>
+
+    <plurals name="relationship_last_interaction_days_ago">
+        <item quantity="one">%d ngày trước</item>
+        <item quantity="other">%d ngày trước</item>
+    </plurals>
 </resources>

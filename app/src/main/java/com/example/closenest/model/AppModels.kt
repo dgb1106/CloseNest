@@ -1,5 +1,8 @@
 package com.example.closenest.model
 
+import androidx.annotation.StringRes
+import com.example.closenest.R
+
 const val DemoEmail = "demo@closenest.app"
 const val DemoPassword = "123456"
 
@@ -9,12 +12,20 @@ enum class AuthMode {
 }
 
 enum class MainTab(
-    val label: String
+    val route: String,
+    @param:StringRes val labelRes: Int
 ) {
-    Map("Bản đồ"),
-    Relationships("Kết nối"),
-    Notifications("Thông báo"),
-    Profile("Hồ sơ")
+    Map("map", R.string.tab_map),
+    Relationships("relationships", R.string.tab_relationships),
+    Add("add", R.string.tab_add),
+    Notifications("notifications", R.string.tab_notifications),
+    Profile("profile", R.string.tab_profile);
+
+    companion object {
+        fun fromRoute(route: String?): MainTab? = entries.firstOrNull { tab ->
+            route == tab.route
+        }
+    }
 }
 
 data class MapMarker(

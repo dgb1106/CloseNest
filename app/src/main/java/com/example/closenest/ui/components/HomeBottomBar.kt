@@ -1,5 +1,6 @@
 package com.example.closenest.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,14 +11,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.AddCircle
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.PeopleAlt
 import androidx.compose.material.icons.outlined.Place
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,12 +28,14 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.closenest.R
 import com.example.closenest.model.MainTab
 
 @Composable
@@ -40,15 +45,15 @@ fun HomeBottomBar(
 ) {
     val items = listOf(
         MainTab.Map to Icons.Outlined.Place,
-        MainTab.Relationships to Icons.Outlined.Share,
+        MainTab.Relationships to Icons.Outlined.PeopleAlt,
         MainTab.Notifications to Icons.Outlined.Notifications,
         MainTab.Profile to Icons.Outlined.AccountCircle
     )
 
     Surface(
-        tonalElevation = 10.dp,
+        tonalElevation = 12.dp,
         shadowElevation = 10.dp,
-        color = Color(0xFFFFFBF7)
+        color = MaterialTheme.colorScheme.surface
     ) {
         Row(
             modifier = Modifier
@@ -59,36 +64,23 @@ fun HomeBottomBar(
         ) {
             items.take(2).forEach { (tab, icon) ->
                 BottomTabItem(
-                    label = tab.label,
+                    tab = tab,
                     selected = selectedTab == tab,
-                    icon = {
-                        Icon(icon, contentDescription = tab.label)
-                    },
+                    icon = icon,
                     onClick = { onSelectTab(tab) }
                 )
             }
 
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clickable { onSelectTab(MainTab.Map) },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Outlined.AddCircle,
-                    contentDescription = "Thêm",
-                    tint = Color(0xFF1F1C19),
-                    modifier = Modifier.size(34.dp)
-                )
-            }
+            AddTabButton(
+                selected = selectedTab == MainTab.Add,
+                onClick = { onSelectTab(MainTab.Add) }
+            )
 
             items.drop(2).forEach { (tab, icon) ->
                 BottomTabItem(
-                    label = tab.label,
+                    tab = tab,
                     selected = selectedTab == tab,
-                    icon = {
-                        Icon(icon, contentDescription = tab.label)
-                    },
+                    icon = icon,
                     onClick = { onSelectTab(tab) }
                 )
             }
@@ -97,13 +89,48 @@ fun HomeBottomBar(
 }
 
 @Composable
-private fun BottomTabItem(
-    label: String,
+private fun AddTabButton(
     selected: Boolean,
-    icon: @Composable () -> Unit,
     onClick: () -> Unit
 ) {
-    val color = if (selected) Color(0xFF1F1C19) else Color(0xFF857A72)
+    val colorScheme = MaterialTheme.colorScheme
+    val background = if (selected) {
+        colorScheme.primary
+    } else {
+        colorScheme.primary.copy(alpha = 0.12f)
+    }
+    val contentColor = if (selected) {
+        colorScheme.onPrimary
+    } else {
+        colorScheme.primary
+    }
+
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .clip(CircleShape)
+            .background(background)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Add,
+            contentDescription = stringResource(R.string.tab_add),
+            tint = contentColor,
+            modifier = Modifier.size(28.dp)
+        )
+    }
+}
+
+@Composable
+private fun BottomTabItem(
+    tab: MainTab,
+    selected: Boolean,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val color = if (selected) colorScheme.onSurface else colorScheme.onSurfaceVariant
 
     Column(
         modifier = Modifier
@@ -114,10 +141,10 @@ private fun BottomTabItem(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         CompositionLocalProvider(LocalContentColor provides color) {
-            icon()
+            Icon(icon, contentDescription = stringResource(tab.labelRes))
         }
         Text(
-            text = label,
+            text = stringResource(tab.labelRes),
             fontSize = 11.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             color = color,
