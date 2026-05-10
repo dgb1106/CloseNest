@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.closenest.R
+import com.example.closenest.features.profile.ui.ProfileRoute
 import com.example.closenest.features.relationships.ui.AddRelationshipRoute
 import com.example.closenest.features.relationships.ui.RelationshipsRoute
 import com.example.closenest.model.MainTab
@@ -101,9 +102,15 @@ fun CloseNestApp() {
                 )
             }
             composable(MainTab.Profile.route) {
-                SectionPlaceholderScreen(
-                    titleRes = R.string.profile_placeholder_title,
-                    descriptionRes = R.string.profile_placeholder_body,
+                ProfileRoute(
+                    onLogout = {
+                        authViewModel.onLogout()
+                        navController.navigate(MainTab.Map.route) {
+                            popUpTo(navController.graph.id) {
+                                inclusive = true
+                            }
+                        }
+                    },
                     modifier = Modifier
                 )
             }
