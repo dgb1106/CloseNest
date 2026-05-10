@@ -14,12 +14,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,24 +32,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.closenest.model.AuthMode
-import com.example.closenest.model.DemoEmail
-import com.example.closenest.model.DemoPassword
 
 @Composable
 fun AuthScreen(
     mode: AuthMode,
     message: String,
+    isLoading: Boolean,
     onModeChange: (AuthMode) -> Unit,
     onLogin: (String, String) -> Unit,
-    onUseDemoAccount: () -> Unit
+    onRegister: (String, String, String, String) -> Unit
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var email by rememberSaveable { mutableStateOf(DemoEmail) }
-    var password by rememberSaveable { mutableStateOf(DemoPassword) }
+    var firstName by rememberSaveable { mutableStateOf("") }
+    var lastName by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
     val colorScheme = MaterialTheme.colorScheme
 
     Column(
@@ -70,15 +72,13 @@ fun AuthScreen(
         )
 
         Text(
-            text = "Bản thử giao diện di động với đăng nhập, đăng ký mẫu và trang chủ bản đồ.",
+            text = "Chào mừng đến với CloseNest.",
             style = MaterialTheme.typography.bodyLarge,
             color = colorScheme.onSurfaceVariant,
             lineHeight = 24.sp
         )
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AuthModeCard(
                 title = "Đăng nhập",
                 selected = mode == AuthMode.Login,
@@ -102,14 +102,27 @@ fun AuthScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 if (mode == AuthMode.Register) {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        label = { Text("Họ và tên") },
-                        singleLine = true
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = firstName,
+                            onValueChange = { firstName = it },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(18.dp),
+                            label = { Text("Tên") },
+                            singleLine = true,
+                            enabled = !isLoading
+                        )
+
+                        OutlinedTextField(
+                            value = lastName,
+                            onValueChange = { lastName = it },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(18.dp),
+                            label = { Text("Họ") },
+                            singleLine = true,
+                            enabled = !isLoading
+                        )
+                    }
                 }
 
                 OutlinedTextField(
@@ -118,7 +131,9 @@ fun AuthScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
                     label = { Text("Email") },
-                    singleLine = true
+                    singleLine = true,
+                    enabled = !isLoading,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                 )
 
                 OutlinedTextField(
@@ -128,44 +143,42 @@ fun AuthScreen(
                     shape = RoundedCornerShape(18.dp),
                     label = { Text("Mật khẩu") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation()
+                    visualTransformation = PasswordVisualTransformation(),
+                    enabled = !isLoading
                 )
 
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colorScheme.onSurfaceVariant
-                )
-
-                Button(
-                    onClick = { onLogin(email, password) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(18.dp)
-                ) {
-                    Text(if (mode == AuthMode.Login) "Vào ứng dụng" else "Tạo tài khoản mẫu")
+                if (message.isNotBlank()) {
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.onSurfaceVariant
+                    )
                 }
 
-                OutlinedButton(
+                Button(
                     onClick = {
-                        email = DemoEmail
-                        password = DemoPassword
-                        onUseDemoAccount()
+                        if (mode == AuthMode.Login) {
+                            onLogin(email, password)
+                        } else {
+                            onRegister(firstName, lastName, email, password)
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp),
-                    shape = RoundedCornerShape(18.dp)
+                    shape = RoundedCornerShape(18.dp),
+                    enabled = !isLoading
                 ) {
-                    Text("Dùng tài khoản mẫu")
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = colorScheme.onPrimary,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.height(20.dp)
+                        )
+                    } else {
+                        Text(if (mode == AuthMode.Login) "Đăng nhập" else "Tạo tài khoản")
+                    }
                 }
-
-                Text(
-                    text = "Tài khoản mẫu: $DemoEmail / $DemoPassword",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.outline
-                )
             }
         }
     }
