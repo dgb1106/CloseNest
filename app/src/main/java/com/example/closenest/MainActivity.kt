@@ -11,10 +11,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.closenest.ui.CloseNestApp
 import com.example.closenest.ui.theme.AppTheme
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseAuth.getInstance().signOut()
         enableEdgeToEdge()
         setContent {
             CloseNestRoot()
