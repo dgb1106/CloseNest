@@ -90,8 +90,6 @@
 
     <string name="notifications_placeholder_title">Thông báo dịu nhẹ</string>
     <string name="notifications_placeholder_body">Phần nhắc nhở và gợi ý hành động sẽ nối tiếp sau khi flow quan hệ và tương tác hoàn chỉnh.</string>
-    <string name="profile_placeholder_title">Hồ sơ cá nhân</string>
-    <string name="profile_placeholder_body">Profile sẽ là nơi xem streak, cài đặt riêng tư và quản lý dữ liệu của bạn.</string>
 
     <plurals name="relationship_summary_people">
         <item quantity="one">%d người đang có trong danh bạ thân quen của bạn.</item>

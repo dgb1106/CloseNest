@@ -26,19 +26,19 @@ class InMemoryProfileRepository : ProfileRepository {
             id = "rel_1",
             name = "Bảo Nam",
             avatarUrl = null,
-            initials = "AJ"
+            initials = "BN"
         ),
         RelationshipQuickPreview(
             id = "rel_2",
             name = "Gia Hân",
             avatarUrl = null,
-            initials = "BS"
+            initials = "GH"
         ),
         RelationshipQuickPreview(
             id = "rel_3",
             name = "Minh Anh",
             avatarUrl = null,
-            initials = "CB"
+            initials = "MA"
         )
     )
 

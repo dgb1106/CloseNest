@@ -71,7 +71,6 @@ data class ProfileUiState(
     val isLoading: Boolean = true,
     val user: UserProfile? = null,
     val recentRelationships: List<RelationshipQuickPreview> = emptyList(),
-    val streak: Int = 0,
     val errorMessage: String? = null,
     val showLogoutDialog: Boolean = false
 )

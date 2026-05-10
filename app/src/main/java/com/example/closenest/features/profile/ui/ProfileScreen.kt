@@ -393,10 +393,9 @@ private fun ProfileScreenPreview() {
                     createdAt = Instant.now()
                 ),
                 recentRelationships = listOf(
-                    RelationshipQuickPreview("1", "Alice Johnson", initials = "AJ"),
-                    RelationshipQuickPreview("2", "Bob Smith", initials = "BS"),
-                    RelationshipQuickPreview("3", "Charlie Brown", initials = "CB"),
-                    RelationshipQuickPreview("4", "Diana Prince", initials = "DP")
+                    RelationshipQuickPreview("1", "Bảo Nam", initials = "BN"),
+                    RelationshipQuickPreview("2", "Gia Hân", initials = "GH"),
+                    RelationshipQuickPreview("3", "Minh Anh", initials = "MA"),
                 )
             ),
             onMenuItemClicked = {},
