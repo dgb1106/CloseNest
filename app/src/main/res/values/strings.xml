@@ -90,8 +90,6 @@
 
     <string name="notifications_placeholder_title">Thông báo dịu nhẹ</string>
     <string name="notifications_placeholder_body">Phần nhắc nhở và gợi ý hành động sẽ nối tiếp sau khi flow quan hệ và tương tác hoàn chỉnh.</string>
-    <string name="profile_placeholder_title">Hồ sơ cá nhân</string>
-    <string name="profile_placeholder_body">Profile sẽ là nơi xem streak, cài đặt riêng tư và quản lý dữ liệu của bạn.</string>
 
     <plurals name="relationship_summary_people">
         <item quantity="one">%d người đang có trong danh bạ thân quen của bạn.</item>
@@ -107,4 +105,26 @@
         <item quantity="one">%d ngày trước</item>
         <item quantity="other">%d ngày trước</item>
     </plurals>
+
+    <!-- Profile Screen Strings -->
+    <string name="profile_title">Hồ sơ của bạn</string>
+    <string name="profile_edit_button">Chỉnh sửa</string>
+    <string name="profile_unknown_user">Người dùng không rõ</string>
+
+    <!-- Profile Menu Items -->
+    <string name="profile_menu_account">Tài khoản</string>
+    <string name="profile_menu_settings">Cài đặt và quyền riêng tư</string>
+    <string name="profile_menu_language">Ngôn ngữ</string>
+    <string name="profile_menu_ui_customization">Tùy chỉnh giao diện</string>
+    <string name="profile_menu_logout">Đăng xuất</string>
+
+    <!-- Profile Sections -->
+    <string name="profile_relationships_section">Danh bạ của bạn</string>
+
+    <!-- Profile Logout Confirmation -->
+    <string name="profile_logout_confirm_title">Xác nhận đăng xuất</string>
+    <string name="profile_logout_confirm_message">Bạn chắc chắn muốn đăng xuất khỏi ứng dụng không?</string>
+    <string name="profile_logout_confirm_button">Đăng xuất</string>
+    <string name="profile_logout_cancel_button">Hủy</string>
+
 </resources>
