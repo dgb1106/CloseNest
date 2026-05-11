@@ -137,6 +137,13 @@ class AuthViewModel(
             }
     }
 
+    fun onLogout() {
+        auth.signOut()
+        _uiState.update {
+            it.copy(isLoggedIn = false)
+        }
+    }
+
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
