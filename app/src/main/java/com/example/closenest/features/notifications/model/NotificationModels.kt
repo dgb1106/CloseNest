@@ -1,7 +1,11 @@
 package com.example.closenest.features.notifications.model
 
 import androidx.annotation.StringRes
+import androidx.compose.ui.graphics.Color
 import com.example.closenest.R
+import com.example.closenest.ui.theme.CloseNestAttention
+import com.example.closenest.ui.theme.CloseNestConnected
+import com.example.closenest.ui.theme.CloseNestWarm
 import java.time.Instant
 
 data class NotificationItem(
@@ -31,14 +35,14 @@ data class NotificationFilters(
 
 enum class NotificationType(
     @param:StringRes val labelRes: Int,
-    @param:StringRes val colorRes: Int
+    val color: Color
 ) {
-    CHECK_IN(R.string.notification_type_check_in, R.color.notification_attention),
-    MEMORY_REMINDER(R.string.notification_type_memory_reminder, R.color.notification_warm),
-    BIRTHDAY(R.string.notification_type_birthday, R.color.notification_connected),
-    STREAK(R.string.notification_type_streak, R.color.notification_attention),
-    REFLECTION_REMINDER(R.string.notification_type_reflection_reminder, R.color.notification_warm),
-    ENCOURAGEMENT(R.string.notification_type_encouragement, R.color.notification_connected)
+    CHECK_IN(R.string.notification_type_check_in, CloseNestAttention),
+    MEMORY_REMINDER(R.string.notification_type_memory_reminder, CloseNestWarm),
+    BIRTHDAY(R.string.notification_type_birthday, CloseNestConnected),
+    STREAK(R.string.notification_type_streak, CloseNestAttention),
+    REFLECTION_REMINDER(R.string.notification_type_reflection_reminder, CloseNestWarm),
+    ENCOURAGEMENT(R.string.notification_type_encouragement, CloseNestConnected)
 }
 
 enum class NotificationStatus {
