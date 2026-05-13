@@ -42,25 +42,24 @@ enum class NotificationType(
 }
 
 enum class NotificationStatus {
-    ACTIVE,      // Unread and active
-    READ,        // User has seen it
-    DISMISSED,   // User dismissed it
-    SNOOZED      // User snoozed it
+    ACTIVE,
+    READ,
+    DISMISSED
 }
 
 enum class NotificationActionType {
-    SEND_MESSAGE,      // Open chat/message compose
-    VIEW_MEMORY,       // Open memory detail
-    SEND_GIFT,         // Open gift suggestion
-    LOG_INTERACTION,   // Quick log interaction
-    REFLECT,           // Open reflection screen
-    VIEW_PROFILE,      // Open relationship profile
-    MARK_READ,         // Mark as read (basic action)
-    DISMISS            // Dismiss notification
+    SEND_MESSAGE,
+    VIEW_MEMORY,
+    SEND_GIFT,
+    LOG_INTERACTION,
+    REFLECT,
+    VIEW_PROFILE,
+    MARK_READ,
+    DISMISS
 }
 
 enum class NotificationFilterType {
-    ALL,       // Show all notifications
-    UNREAD,    // Show only unread
-    TODAY      // Show only today's notifications
+    ALL,
+    UNREAD,
+    TODAY
 }
