@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.closenest.R
+import com.example.closenest.features.notifications.ui.NotificationsRoute
 import com.example.closenest.features.profile.ui.ProfileRoute
 import com.example.closenest.features.relationships.ui.AddRelationshipRoute
 import com.example.closenest.features.relationships.ui.RelationshipsRoute
@@ -95,9 +96,7 @@ fun CloseNestApp() {
                 )
             }
             composable(MainTab.Notifications.route) {
-                SectionPlaceholderScreen(
-                    titleRes = R.string.notifications_placeholder_title,
-                    descriptionRes = R.string.notifications_placeholder_body,
+                NotificationsRoute(
                     modifier = Modifier
                 )
             }
