@@ -1,6 +1,7 @@
 package com.example.closenest.features.notifications.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -27,12 +29,16 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,6 +80,8 @@ fun NotificationsRoute(
         onNotificationMarkAsRead = viewModel::onNotificationMarkAsRead,
         onNotificationDismiss = viewModel::onNotificationDismiss,
         onNotificationAction = onNotificationAction,
+        onNotificationSelected = viewModel::selectNotification,
+        onNotificationDeselected = viewModel::deselectNotification,
         modifier = modifier
     )
 }
@@ -85,18 +93,24 @@ fun NotificationsScreen(
     onNotificationMarkAsRead: (String) -> Unit,
     onNotificationDismiss: (String) -> Unit,
     onNotificationAction: (String) -> Unit,
+    onNotificationSelected: (NotificationItem) -> Unit,
+    onNotificationDeselected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    LazyColumn(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(colorScheme.background)
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 108.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 108.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         // Title
         item {
             Text(
@@ -166,10 +180,23 @@ fun NotificationsScreen(
                         notification = notification,
                         onMarkAsRead = { onNotificationMarkAsRead(notification.id) },
                         onDismiss = { onNotificationDismiss(notification.id) },
-                        onAction = { onNotificationAction(notification.id) }
+                        onAction = { onNotificationAction(notification.id) },
+                        onCardClick = { onNotificationSelected(notification) }
                     )
                 }
             }
+        }
+        }
+
+        // Bottom Sheet for notification details
+        if (uiState.selectedNotification != null) {
+            NotificationDetailBottomSheet(
+                notification = uiState.selectedNotification,
+                onMarkAsRead = { onNotificationMarkAsRead(uiState.selectedNotification.id) },
+                onDismiss = { onNotificationDismiss(uiState.selectedNotification.id) },
+                onAction = { onNotificationAction(uiState.selectedNotification.id) },
+                onClose = { onNotificationDeselected() }
+            )
         }
     }
 }
@@ -248,6 +275,7 @@ private fun NotificationCard(
     onMarkAsRead: () -> Unit,
     onDismiss: () -> Unit,
     onAction: () -> Unit,
+    onCardClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -264,6 +292,7 @@ private fun NotificationCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(onClick = onCardClick)
                 .padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -556,8 +585,259 @@ fun NotificationsScreenPreview() {
                 onFilterSelected = {},
                 onNotificationMarkAsRead = {},
                 onNotificationDismiss = {},
-                onNotificationAction = {}
+                onNotificationAction = {},
+                onNotificationSelected = {},
+                onNotificationDeselected = {}
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotificationDetailBottomSheet(
+    notification: NotificationItem,
+    onMarkAsRead: () -> Unit,
+    onDismiss: () -> Unit,
+    onAction: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val notificationColor = getNotificationColor(notification.type)
+    val timeAgoText = getTimeAgoText(notification.createdAtMillis)
+
+    ModalBottomSheet(
+        onDismissRequest = onClose,
+        modifier = modifier,
+        containerColor = colorScheme.surface,
+        scrimColor = Color.Black.copy(alpha = 0.32f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            // Close button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = stringResource(R.string.common_close),
+                        tint = colorScheme.onSurface
+                    )
+                }
+            }
+
+            // Notification type badge and time
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = notificationColor.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.padding(end = 8.dp)
+                ) {
+                    Text(
+                        text = getNotificationTypeLabel(notification.type),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = notificationColor,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+                Text(
+                    text = timeAgoText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Avatar and Title
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .background(notificationColor.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!notification.relationshipName.isNullOrEmpty()) {
+                        Text(
+                            text = notification.relationshipName.take(1).uppercase(),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = notificationColor
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.NotificationsNone,
+                            contentDescription = null,
+                            tint = notificationColor,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (!notification.relationshipName.isNullOrEmpty()) {
+                        Text(
+                            text = notification.relationshipName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colorScheme.onSurface
+                        )
+                    }
+                    Text(
+                        text = notification.title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.onSurface
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Full description
+            Text(
+                text = notification.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+
+            // Expiration info if applicable
+            if (notification.expiresAtMillis != null && notification.expiresAtMillis > System.currentTimeMillis()) {
+                val expiresInDays = (notification.expiresAtMillis - System.currentTimeMillis()) / (24 * 60 * 60 * 1000)
+                if (expiresInDays < 7) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        color = CloseNestAttention.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.notification_expires_soon),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = CloseNestAttention,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = String.format(
+                                    stringResource(R.string.notification_expires_in),
+                                    expiresInDays
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CloseNestAttention
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Action buttons
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Primary action button
+                if (!notification.actionLabel.isNullOrEmpty() && notification.actionType != NotificationActionType.DISMISS) {
+                    Button(
+                        onClick = {
+                            onAction()
+                            onClose()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = notificationColor
+                        )
+                    ) {
+                        Text(
+                            text = notification.actionLabel,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                }
+
+                // Mark as read button
+                if (notification.status == NotificationStatus.ACTIVE) {
+                    FilledTonalButton(
+                        onClick = {
+                            onMarkAsRead()
+                            onClose()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = stringResource(R.string.notification_mark_as_read),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                }
+
+                // Dismiss button
+                Button(
+                    onClick = {
+                        onDismiss()
+                        onClose()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorScheme.errorContainer,
+                        contentColor = colorScheme.error
+                    )
+                ) {
+                    Text(
+                        text = stringResource(R.string.notification_dismiss),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun getNotificationTypeLabel(type: NotificationType): String = when (type) {
+    NotificationType.CHECK_IN -> stringResource(R.string.notification_type_check_in)
+    NotificationType.STREAK -> stringResource(R.string.notification_type_streak)
+    NotificationType.MEMORY_REMINDER -> stringResource(R.string.notification_type_memory_reminder)
+    NotificationType.REFLECTION_REMINDER -> stringResource(R.string.notification_type_reflection_reminder)
+    NotificationType.BIRTHDAY -> stringResource(R.string.notification_type_birthday)
+    NotificationType.ENCOURAGEMENT -> stringResource(R.string.notification_type_encouragement)
 }

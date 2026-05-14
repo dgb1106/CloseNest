@@ -162,6 +162,13 @@
     <string name="notification_action_log">Ghi lại</string>
     <string name="notification_action_reflect">Suy ngẫm</string>
 
+    <!-- Notification Detail Screen -->
+    <string name="common_close">Đóng</string>
+    <string name="notification_mark_as_read">Đánh dấu đã đọc</string>
+    <string name="notification_dismiss">Loại bỏ</string>
+    <string name="notification_expires_soon">Thông báo sắp hết hạn</string>
+    <string name="notification_expires_in">Hết hạn trong %d ngày</string>
+
     <!-- Error Messages -->
     <string name="error_loading_notifications">Không thể tải thông báo</string>
 

@@ -25,7 +25,8 @@ data class NotificationsUiState(
     val summary: NotificationSummary = NotificationSummary(0, 0, 0),
     val selectedFilter: NotificationFilterType = NotificationFilterType.ALL,
     val filteredNotifications: List<NotificationItem> = emptyList(),
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val selectedNotification: NotificationItem? = null
 )
 
 class NotificationsViewModel(
@@ -33,13 +34,17 @@ class NotificationsViewModel(
 ) : ViewModel() {
     // Local mutable state for filters
     private val filters = MutableStateFlow(NotificationFilters())
+    
+    // Local mutable state for selected notification
+    private val selectedNotification = MutableStateFlow<NotificationItem?>(null)
 
     // Combined UI state: repository notifications + local filter state + summary stats
     val uiState: StateFlow<NotificationsUiState> = combine(
         repository.observeNotifications(),
         repository.observeNotificationSummary(),
-        filters
-    ) { notifications, summary, currentFilters ->
+        filters,
+        selectedNotification
+    ) { notifications, summary, currentFilters, selected ->
         val filteredNotifications = applyFilters(notifications, currentFilters)
 
         NotificationsUiState(
@@ -48,7 +53,8 @@ class NotificationsViewModel(
             summary = summary,
             selectedFilter = currentFilters.filterType,
             filteredNotifications = filteredNotifications,
-            errorMessage = null
+            errorMessage = null,
+            selectedNotification = selected
         )
     }.stateIn(
         scope = viewModelScope,
@@ -77,6 +83,14 @@ class NotificationsViewModel(
         viewModelScope.launch {
             repository.dismissNotification(notificationId)
         }
+    }
+
+    fun selectNotification(notification: NotificationItem) {
+        selectedNotification.value = notification
+    }
+
+    fun deselectNotification() {
+        selectedNotification.value = null
     }
 
     fun clearFilters() {
