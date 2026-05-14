@@ -54,7 +54,7 @@ import com.example.closenest.features.relationships.model.RelationshipPriority
 import com.example.closenest.features.relationships.model.RelationshipTag
 import com.example.closenest.features.relationships.viewmodel.AddRelationshipUiState
 import com.example.closenest.features.relationships.viewmodel.AddRelationshipViewModel
-import com.example.closenest.ui.theme.AppTheme
+import com.example.closenest.core.ui.theme.AppTheme
 
 @Composable
 fun AddRelationshipRoute(

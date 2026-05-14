@@ -59,10 +59,10 @@ import com.example.closenest.features.relationships.viewmodel.RelationshipListIt
 import com.example.closenest.features.relationships.viewmodel.RelationshipsUiState
 import com.example.closenest.features.relationships.viewmodel.RelationshipsViewModel
 import com.example.closenest.features.relationships.viewmodel.SuggestedAction
-import com.example.closenest.ui.theme.AppTheme
-import com.example.closenest.ui.theme.CloseNestAttention
-import com.example.closenest.ui.theme.CloseNestConnected
-import com.example.closenest.ui.theme.CloseNestWarm
+import com.example.closenest.core.ui.theme.AppTheme
+import com.example.closenest.core.ui.theme.CloseNestAttention
+import com.example.closenest.core.ui.theme.CloseNestConnected
+import com.example.closenest.core.ui.theme.CloseNestWarm
 
 @Composable
 fun RelationshipsRoute(
