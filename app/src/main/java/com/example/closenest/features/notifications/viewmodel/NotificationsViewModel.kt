@@ -32,10 +32,8 @@ data class NotificationsUiState(
 class NotificationsViewModel(
     private val repository: NotificationRepository
 ) : ViewModel() {
-    // Local mutable state for filters
     private val filters = MutableStateFlow(NotificationFilters())
     
-    // Local mutable state for selected notification
     private val selectedNotification = MutableStateFlow<NotificationItem?>(null)
 
     // Combined UI state: repository notifications + local filter state + summary stats

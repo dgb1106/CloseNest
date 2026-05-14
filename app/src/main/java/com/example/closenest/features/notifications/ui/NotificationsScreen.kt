@@ -519,7 +519,6 @@ private fun getTimeAgoText(createdAtMillis: Long): String {
     }
 }
 
-
 @Preview(showBackground = true)
 @Composable
 fun NotificationsScreenPreview() {
