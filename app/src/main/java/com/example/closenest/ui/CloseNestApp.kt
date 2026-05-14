@@ -17,16 +17,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.closenest.R
+import com.example.closenest.features.auth.ui.AuthScreen
+import com.example.closenest.features.auth.viewmodel.AuthViewModel
+import com.example.closenest.features.homepage.model.MainTab
+import com.example.closenest.features.homepage.ui.AddHubScreen
+import com.example.closenest.features.homepage.ui.HomeBottomBar
+import com.example.closenest.features.homepage.ui.HomeMapScreen
+import com.example.closenest.features.homepage.ui.SectionPlaceholderScreen
 import com.example.closenest.features.profile.ui.ProfileRoute
 import com.example.closenest.features.relationships.ui.AddRelationshipRoute
 import com.example.closenest.features.relationships.ui.RelationshipsRoute
-import com.example.closenest.model.MainTab
-import com.example.closenest.ui.auth.AuthViewModel
-import com.example.closenest.ui.components.HomeBottomBar
-import com.example.closenest.ui.screens.AddHubScreen
-import com.example.closenest.ui.screens.AuthScreen
-import com.example.closenest.ui.screens.HomeMapScreen
-import com.example.closenest.ui.screens.SectionPlaceholderScreen
 
 private const val AddRelationshipRouteName = "add_relationship"
 

@@ -1,4 +1,4 @@
-package com.example.closenest.ui.screens
+package com.example.closenest.features.homepage.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -42,15 +41,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.closenest.model.DemoMarkers
-import com.example.closenest.model.MainTab
-import com.example.closenest.model.MapMarker
-import com.example.closenest.ui.components.HomeBottomBar
-import com.example.closenest.ui.theme.AppTheme
+import com.example.closenest.features.homepage.model.DemoMarkers
+import com.example.closenest.features.homepage.model.MapMarker
 
 @Composable
 fun HomeMapScreen(
@@ -270,21 +265,6 @@ private fun PersonMarker(
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,
                 maxLines = 1
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun HomePagePreview() {
-    AppTheme(darkTheme = false) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            HomeMapScreen(modifier = Modifier.fillMaxSize())
-            HomeBottomBar(
-                selectedTab = MainTab.Map,
-                onSelectTab = {},
-                modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
     }

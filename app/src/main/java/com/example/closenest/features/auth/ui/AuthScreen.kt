@@ -1,4 +1,4 @@
-package com.example.closenest.ui.screens
+package com.example.closenest.features.auth.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,7 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.closenest.model.AuthMode
+import com.example.closenest.features.auth.model.AuthMode
 
 @Composable
 fun AuthScreen(

@@ -1,4 +1,4 @@
-package com.example.closenest.ui.components
+package com.example.closenest.features.homepage.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,7 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.closenest.R
-import com.example.closenest.model.MainTab
+import com.example.closenest.features.homepage.model.MainTab
 
 @Composable
 fun HomeBottomBar(

@@ -1,15 +1,7 @@
-package com.example.closenest.model
+package com.example.closenest.features.homepage.model
 
 import androidx.annotation.StringRes
 import com.example.closenest.R
-
-const val DemoEmail = "demo@closenest.app"
-const val DemoPassword = "123456"
-
-enum class AuthMode {
-    Login,
-    Register
-}
 
 enum class MainTab(
     val route: String,
