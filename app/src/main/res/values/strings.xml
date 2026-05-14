@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">CloseNest</string>
 
-    <string name="tab_map">Bản đồ</string>
+    <string name="tab_map">Trang chủ</string>
     <string name="tab_relationships">Danh bạ</string>
     <string name="tab_add">Thêm</string>
     <string name="tab_notifications">Thông báo</string>

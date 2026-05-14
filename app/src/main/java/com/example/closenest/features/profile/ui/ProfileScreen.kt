@@ -47,7 +47,7 @@ import com.example.closenest.features.profile.model.ProfileUiState
 import com.example.closenest.features.profile.model.RelationshipQuickPreview
 import com.example.closenest.features.profile.model.UserProfile
 import com.example.closenest.features.profile.viewmodel.ProfileViewModel
-import com.example.closenest.ui.theme.AppTheme
+import com.example.closenest.core.ui.theme.AppTheme
 import java.time.Instant
 
 @Composable

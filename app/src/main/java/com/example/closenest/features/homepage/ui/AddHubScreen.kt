@@ -1,4 +1,4 @@
-package com.example.closenest.ui.screens
+package com.example.closenest.features.homepage.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,10 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.closenest.R
-import com.example.closenest.ui.theme.AppTheme
 
 @Composable
 fun AddHubScreen(
@@ -127,13 +125,5 @@ private fun AddActionCard(
                 Text(text = ctaLabel)
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun AddHubScreenPreview() {
-    AppTheme {
-        AddHubScreen(onAddRelationship = {})
     }
 }

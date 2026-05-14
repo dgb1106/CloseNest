@@ -1,4 +1,4 @@
-package com.example.closenest.ui.screens
+package com.example.closenest.features.homepage.ui
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -21,10 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.closenest.R
-import com.example.closenest.ui.theme.AppTheme
 
 @Composable
 fun SectionPlaceholderScreen(
@@ -67,17 +64,6 @@ fun SectionPlaceholderScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 10.dp)
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun SectionPlaceholderScreenPreview() {
-    AppTheme {
-        SectionPlaceholderScreen(
-            titleRes = R.string.notifications_placeholder_title,
-            descriptionRes = R.string.notifications_placeholder_body
         )
     }
 }
