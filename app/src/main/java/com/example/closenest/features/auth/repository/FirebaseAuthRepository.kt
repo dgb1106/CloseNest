@@ -2,10 +2,21 @@ package com.example.closenest.features.auth.repository
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 
 class FirebaseAuthRepository(
     private val auth: FirebaseAuth
 ) : AuthRepository {
+
+    override val authState: Flow<Boolean> = callbackFlow {
+        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            trySend(firebaseAuth.currentUser != null)
+        }
+        auth.addAuthStateListener(listener)
+        awaitClose { auth.removeAuthStateListener(listener) }
+    }
 
     override fun isLoggedIn(): Boolean = auth.currentUser != null
 

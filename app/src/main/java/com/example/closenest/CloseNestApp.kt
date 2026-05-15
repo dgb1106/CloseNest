@@ -1,4 +1,4 @@
-package com.example.closenest.ui
+package com.example.closenest
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue

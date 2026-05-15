@@ -65,4 +65,6 @@ dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.mapbox.maps:android-ndk27:11.23.1")
+    implementation("com.mapbox.extension:maps-compose-ndk27:11.23.1")
 }
