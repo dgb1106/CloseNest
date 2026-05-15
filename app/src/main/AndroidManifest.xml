@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Include this permission to grab user's general location -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Include only if your app benefits from precise location access. -->
