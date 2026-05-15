@@ -20,6 +20,7 @@ class ProfileViewModel(
 ) : ViewModel() {
 
     private val _showLogoutDialog = MutableStateFlow(false)
+    val showLogoutDialog: StateFlow<Boolean> = _showLogoutDialog
 
     val uiState: StateFlow<ProfileUiState> = repository.observeProfileUiState()
         .stateIn(

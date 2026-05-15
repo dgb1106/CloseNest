@@ -2,6 +2,7 @@ package com.example.closenest.features.auth.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.closenest.features.auth.model.AuthMode
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 class AuthViewModel(
     private val repository: AuthRepository
@@ -20,6 +22,16 @@ class AuthViewModel(
         AuthUiState(isLoggedIn = repository.isLoggedIn())
     )
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            repository.authState.collect { isLoggedIn ->
+                if (!isLoggedIn) {
+                    _uiState.update { it.copy(isLoggedIn = false, message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.") }
+                }
+            }
+        }
+    }
 
     fun onModeChange(mode: AuthMode) {
         _uiState.update {
