@@ -1,6 +1,5 @@
 package com.example.closenest.features.homepage.ui
 
-import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,11 +25,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,7 +42,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.closenest.features.homepage.model.MapMarker
-
 import com.mapbox.geojson.Point
 import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
@@ -147,7 +144,6 @@ private fun FilterChip(label: String) {
     }
 }
 
-@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 private fun MapCard(
     modifier: Modifier = Modifier
@@ -167,6 +163,8 @@ private fun MapCard(
 
 @Composable
 private fun MapBackground() {
+    var requestedCameraOnce by remember { mutableStateOf(false) }
+
     val mapViewportState = rememberMapViewportState {
         setCameraOptions {
             zoom(2.0)
@@ -194,7 +192,23 @@ private fun MapBackground() {
                 puckBearing = PuckBearing.HEADING
                 puckBearingEnabled = true
             }
-            mapViewportState.transitionToFollowPuckState()
+
+            if (!requestedCameraOnce) {
+                requestedCameraOnce = true
+                mapView.location.addOnIndicatorPositionChangedListener(
+                    object : OnIndicatorPositionChangedListener {
+                        override fun onIndicatorPositionChanged(point: Point) {
+                            mapViewportState.setCameraOptions {
+                                center(point)
+                                zoom(14.0)
+                                pitch(0.0)
+                                bearing(0.0)
+                            }
+                            mapView.location.removeOnIndicatorPositionChangedListener(this)
+                        }
+                    }
+                )
+            }
         }
     }
 }
