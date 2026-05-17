@@ -6,17 +6,17 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.closenest.R
-import com.example.closenest.features.relationships.model.AttentionStatus
 import com.example.closenest.features.relationships.model.RelationshipPriority
 import com.example.closenest.features.relationships.model.RelationshipProfile
 import com.example.closenest.features.relationships.model.RelationshipTag
 import com.example.closenest.features.relationships.repository.RelationshipRepository
 import com.example.closenest.features.relationships.repository.RelationshipRepositoryProvider
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
@@ -26,8 +26,7 @@ data class RelationshipsUiState(
     val selectedTag: RelationshipTag? = null,
     val relationships: List<RelationshipListItem> = emptyList(),
     val totalRelationships: Int = 0,
-    val relationshipsNeedingAttention: Int = 0,
-    val errorMessage: String? = null
+    val errorMessageRes: Int? = null
 )
 
 data class RelationshipListItem(
@@ -35,33 +34,41 @@ data class RelationshipListItem(
     val name: String,
     val initials: String,
     val tag: RelationshipTag,
+    val birthdayIso: String?,
     val phoneNumber: String?,
     val email: String?,
     val interests: List<String>,
     val notes: String?,
-    val priority: RelationshipPriority,
-    val daysSinceLastInteraction: Long?,
-    val lastInteractionLabelRes: Int?,
-    val attentionStatus: AttentionStatus,
-    val suggestedAction: SuggestedAction
+    val priority: RelationshipPriority
 )
-
-enum class SuggestedAction(val labelRes: Int) {
-    SendCheckIn(R.string.suggested_action_check_in),
-    MakeCall(R.string.suggested_action_call),
-    PlanMeet(R.string.suggested_action_meet)
-}
 
 class RelationshipsViewModel(
     private val repository: RelationshipRepository
 ) : ViewModel() {
     private val filters = MutableStateFlow(RelationshipFilters())
+    private val relationshipResults = repository.observeRelationships()
+        .map { relationships ->
+            RelationshipRepositoryResult(relationships = relationships)
+        }
+        .catch {
+            emit(RelationshipRepositoryResult(errorMessageRes = R.string.relationships_sync_error))
+        }
 
     val uiState: StateFlow<RelationshipsUiState> = combine(
-        repository.observeRelationships(),
+        relationshipResults,
         filters
-    ) { relationships, currentFilters ->
-        val filteredRelationships = relationships
+    ) { repositoryResult, currentFilters ->
+        if (repositoryResult.errorMessageRes != null) {
+            return@combine RelationshipsUiState(
+                isLoading = false,
+                searchQuery = currentFilters.searchQuery,
+                selectedTag = currentFilters.selectedTag,
+                errorMessageRes = repositoryResult.errorMessageRes
+            )
+        }
+
+        val allRelationships = repositoryResult.relationships
+        val filteredRelationships = allRelationships
             .sortedWith(
                 compareBy<RelationshipProfile> { relationship ->
                     relationship.name.lowercase()
@@ -84,10 +91,7 @@ class RelationshipsViewModel(
             searchQuery = currentFilters.searchQuery,
             selectedTag = currentFilters.selectedTag,
             relationships = filteredRelationships,
-            totalRelationships = relationships.size,
-            relationshipsNeedingAttention = relationships.count {
-                it.toAttentionStatus() == AttentionStatus.NeedsAttention
-            }
+            totalRelationships = allRelationships.size
         )
     }.stateIn(
         scope = viewModelScope,
@@ -125,45 +129,24 @@ private data class RelationshipFilters(
     val selectedTag: RelationshipTag? = null
 )
 
+private data class RelationshipRepositoryResult(
+    val relationships: List<RelationshipProfile> = emptyList(),
+    val errorMessageRes: Int? = null
+)
+
 private fun RelationshipProfile.toListItem(): RelationshipListItem {
-    val attentionStatus = toAttentionStatus()
     return RelationshipListItem(
         id = id,
         name = name,
         initials = name.initials(),
         tag = tag,
+        birthdayIso = birthdayIso,
         phoneNumber = phoneNumber,
         email = email,
         interests = interests,
         notes = notes,
-        priority = priority,
-        daysSinceLastInteraction = lastInteractionAtMillis?.daysFromNow(),
-        lastInteractionLabelRes = lastInteractionType?.labelRes,
-        attentionStatus = attentionStatus,
-        suggestedAction = when {
-            phoneNumber != null && attentionStatus == AttentionStatus.NeedsAttention &&
-                priority == RelationshipPriority.High -> SuggestedAction.MakeCall
-            tag == RelationshipTag.Partner || tag == RelationshipTag.CloseFriend ->
-                SuggestedAction.PlanMeet
-            else -> SuggestedAction.SendCheckIn
-        }
+        priority = priority
     )
-}
-
-private fun RelationshipProfile.toAttentionStatus(): AttentionStatus {
-    val daysSinceLastInteraction = lastInteractionAtMillis?.daysFromNow() ?: return AttentionStatus.NeedsAttention
-    val threshold = (tag.followUpThresholdDays - priority.value).coerceAtLeast(3)
-
-    return when {
-        daysSinceLastInteraction <= 3 -> AttentionStatus.RecentlyConnected
-        daysSinceLastInteraction <= threshold -> AttentionStatus.Warm
-        else -> AttentionStatus.NeedsAttention
-    }
-}
-
-private fun Long.daysFromNow(): Long {
-    val elapsedMillis = System.currentTimeMillis() - this
-    return TimeUnit.MILLISECONDS.toDays(elapsedMillis).coerceAtLeast(0)
 }
 
 private fun String.initials(): String = split(" ")

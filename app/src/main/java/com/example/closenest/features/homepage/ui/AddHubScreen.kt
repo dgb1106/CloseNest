@@ -9,10 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,7 +33,7 @@ fun AddHubScreen(
     onAddRelationship: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
@@ -41,40 +41,38 @@ fun AddHubScreen(
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = stringResource(R.string.add_hub_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            text = stringResource(R.string.add_hub_subtitle),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        AddActionCard(
-            title = stringResource(R.string.add_hub_relationship_title),
-            description = stringResource(R.string.add_hub_relationship_body),
-            icon = Icons.Outlined.Add,
-            ctaLabel = stringResource(R.string.relationship_add_person),
-            onClick = onAddRelationship
-        )
-
-        AddActionCard(
-            title = stringResource(R.string.add_hub_interaction_title),
-            description = stringResource(R.string.add_hub_interaction_body),
-            icon = Icons.Outlined.ChatBubbleOutline,
-            ctaLabel = stringResource(R.string.add_hub_soon),
-            onClick = {}
-        )
-
-        AddActionCard(
-            title = stringResource(R.string.add_hub_memory_title),
-            description = stringResource(R.string.add_hub_memory_body),
-            icon = Icons.Outlined.PhotoLibrary,
-            ctaLabel = stringResource(R.string.add_hub_soon),
-            onClick = {}
-        )
+        item {
+            Text(
+                text = stringResource(R.string.add_hub_title),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        item {
+            Text(
+                text = stringResource(R.string.add_hub_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        item {
+            AddActionCard(
+                title = stringResource(R.string.add_hub_relationship_title),
+                description = stringResource(R.string.add_hub_relationship_body),
+                icon = Icons.Outlined.Add,
+                ctaLabel = stringResource(R.string.relationship_add_person),
+                onClick = onAddRelationship
+            )
+        }
+        item {
+            AddActionCard(
+                title = stringResource(R.string.add_hub_memory_title),
+                description = stringResource(R.string.add_hub_memory_body),
+                icon = Icons.Outlined.PhotoLibrary,
+                ctaLabel = stringResource(R.string.add_hub_soon),
+                onClick = {}
+            )
+        }
     }
 }
 
