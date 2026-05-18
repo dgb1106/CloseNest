@@ -1,6 +1,5 @@
 package com.example.closenest.features.homepage.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,22 +29,27 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.closenest.features.homepage.model.DemoMarkers
 import com.example.closenest.features.homepage.model.MapMarker
+import com.mapbox.geojson.Point
+import com.mapbox.maps.extension.compose.MapEffect
+import com.mapbox.maps.extension.compose.MapboxMap
+import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
+import com.mapbox.maps.plugin.PuckBearing
+import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
+import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
+import com.mapbox.maps.plugin.locationcomponent.location
 
 @Composable
 fun HomeMapScreen(
@@ -83,9 +87,7 @@ fun HomeMapScreen(
             )
         }
 
-        FakeMapCard(
-            modifier = Modifier.weight(1f)
-        )
+        MapCard(modifier = Modifier.weight(1f))
     }
 }
 
@@ -143,75 +145,71 @@ private fun FilterChip(label: String) {
 }
 
 @Composable
-private fun FakeMapCard(
+private fun MapCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(size = 26.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF2F4F8)),
         modifier = modifier.fillMaxWidth()
     ) {
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize()
         ) {
-            FakeMapBackground()
-
-            DemoMarkers.forEach { marker ->
-                val offsetX = maxWidth * marker.x
-                val offsetY = maxHeight * marker.y
-                PersonMarker(
-                    marker = marker,
-                    offsetX = offsetX,
-                    offsetY = offsetY
-                )
-            }
+            MapBackground()
         }
     }
 }
 
 @Composable
-private fun FakeMapBackground() {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        drawRect(color = Color(0xFFF5F7FB), style = Fill)
+private fun MapBackground() {
+    var requestedCameraOnce by remember { mutableStateOf(false) }
 
-        val verticals = listOf(0.12f, 0.24f, 0.37f, 0.51f, 0.67f, 0.82f)
-        val horizontals = listOf(0.16f, 0.29f, 0.46f, 0.61f, 0.78f)
-
-        verticals.forEach { x ->
-            drawLine(
-                color = Color(0xFFD4DAE4),
-                start = androidx.compose.ui.geometry.Offset(size.width * x, 0f),
-                end = androidx.compose.ui.geometry.Offset(size.width * x, size.height),
-                strokeWidth = 20f,
-                cap = StrokeCap.Round
-            )
+    val mapViewportState = rememberMapViewportState {
+        setCameraOptions {
+            zoom(2.0)
+            center(Point.fromLngLat(-98.0, 39.5))
+            pitch(0.0)
+            bearing(0.0)
         }
+    }
 
-        horizontals.forEach { y ->
-            drawLine(
-                color = Color(0xFFD4DAE4),
-                start = androidx.compose.ui.geometry.Offset(0f, size.height * y),
-                end = androidx.compose.ui.geometry.Offset(size.width, size.height * y),
-                strokeWidth = 20f,
-                cap = StrokeCap.Round
-            )
+    MapboxMap(
+        modifier = Modifier.fillMaxSize(),
+        mapViewportState = mapViewportState,
+        scaleBar = {},
+        logo = {
+            Logo()
+        },
+        attribution = {
+            Attribution()
         }
+    ) {
+        MapEffect(Unit) { mapView ->
+            mapView.location.updateSettings {
+                locationPuck = createDefault2DPuck(withBearing = true)
+                enabled = true
+                puckBearing = PuckBearing.HEADING
+                puckBearingEnabled = true
+            }
 
-        drawLine(
-            color = Color(0xFFBFC7D3),
-            start = androidx.compose.ui.geometry.Offset(size.width * 0.08f, size.height * 0.82f),
-            end = androidx.compose.ui.geometry.Offset(size.width * 0.88f, size.height * 0.18f),
-            strokeWidth = 18f,
-            cap = StrokeCap.Round
-        )
-
-        drawLine(
-            color = Color(0xFFE3E7EF),
-            start = androidx.compose.ui.geometry.Offset(size.width * 0.04f, size.height * 0.08f),
-            end = androidx.compose.ui.geometry.Offset(size.width * 0.92f, size.height * 0.92f),
-            strokeWidth = 10f,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(16f, 12f))
-        )
+            if (!requestedCameraOnce) {
+                requestedCameraOnce = true
+                mapView.location.addOnIndicatorPositionChangedListener(
+                    object : OnIndicatorPositionChangedListener {
+                        override fun onIndicatorPositionChanged(point: Point) {
+                            mapViewportState.setCameraOptions {
+                                center(point)
+                                zoom(14.0)
+                                pitch(0.0)
+                                bearing(0.0)
+                            }
+                            mapView.location.removeOnIndicatorPositionChangedListener(this)
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 
