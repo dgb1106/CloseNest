@@ -1,7 +1,6 @@
 package com.example.closenest.features.relationships.repository
 
 import com.example.closenest.features.relationships.model.NewRelationshipRequest
-import com.example.closenest.features.relationships.model.RecentInteractionType
 import com.example.closenest.features.relationships.model.RelationshipPriority
 import com.example.closenest.features.relationships.model.RelationshipProfile
 import com.example.closenest.features.relationships.model.RelationshipTag
@@ -31,8 +30,6 @@ class InMemoryRelationshipRepository : RelationshipRepository {
             notes = request.notes,
             avatarUrl = null,
             priority = request.priority,
-            lastInteractionType = null,
-            lastInteractionAtMillis = null,
             createdAtMillis = now,
             updatedAtMillis = now
         )
@@ -57,8 +54,6 @@ class InMemoryRelationshipRepository : RelationshipRepository {
                 notes = "Hay đi bộ buổi tối và thích những lời nhắn ngắn gọn.",
                 avatarUrl = null,
                 priority = RelationshipPriority.High,
-                lastInteractionType = RecentInteractionType.Chat,
-                lastInteractionAtMillis = now - 5.daysInMillis,
                 createdAtMillis = now - 120.daysInMillis,
                 updatedAtMillis = now - 5.daysInMillis
             ),
@@ -74,8 +69,6 @@ class InMemoryRelationshipRepository : RelationshipRepository {
                 notes = "Thường rảnh sau 20h, hợp để gọi điện cuối tuần.",
                 avatarUrl = null,
                 priority = RelationshipPriority.High,
-                lastInteractionType = RecentInteractionType.Call,
-                lastInteractionAtMillis = now - 2.daysInMillis,
                 createdAtMillis = now - 260.daysInMillis,
                 updatedAtMillis = now - 2.daysInMillis
             ),
@@ -91,8 +84,6 @@ class InMemoryRelationshipRepository : RelationshipRepository {
                 notes = null,
                 avatarUrl = null,
                 priority = RelationshipPriority.Medium,
-                lastInteractionType = RecentInteractionType.Meet,
-                lastInteractionAtMillis = now - 18.daysInMillis,
                 createdAtMillis = now - 80.daysInMillis,
                 updatedAtMillis = now - 18.daysInMillis
             )
@@ -101,8 +92,4 @@ class InMemoryRelationshipRepository : RelationshipRepository {
 
     private val Int.daysInMillis: Long
         get() = this * 24L * 60L * 60L * 1_000L
-}
-
-object RelationshipRepositoryProvider {
-    val repository: RelationshipRepository by lazy { InMemoryRelationshipRepository() }
 }

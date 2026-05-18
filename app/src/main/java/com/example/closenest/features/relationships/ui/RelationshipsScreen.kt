@@ -1,6 +1,9 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.example.closenest.features.relationships.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,24 +23,29 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -52,21 +60,18 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.closenest.R
-import com.example.closenest.features.relationships.model.AttentionStatus
+import com.example.closenest.core.ui.theme.AppTheme
 import com.example.closenest.features.relationships.model.RelationshipPriority
 import com.example.closenest.features.relationships.model.RelationshipTag
+import com.example.closenest.features.relationships.model.SelectableRelationshipTags
 import com.example.closenest.features.relationships.viewmodel.RelationshipListItem
 import com.example.closenest.features.relationships.viewmodel.RelationshipsUiState
 import com.example.closenest.features.relationships.viewmodel.RelationshipsViewModel
-import com.example.closenest.features.relationships.viewmodel.SuggestedAction
-import com.example.closenest.core.ui.theme.AppTheme
-import com.example.closenest.core.ui.theme.CloseNestAttention
-import com.example.closenest.core.ui.theme.CloseNestConnected
-import com.example.closenest.core.ui.theme.CloseNestWarm
 
 @Composable
 fun RelationshipsRoute(
     onAddRelationship: () -> Unit,
+    onRelationshipSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RelationshipsViewModel = viewModel(factory = RelationshipsViewModel.Factory)
 ) {
@@ -78,6 +83,25 @@ fun RelationshipsRoute(
         onTagSelected = viewModel::onTagSelected,
         onResetFilters = viewModel::clearFilters,
         onAddRelationship = onAddRelationship,
+        onRelationshipSelected = onRelationshipSelected,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun RelationshipDetailRoute(
+    relationshipId: String,
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: RelationshipsViewModel = viewModel(factory = RelationshipsViewModel.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val relationship = uiState.relationships.firstOrNull { item -> item.id == relationshipId }
+
+    RelationshipDetailScreen(
+        uiState = uiState,
+        relationship = relationship,
+        onNavigateBack = onNavigateBack,
         modifier = modifier
     )
 }
@@ -89,6 +113,7 @@ fun RelationshipsScreen(
     onTagSelected: (RelationshipTag?) -> Unit,
     onResetFilters: () -> Unit,
     onAddRelationship: () -> Unit,
+    onRelationshipSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -106,10 +131,7 @@ fun RelationshipsScreen(
         }
 
         item {
-            SummaryCard(
-                totalRelationships = uiState.totalRelationships,
-                relationshipsNeedingAttention = uiState.relationshipsNeedingAttention
-            )
+            SummaryCard(totalRelationships = uiState.totalRelationships)
         }
 
         item {
@@ -136,7 +158,7 @@ fun RelationshipsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RelationshipTag.entries.forEach { tag ->
+                SelectableRelationshipTags.forEach { tag ->
                     FilterChip(
                         label = stringResource(tag.labelRes),
                         selected = uiState.selectedTag == tag,
@@ -153,10 +175,10 @@ fun RelationshipsScreen(
                 }
             }
 
-            uiState.errorMessage != null -> {
+            uiState.errorMessageRes != null -> {
                 item {
                     ErrorState(
-                        message = uiState.errorMessage,
+                        message = stringResource(uiState.errorMessageRes),
                         onAddRelationship = onAddRelationship
                     )
                 }
@@ -180,7 +202,121 @@ fun RelationshipsScreen(
                     items = uiState.relationships,
                     key = { it.id }
                 ) { relationship ->
-                    RelationshipCard(relationship = relationship)
+                    RelationshipCard(
+                        relationship = relationship,
+                        onClick = { onRelationshipSelected(relationship.id) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RelationshipDetailScreen(
+    uiState: RelationshipsUiState,
+    relationship: RelationshipListItem?,
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Scaffold(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = { Text(text = stringResource(R.string.relationship_detail_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            when {
+                uiState.isLoading -> {
+                    item {
+                        LoadingState()
+                    }
+                }
+
+                uiState.errorMessageRes != null -> {
+                    item {
+                        MessageCard(message = stringResource(uiState.errorMessageRes))
+                    }
+                }
+
+                relationship == null -> {
+                    item {
+                        MessageCard(
+                            message = stringResource(R.string.relationship_detail_not_found_body),
+                            title = stringResource(R.string.relationship_detail_not_found_title)
+                        )
+                    }
+                }
+
+                else -> {
+                    item {
+                        DetailHeader(relationship = relationship)
+                    }
+
+                    item {
+                        DetailSection(title = stringResource(R.string.relationship_detail_contact_title)) {
+                            DetailRow(
+                                label = stringResource(R.string.relationship_detail_phone_label),
+                                value = relationship.phoneNumber,
+                                icon = Icons.Outlined.Phone
+                            )
+                            DetailRow(
+                                label = stringResource(R.string.relationship_detail_email_label),
+                                value = relationship.email,
+                                icon = Icons.Outlined.Email
+                            )
+                            DetailRow(
+                                label = stringResource(R.string.relationship_detail_birthday_label),
+                                value = relationship.birthdayIso.toDisplayDate(),
+                                icon = Icons.Outlined.Cake
+                            )
+                        }
+                    }
+
+                    item {
+                        DetailSection(title = stringResource(R.string.relationship_detail_profile_title)) {
+                            DetailRow(
+                                label = stringResource(R.string.relationship_detail_group_label),
+                                value = stringResource(relationship.tag.labelRes)
+                            )
+                            DetailRow(
+                                label = stringResource(R.string.relationship_detail_priority_label),
+                                value = stringResource(relationship.priority.labelRes)
+                            )
+                        }
+                    }
+
+                    item {
+                        DetailSection(title = stringResource(R.string.relationship_detail_notes_title)) {
+                            DetailRow(
+                                label = stringResource(R.string.relationship_detail_interests_label),
+                                value = relationship.interests.joinToString(", ").ifBlank { null }
+                            )
+                            DetailRow(
+                                label = stringResource(R.string.relationship_detail_notes_label),
+                                value = relationship.notes,
+                                icon = Icons.AutoMirrored.Outlined.Notes
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -224,8 +360,7 @@ private fun HeaderSection(
 
 @Composable
 private fun SummaryCard(
-    totalRelationships: Int,
-    relationshipsNeedingAttention: Int
+    totalRelationships: Int
 ) {
     ElevatedCard(
         colors = CardDefaults.elevatedCardColors(
@@ -249,15 +384,6 @@ private fun SummaryCard(
                 ),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                text = pluralStringResource(
-                    id = R.plurals.relationship_summary_attention,
-                    count = relationshipsNeedingAttention,
-                    relationshipsNeedingAttention
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f)
             )
         }
     }
@@ -288,9 +414,13 @@ private fun FilterChip(
 
 @Composable
 private fun RelationshipCard(
-    relationship: RelationshipListItem
+    relationship: RelationshipListItem,
+    onClick: () -> Unit
 ) {
     Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -302,7 +432,7 @@ private fun RelationshipCard(
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Avatar(initials = relationship.initials)
 
@@ -322,14 +452,20 @@ private fun RelationshipCard(
                         text = stringResource(
                             R.string.relationship_card_meta,
                             stringResource(relationship.tag.labelRes),
-                            relationship.lastInteractionText()
+                            stringResource(relationship.priority.labelRes)
                         ),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                AttentionBadge(status = relationship.attentionStatus)
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             ContactInfoRow(
@@ -355,56 +491,115 @@ private fun RelationshipCard(
                 Text(
                     text = note,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-            }
-
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(18.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.relationship_suggestion_label),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = relationship.suggestionText(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Button(
-                        onClick = {},
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Text(text = stringResource(relationship.suggestedAction.labelRes))
-                    }
-                }
             }
         }
     }
 }
 
 @Composable
-private fun Avatar(initials: String) {
+private fun DetailHeader(relationship: RelationshipListItem) {
+    ElevatedCard(
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Avatar(initials = relationship.initials, size = 72.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = relationship.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                    text = stringResource(relationship.tag.labelRes),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.84f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailSection(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    ElevatedCard(
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            content()
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String?,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value?.takeIf { it.isNotBlank() }
+                    ?: stringResource(R.string.relationship_detail_empty_value),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+private fun Avatar(
+    initials: String,
+    size: androidx.compose.ui.unit.Dp = 56.dp
+) {
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(size)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
         contentAlignment = Alignment.Center
@@ -414,32 +609,6 @@ private fun Avatar(initials: String) {
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-private fun AttentionBadge(status: AttentionStatus) {
-    val background = when (status) {
-        AttentionStatus.NeedsAttention -> CloseNestAttention.copy(alpha = 0.16f)
-        AttentionStatus.Warm -> CloseNestWarm.copy(alpha = 0.18f)
-        AttentionStatus.RecentlyConnected -> CloseNestConnected.copy(alpha = 0.18f)
-    }
-    val content = when (status) {
-        AttentionStatus.NeedsAttention -> CloseNestAttention
-        AttentionStatus.Warm -> CloseNestWarm
-        AttentionStatus.RecentlyConnected -> CloseNestConnected
-    }
-
-    Surface(
-        color = background,
-        shape = RoundedCornerShape(999.dp)
-    ) {
-        Text(
-            text = stringResource(status.labelRes),
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = content
         )
     }
 }
@@ -552,6 +721,34 @@ private fun ErrorState(
 }
 
 @Composable
+private fun MessageCard(
+    message: String,
+    title: String? = null
+) {
+    ElevatedCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            title?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 private fun EmptyState(
     hasFilters: Boolean,
     onPrimaryAction: () -> Unit
@@ -620,46 +817,13 @@ private fun EmptyState(
     }
 }
 
-@Composable
-private fun RelationshipListItem.lastInteractionText(): String {
-    if (daysSinceLastInteraction == null || lastInteractionLabelRes == null) {
-        return stringResource(R.string.relationship_no_interaction_yet)
-    }
-
-    val timeText = if (daysSinceLastInteraction == 0L) {
-        stringResource(R.string.relationship_last_interaction_today)
-    } else {
-        pluralStringResource(
-            id = R.plurals.relationship_last_interaction_days_ago,
-            count = daysSinceLastInteraction.toInt(),
-            daysSinceLastInteraction
-        )
-    }
-
-    return stringResource(
-        R.string.relationship_last_interaction_template,
-        stringResource(lastInteractionLabelRes),
-        timeText
-    )
-}
-
-@Composable
-private fun RelationshipListItem.suggestionText(): String {
-    val firstName = name.substringBefore(" ")
-    return when (suggestedAction) {
-        SuggestedAction.SendCheckIn -> stringResource(
-            R.string.relationship_suggestion_check_in,
-            firstName
-        )
-        SuggestedAction.MakeCall -> stringResource(
-            R.string.relationship_suggestion_call,
-            firstName
-        )
-        SuggestedAction.PlanMeet -> stringResource(
-            R.string.relationship_suggestion_meet,
-            firstName
-        )
-    }
+private fun String?.toDisplayDate(): String? {
+    val parts = this?.split("-")
+    if (parts == null || parts.size != 3) return this
+    val year = parts[0]
+    val month = parts[1]
+    val day = parts[2]
+    return "$day/$month/$year"
 }
 
 @Preview(showBackground = true)
@@ -675,24 +839,21 @@ private fun RelationshipsScreenPreview() {
                         name = "Minh Anh",
                         initials = "MA",
                         tag = RelationshipTag.CloseFriend,
+                        birthdayIso = "2003-11-12",
                         phoneNumber = "0901234567",
                         email = "minhanh@example.com",
                         interests = listOf("Cà phê", "Ảnh film"),
                         notes = "Hay đi bộ buổi tối.",
-                        priority = RelationshipPriority.High,
-                        daysSinceLastInteraction = 5,
-                        lastInteractionLabelRes = R.string.interaction_type_chat,
-                        attentionStatus = AttentionStatus.Warm,
-                        suggestedAction = SuggestedAction.PlanMeet
+                        priority = RelationshipPriority.High
                     )
                 ),
-                totalRelationships = 3,
-                relationshipsNeedingAttention = 1
+                totalRelationships = 3
             ),
             onSearchQueryChanged = {},
             onTagSelected = {},
             onResetFilters = {},
-            onAddRelationship = {}
+            onAddRelationship = {},
+            onRelationshipSelected = {}
         )
     }
 }
