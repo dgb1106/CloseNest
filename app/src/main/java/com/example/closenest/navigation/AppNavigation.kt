@@ -1,57 +1,52 @@
-package com.example.closenest.ui
+package com.example.closenest.navigation
 
+import android.net.Uri
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.closenest.R
+import com.example.closenest.core.model.MainTab
+import com.example.closenest.core.ui.components.HomeBottomBar
+import com.example.closenest.features.homepage.ui.AddHubScreen
+import com.example.closenest.features.homepage.ui.HomeMapScreen
+import com.example.closenest.features.homepage.ui.SectionPlaceholderScreen
 import com.example.closenest.features.notifications.ui.NotificationsRoute
 import com.example.closenest.features.profile.ui.ProfileRoute
 import com.example.closenest.features.relationships.ui.AddRelationshipRoute
+import com.example.closenest.features.relationships.ui.RelationshipDetailRoute
 import com.example.closenest.features.relationships.ui.RelationshipsRoute
-import com.example.closenest.model.MainTab
-import com.example.closenest.ui.auth.AuthViewModel
-import com.example.closenest.ui.components.HomeBottomBar
-import com.example.closenest.ui.screens.AddHubScreen
-import com.example.closenest.ui.screens.AuthScreen
-import com.example.closenest.ui.screens.HomeMapScreen
-import com.example.closenest.ui.screens.SectionPlaceholderScreen
 
 private const val AddRelationshipRouteName = "add_relationship"
+private const val RelationshipDetailRouteName = "relationship_detail"
+private const val RelationshipIdArgument = "relationshipId"
+private const val RelationshipDetailRoutePattern = "$RelationshipDetailRouteName/{$RelationshipIdArgument}"
 
 @Composable
-fun CloseNestApp() {
-    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
-    val authUiState by authViewModel.uiState.collectAsStateWithLifecycle()
-
-    if (!authUiState.isLoggedIn) {
-        AuthScreen(
-            mode = authUiState.authMode,
-            message = authUiState.message,
-            isLoading = authUiState.isLoading,
-            onModeChange = authViewModel::onModeChange,
-            onLogin = authViewModel::onLogin,
-            onRegister = authViewModel::onRegister
-        )
-        return
-    }
-
+fun AppNavigation(onLogout: () -> Unit) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val selectedTab = MainTab.fromRoute(currentRoute) ?: MainTab.Map
-    val showBottomBar = currentRoute != AddRelationshipRouteName
+    val showBottomBar = currentRoute != AddRelationshipRouteName &&
+        currentRoute != RelationshipDetailRoutePattern
     val navigateToAddRelationship = {
         navController.navigate(AddRelationshipRouteName) {
+            launchSingleTop = true
+        }
+    }
+    val navigateToRelationshipDetail: (String) -> Unit = { relationshipId ->
+        navController.navigate("$RelationshipDetailRouteName/${Uri.encode(relationshipId)}") {
             launchSingleTop = true
         }
     }
@@ -78,7 +73,9 @@ fun CloseNestApp() {
         NavHost(
             navController = navController,
             startDestination = MainTab.Map.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
         ) {
             composable(MainTab.Map.route) {
                 HomeMapScreen(modifier = Modifier)
@@ -86,6 +83,7 @@ fun CloseNestApp() {
             composable(MainTab.Relationships.route) {
                 RelationshipsRoute(
                     onAddRelationship = navigateToAddRelationship,
+                    onRelationshipSelected = navigateToRelationshipDetail,
                     modifier = Modifier
                 )
             }
@@ -103,7 +101,7 @@ fun CloseNestApp() {
             composable(MainTab.Profile.route) {
                 ProfileRoute(
                     onLogout = {
-                        authViewModel.onLogout()
+                        onLogout()
                         navController.navigate(MainTab.Map.route) {
                             popUpTo(navController.graph.id) {
                                 inclusive = true
@@ -115,6 +113,22 @@ fun CloseNestApp() {
             }
             composable(AddRelationshipRouteName) {
                 AddRelationshipRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                    modifier = Modifier
+                )
+            }
+            composable(
+                route = RelationshipDetailRoutePattern,
+                arguments = listOf(
+                    navArgument(RelationshipIdArgument) {
+                        type = NavType.StringType
+                    }
+                )
+            ) { backStackEntry ->
+                RelationshipDetailRoute(
+                    relationshipId = backStackEntry.arguments
+                        ?.getString(RelationshipIdArgument)
+                        .orEmpty(),
                     onNavigateBack = { navController.popBackStack() },
                     modifier = Modifier
                 )

@@ -1,4 +1,4 @@
-package com.example.closenest.ui.screens
+package com.example.closenest.features.auth.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,7 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.closenest.model.AuthMode
+import com.example.closenest.features.auth.model.AuthMode
 
 @Composable
 fun AuthScreen(
@@ -169,14 +170,19 @@ fun AuthScreen(
                     shape = RoundedCornerShape(18.dp),
                     enabled = !isLoading
                 ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = colorScheme.onPrimary,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.height(20.dp)
-                        )
-                    } else {
-                        Text(if (mode == AuthMode.Login) "Đăng nhập" else "Tạo tài khoản")
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = colorScheme.onPrimary,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        } else {
+                            Text(if (mode == AuthMode.Login) "Đăng nhập" else "Tạo tài khoản")
+                        }
                     }
                 }
             }

@@ -1,4 +1,4 @@
-package com.example.closenest.ui.screens
+package com.example.closenest.features.homepage.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -9,10 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -25,17 +25,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.closenest.R
-import com.example.closenest.ui.theme.AppTheme
 
 @Composable
 fun AddHubScreen(
     onAddRelationship: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
@@ -43,40 +41,38 @@ fun AddHubScreen(
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = stringResource(R.string.add_hub_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            text = stringResource(R.string.add_hub_subtitle),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        AddActionCard(
-            title = stringResource(R.string.add_hub_relationship_title),
-            description = stringResource(R.string.add_hub_relationship_body),
-            icon = Icons.Outlined.Add,
-            ctaLabel = stringResource(R.string.relationship_add_person),
-            onClick = onAddRelationship
-        )
-
-        AddActionCard(
-            title = stringResource(R.string.add_hub_interaction_title),
-            description = stringResource(R.string.add_hub_interaction_body),
-            icon = Icons.Outlined.ChatBubbleOutline,
-            ctaLabel = stringResource(R.string.add_hub_soon),
-            onClick = {}
-        )
-
-        AddActionCard(
-            title = stringResource(R.string.add_hub_memory_title),
-            description = stringResource(R.string.add_hub_memory_body),
-            icon = Icons.Outlined.PhotoLibrary,
-            ctaLabel = stringResource(R.string.add_hub_soon),
-            onClick = {}
-        )
+        item {
+            Text(
+                text = stringResource(R.string.add_hub_title),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        item {
+            Text(
+                text = stringResource(R.string.add_hub_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        item {
+            AddActionCard(
+                title = stringResource(R.string.add_hub_relationship_title),
+                description = stringResource(R.string.add_hub_relationship_body),
+                icon = Icons.Outlined.Add,
+                ctaLabel = stringResource(R.string.relationship_add_person),
+                onClick = onAddRelationship
+            )
+        }
+        item {
+            AddActionCard(
+                title = stringResource(R.string.add_hub_memory_title),
+                description = stringResource(R.string.add_hub_memory_body),
+                icon = Icons.Outlined.PhotoLibrary,
+                ctaLabel = stringResource(R.string.add_hub_soon),
+                onClick = {}
+            )
+        }
     }
 }
 
@@ -127,13 +123,5 @@ private fun AddActionCard(
                 Text(text = ctaLabel)
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun AddHubScreenPreview() {
-    AppTheme {
-        AddHubScreen(onAddRelationship = {})
     }
 }

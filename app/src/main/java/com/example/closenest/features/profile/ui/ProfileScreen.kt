@@ -47,7 +47,7 @@ import com.example.closenest.features.profile.model.ProfileUiState
 import com.example.closenest.features.profile.model.RelationshipQuickPreview
 import com.example.closenest.features.profile.model.UserProfile
 import com.example.closenest.features.profile.viewmodel.ProfileViewModel
-import com.example.closenest.ui.theme.AppTheme
+import com.example.closenest.core.ui.theme.AppTheme
 import java.time.Instant
 
 @Composable
@@ -58,9 +58,11 @@ fun ProfileRoute(
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val showLogoutDialog by viewModel.showLogoutDialog.collectAsStateWithLifecycle()
 
     ProfileScreen(
         uiState = uiState,
+        showLogoutDialog = showLogoutDialog,
         onMenuItemClicked = { itemId ->
             when (itemId) {
                 "logout" -> viewModel.onMenuItemClicked(itemId)
@@ -82,6 +84,7 @@ fun ProfileRoute(
 @Composable
 fun ProfileScreen(
     uiState: ProfileUiState,
+    showLogoutDialog: Boolean,
     onMenuItemClicked: (String) -> Unit,
     onConfirmLogout: () -> Unit,
     onCancelLogout: () -> Unit,
@@ -134,7 +137,7 @@ fun ProfileScreen(
     }
 
     // Logout confirmation dialog
-    if (uiState.showLogoutDialog) {
+    if (showLogoutDialog) {
         LogoutConfirmationDialog(
             onConfirm = onConfirmLogout,
             onCancel = onCancelLogout
@@ -398,6 +401,7 @@ private fun ProfileScreenPreview() {
                     RelationshipQuickPreview("3", "Minh Anh", initials = "MA"),
                 )
             ),
+            showLogoutDialog = false,
             onMenuItemClicked = {},
             onConfirmLogout = {},
             onCancelLogout = {}

@@ -1,4 +1,4 @@
-package com.example.closenest.ui.theme
+package com.example.closenest.core.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme

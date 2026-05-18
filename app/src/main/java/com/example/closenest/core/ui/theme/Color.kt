@@ -1,4 +1,4 @@
-package com.example.closenest.ui.theme
+package com.example.closenest.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
