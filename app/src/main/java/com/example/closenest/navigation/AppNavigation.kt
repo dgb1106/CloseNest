@@ -1,14 +1,12 @@
 package com.example.closenest.navigation
 
 import android.net.Uri
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -53,78 +51,8 @@ fun AppNavigation(onLogout: () -> Unit) {
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            NavHost(
-                navController = navController,
-                startDestination = MainTab.Map.route,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                composable(MainTab.Map.route) {
-                    HomeMapScreen(modifier = Modifier)
-                }
-                composable(MainTab.Relationships.route) {
-                    RelationshipsRoute(
-                        onAddRelationship = navigateToAddRelationship,
-                        onRelationshipSelected = navigateToRelationshipDetail,
-                        modifier = Modifier
-                    )
-                }
-                composable(MainTab.Add.route) {
-                    AddHubScreen(
-                        onAddRelationship = navigateToAddRelationship,
-                        modifier = Modifier
-                    )
-                }
-                composable(MainTab.Notifications.route) {
-                    SectionPlaceholderScreen(
-                        titleRes = R.string.notifications_placeholder_title,
-                        descriptionRes = R.string.notifications_placeholder_body,
-                        modifier = Modifier
-                    )
-                }
-                composable(MainTab.Profile.route) {
-                    ProfileRoute(
-                        onLogout = {
-                            onLogout()
-                            navController.navigate(MainTab.Map.route) {
-                                popUpTo(navController.graph.id) {
-                                    inclusive = true
-                                }
-                            }
-                        },
-                        modifier = Modifier
-                    )
-                }
-                composable(AddRelationshipRouteName) {
-                    AddRelationshipRoute(
-                        onNavigateBack = { navController.popBackStack() },
-                        modifier = Modifier
-                    )
-                }
-                composable(
-                    route = RelationshipDetailRoutePattern,
-                    arguments = listOf(
-                        navArgument(RelationshipIdArgument) {
-                            type = NavType.StringType
-                        }
-                    )
-                ) { backStackEntry ->
-                    RelationshipDetailRoute(
-                        relationshipId = backStackEntry.arguments
-                            ?.getString(RelationshipIdArgument)
-                            .orEmpty(),
-                        onNavigateBack = { navController.popBackStack() },
-                        modifier = Modifier
-                    )
-                }
-            }
-
+        containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
             if (showBottomBar) {
                 HomeBottomBar(
                     selectedTab = selectedTab,
@@ -136,8 +64,74 @@ fun AppNavigation(onLogout: () -> Unit) {
                             launchSingleTop = true
                             restoreState = true
                         }
+                    }
+                )
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = MainTab.Map.route,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            composable(MainTab.Map.route) {
+                HomeMapScreen(modifier = Modifier)
+            }
+            composable(MainTab.Relationships.route) {
+                RelationshipsRoute(
+                    onAddRelationship = navigateToAddRelationship,
+                    onRelationshipSelected = navigateToRelationshipDetail,
+                    modifier = Modifier
+                )
+            }
+            composable(MainTab.Add.route) {
+                AddHubScreen(
+                    onAddRelationship = navigateToAddRelationship,
+                    modifier = Modifier
+                )
+            }
+            composable(MainTab.Notifications.route) {
+                SectionPlaceholderScreen(
+                    titleRes = R.string.notifications_placeholder_title,
+                    descriptionRes = R.string.notifications_placeholder_body,
+                    modifier = Modifier
+                )
+            }
+            composable(MainTab.Profile.route) {
+                ProfileRoute(
+                    onLogout = {
+                        onLogout()
+                        navController.navigate(MainTab.Map.route) {
+                            popUpTo(navController.graph.id) {
+                                inclusive = true
+                            }
+                        }
                     },
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    modifier = Modifier
+                )
+            }
+            composable(AddRelationshipRouteName) {
+                AddRelationshipRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                    modifier = Modifier
+                )
+            }
+            composable(
+                route = RelationshipDetailRoutePattern,
+                arguments = listOf(
+                    navArgument(RelationshipIdArgument) {
+                        type = NavType.StringType
+                    }
+                )
+            ) { backStackEntry ->
+                RelationshipDetailRoute(
+                    relationshipId = backStackEntry.arguments
+                        ?.getString(RelationshipIdArgument)
+                        .orEmpty(),
+                    onNavigateBack = { navController.popBackStack() },
+                    modifier = Modifier
                 )
             }
         }
