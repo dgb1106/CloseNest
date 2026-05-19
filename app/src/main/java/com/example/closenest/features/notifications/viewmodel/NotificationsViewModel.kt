@@ -43,11 +43,12 @@ class NotificationsViewModel(
         filters,
         selectedNotification
     ) { notifications, summary, currentFilters, selected ->
-        val filteredNotifications = applyFilters(notifications, currentFilters)
+        val sortedNotifications = notifications.sortedByDescending { it.createdAtMillis }
+        val filteredNotifications = applyFilters(sortedNotifications, currentFilters)
 
         NotificationsUiState(
             isLoading = false,
-            notifications = notifications,
+            notifications = sortedNotifications,
             summary = summary,
             selectedFilter = currentFilters.filterType,
             filteredNotifications = filteredNotifications,
