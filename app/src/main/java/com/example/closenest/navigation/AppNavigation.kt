@@ -21,6 +21,7 @@ import com.example.closenest.core.ui.components.HomeBottomBar
 import com.example.closenest.features.homepage.ui.AddHubScreen
 import com.example.closenest.features.homepage.ui.HomeMapScreen
 import com.example.closenest.features.homepage.ui.SectionPlaceholderScreen
+import com.example.closenest.features.notifications.ui.NotificationsRoute
 import com.example.closenest.features.profile.ui.ProfileRoute
 import com.example.closenest.features.relationships.ui.AddRelationshipRoute
 import com.example.closenest.features.relationships.ui.RelationshipDetailRoute
@@ -93,9 +94,12 @@ fun AppNavigation(onLogout: () -> Unit) {
                 )
             }
             composable(MainTab.Notifications.route) {
-                SectionPlaceholderScreen(
-                    titleRes = R.string.notifications_placeholder_title,
-                    descriptionRes = R.string.notifications_placeholder_body,
+                NotificationsRoute(
+                    onNotificationAction = { route ->
+                        navController.navigate(route) {
+                            launchSingleTop = true
+                        }
+                    },
                     modifier = Modifier
                 )
             }

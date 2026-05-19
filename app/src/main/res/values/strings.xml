@@ -107,4 +107,55 @@
     <string name="profile_logout_confirm_button">Đăng xuất</string>
     <string name="profile_logout_cancel_button">Hủy</string>
 
+    <!-- Notifications Screen Strings -->
+    <string name="notifications_title">Thông báo</string>
+    <string name="notifications_empty_title">Chưa có thông báo nào</string>
+    <string name="notifications_empty_description">Bạn sẽ nhận được thông báo khi có gợi ý tương tác hoặc nhắc nhở về những người thân.</string>
+    <string name="notifications_empty_filtered_title">Không có thông báo phù hợp</string>
+    <string name="notifications_empty_filtered_description">Không có thông báo nào thuộc bộ lọc %1$s.</string>
+
+    <!-- Notification Filters -->
+    <string name="notification_filter_all">Tất cả</string>
+    <string name="notification_filter_unread">Chưa đọc</string>
+    <string name="notification_filter_today">Hôm nay</string>
+
+    <!-- Notification Summary -->
+    <string name="notifications_summary_all">Bạn có %d thông báo</string>
+    <string name="notifications_summary_unread">%d thông báo chưa đọc</string>
+    <string name="notifications_summary_today">%d thông báo hôm nay</string>
+
+    <!-- Notification Types -->
+    <string name="notification_type_check_in">Hỏi thăm</string>
+    <string name="notification_type_memory_reminder">Nhắc kỷ niệm</string>
+    <string name="notification_type_birthday">Sinh nhật</string>
+    <string name="notification_type_streak">Chuỗi liên tiếp</string>
+    <string name="notification_type_reflection_reminder">Nhắc nhở suy ngẫm</string>
+    <string name="notification_type_encouragement">Cổ vũ</string>
+
+    <!-- Notification Actions -->
+    <string name="notification_action_dismiss">Tắt</string>
+    <string name="notification_action_remind_later">Nhắc lại sau</string>
+    <string name="notification_action_mark_read">Đánh dấu đã đọc</string>
+    <string name="notification_action_send_message">Gửi tin nhắn</string>
+    <string name="notification_action_view_memory">Xem kỷ niệm</string>
+    <string name="notification_action_send_gift">Gửi quà</string>
+    <string name="notification_action_log">Ghi lại</string>
+    <string name="notification_action_reflect">Suy ngẫm</string>
+
+    <!-- Notification Detail Screen -->
+    <string name="common_close">Đóng</string>
+    <string name="notification_mark_as_read">Đánh dấu đã đọc</string>
+    <string name="notification_dismiss">Loại bỏ</string>
+    <string name="notification_expires_soon">Thông báo sắp hết hạn</string>
+    <string name="notification_expires_in">Hết hạn trong %d ngày</string>
+
+    <!-- Error Messages -->
+    <string name="error_loading_notifications">Không thể tải thông báo</string>
+
+    <!-- Time Format (Notification Cards) -->
+    <string name="time_now">Bây giờ</string>
+    <string name="time_minutes">%dm</string>
+    <string name="time_hours">%dh</string>
+    <string name="time_days">%dd</string>
+
 </resources>
