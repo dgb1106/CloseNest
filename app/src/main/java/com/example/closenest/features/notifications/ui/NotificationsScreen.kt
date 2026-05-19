@@ -60,10 +60,10 @@ import com.example.closenest.features.notifications.model.NotificationStatus
 import com.example.closenest.features.notifications.model.NotificationType
 import com.example.closenest.features.notifications.viewmodel.NotificationsUiState
 import com.example.closenest.features.notifications.viewmodel.NotificationsViewModel
-import com.example.closenest.ui.theme.AppTheme
-import com.example.closenest.ui.theme.CloseNestAttention
-import com.example.closenest.ui.theme.CloseNestConnected
-import com.example.closenest.ui.theme.CloseNestWarm
+import com.example.closenest.core.ui.theme.AppTheme
+import com.example.closenest.core.ui.theme.CloseNestAttention
+import com.example.closenest.core.ui.theme.CloseNestConnected
+import com.example.closenest.core.ui.theme.CloseNestWarm
 import java.util.concurrent.TimeUnit
 
 @Composable
