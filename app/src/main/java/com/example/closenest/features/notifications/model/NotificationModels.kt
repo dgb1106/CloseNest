@@ -3,9 +3,9 @@ package com.example.closenest.features.notifications.model
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import com.example.closenest.R
-import com.example.closenest.ui.theme.CloseNestAttention
-import com.example.closenest.ui.theme.CloseNestConnected
-import com.example.closenest.ui.theme.CloseNestWarm
+import com.example.closenest.core.ui.theme.CloseNestAttention
+import com.example.closenest.core.ui.theme.CloseNestConnected
+import com.example.closenest.core.ui.theme.CloseNestWarm
 import java.time.Instant
 
 data class NotificationItem(
