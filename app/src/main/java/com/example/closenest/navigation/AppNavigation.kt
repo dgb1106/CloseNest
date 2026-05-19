@@ -95,6 +95,11 @@ fun AppNavigation(onLogout: () -> Unit) {
             }
             composable(MainTab.Notifications.route) {
                 NotificationsRoute(
+                    onNotificationAction = { route ->
+                        navController.navigate(route) {
+                            launchSingleTop = true
+                        }
+                    },
                     modifier = Modifier
                 )
             }
