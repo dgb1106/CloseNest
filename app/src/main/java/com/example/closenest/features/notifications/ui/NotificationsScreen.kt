@@ -521,7 +521,7 @@ private fun getTimeAgoText(createdAtMillis: Long): String {
 
 @Preview(showBackground = true)
 @Composable
-fun NotificationsScreenPreview() {
+private fun NotificationsScreenPreview() {
     AppTheme {
         val mockUiState = NotificationsUiState(
             isLoading = false,
