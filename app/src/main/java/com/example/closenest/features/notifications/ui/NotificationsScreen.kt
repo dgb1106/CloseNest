@@ -832,11 +832,5 @@ private fun NotificationDetailBottomSheet(
 }
 
 @Composable
-private fun getNotificationTypeLabel(type: NotificationType): String = when (type) {
-    NotificationType.CHECK_IN -> stringResource(R.string.notification_type_check_in)
-    NotificationType.STREAK -> stringResource(R.string.notification_type_streak)
-    NotificationType.MEMORY_REMINDER -> stringResource(R.string.notification_type_memory_reminder)
-    NotificationType.REFLECTION_REMINDER -> stringResource(R.string.notification_type_reflection_reminder)
-    NotificationType.BIRTHDAY -> stringResource(R.string.notification_type_birthday)
-    NotificationType.ENCOURAGEMENT -> stringResource(R.string.notification_type_encouragement)
-}
+private fun getNotificationTypeLabel(type: NotificationType): String =
+    stringResource(type.labelRes)
