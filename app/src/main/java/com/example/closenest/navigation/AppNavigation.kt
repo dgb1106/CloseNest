@@ -18,7 +18,7 @@ import androidx.navigation.navArgument
 import com.example.closenest.R
 import com.example.closenest.core.model.MainTab
 import com.example.closenest.core.ui.components.HomeBottomBar
-import com.example.closenest.features.homepage.ui.AddHubScreen
+import com.example.closenest.features.homepage.ui.AddHubRoute
 import com.example.closenest.features.homepage.ui.HomeMapScreen
 import com.example.closenest.features.homepage.ui.SectionPlaceholderScreen
 import com.example.closenest.features.notifications.ui.NotificationsRoute
@@ -88,7 +88,7 @@ fun AppNavigation(onLogout: () -> Unit) {
                 )
             }
             composable(MainTab.Add.route) {
-                AddHubScreen(
+                AddHubRoute(
                     onAddRelationship = navigateToAddRelationship,
                     modifier = Modifier
                 )

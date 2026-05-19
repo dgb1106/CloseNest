@@ -1,5 +1,6 @@
 package com.example.closenest.features.relationships.repository
 
+import com.example.closenest.core.network.FirebaseConnectionException
 import com.example.closenest.features.relationships.model.NewRelationshipRequest
 import com.example.closenest.features.relationships.model.RelationshipPriority
 import com.example.closenest.features.relationships.model.RelationshipProfile
@@ -10,12 +11,16 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import java.net.InetSocketAddress
+import java.net.Socket
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 
 class FirebaseRelationshipRepository(
     private val auth: FirebaseAuth,
@@ -42,6 +47,7 @@ class FirebaseRelationshipRepository(
                     val relationships = snapshot
                         ?.documents
                         .orEmpty()
+                        .filter { document -> !document.metadata.hasPendingWrites() }
                         .mapNotNull { document -> document.toRelationshipProfile(defaultUserId = userId) }
                         .sortedWith(
                             compareBy<RelationshipProfile> { relationship ->
@@ -78,6 +84,8 @@ class FirebaseRelationshipRepository(
         val now = System.currentTimeMillis()
         val document = relationshipsCollection(userId).document()
 
+        ensureFirestoreReachable()
+
         document.set(
             mapOf(
                 FieldId to document.id,
@@ -95,6 +103,17 @@ class FirebaseRelationshipRepository(
                 FieldUpdatedAtMillis to now
             )
         ).awaitCompletion()
+    }
+
+    override suspend fun deleteRelationship(relationshipId: String) {
+        val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
+
+        ensureFirestoreReachable()
+
+        relationshipsCollection(userId)
+            .document(relationshipId)
+            .delete()
+            .awaitCompletion()
     }
 
     private fun relationshipsCollection(userId: String) =
@@ -163,11 +182,30 @@ private suspend fun Task<*>.awaitCompletion() {
     }
 }
 
+private suspend fun ensureFirestoreReachable() {
+    withContext(Dispatchers.IO) {
+        runCatching {
+            Socket().use { socket ->
+                socket.connect(
+                    InetSocketAddress(FirestoreHost, HttpsPort),
+                    ConnectionCheckTimeoutMillis
+                )
+            }
+        }.onFailure { throwable ->
+            throw FirebaseConnectionException(throwable)
+        }
+    }
+}
+
 private inline fun <reified T : Enum<T>> String?.toEnumOrNull(): T? =
     this?.let { value -> enumValues<T>().firstOrNull { enumValue -> enumValue.name == value } }
 
 private const val UsersCollection = "users"
 private const val RelationshipsCollection = "relationships"
+
+private const val FirestoreHost = "firestore.googleapis.com"
+private const val HttpsPort = 443
+private const val ConnectionCheckTimeoutMillis = 5_000
 
 private const val FieldId = "id"
 private const val FieldUserId = "userId"

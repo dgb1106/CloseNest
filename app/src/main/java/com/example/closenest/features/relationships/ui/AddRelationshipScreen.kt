@@ -126,24 +126,37 @@ fun AddRelationshipScreen(
                 tonalElevation = 8.dp,
                 color = MaterialTheme.colorScheme.surface
             ) {
-                Button(
-                    onClick = onSave,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
-                    enabled = !uiState.isSubmitting,
-                    contentPadding = PaddingValues(vertical = 16.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = stringResource(
-                            if (uiState.isSubmitting) {
-                                R.string.add_relationship_saving
-                            } else {
-                                R.string.add_relationship_save
-                            }
+                    uiState.errorMessageRes?.let { messageRes ->
+                        Text(
+                            text = stringResource(messageRes),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
                         )
-                    )
+                    }
+
+                    Button(
+                        onClick = onSave,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !uiState.isSubmitting,
+                        contentPadding = PaddingValues(vertical = 16.dp)
+                    ) {
+                        Text(
+                            text = stringResource(
+                                if (uiState.isSubmitting) {
+                                    R.string.add_relationship_saving
+                                } else {
+                                    R.string.add_relationship_save
+                                }
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -227,13 +240,6 @@ fun AddRelationshipScreen(
                             )
                         }
 
-                        uiState.errorMessageRes?.let { messageRes ->
-                            Text(
-                                text = stringResource(messageRes),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
                     }
                 }
             }

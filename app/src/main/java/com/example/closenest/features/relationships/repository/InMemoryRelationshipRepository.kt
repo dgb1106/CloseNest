@@ -39,6 +39,12 @@ class InMemoryRelationshipRepository : RelationshipRepository {
         }
     }
 
+    override suspend fun deleteRelationship(relationshipId: String) {
+        relationships.update { current ->
+            current.filterNot { relationship -> relationship.id == relationshipId }
+        }
+    }
+
     private fun seedRelationships(): List<RelationshipProfile> {
         val now = System.currentTimeMillis()
         return listOf(
