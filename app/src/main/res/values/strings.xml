@@ -163,9 +163,9 @@
     <string name="auth_email_label">Email</string>
     <string name="auth_password_label">Mật khẩu</string>
     <string name="auth_login_button">Đăng nhập</string>
-    <string name="auth_no_account">Chưa có tài khoản? </string>
+    <string name="auth_no_account">Chưa có tài khoản?</string>
     <string name="auth_register_link">Đăng ký</string>
-    <string name="auth_has_account">Đã có tài khoản? </string>
+    <string name="auth_has_account">Đã có tài khoản?</string>
     <string name="auth_login_link">Đăng nhập</string>
     <string name="auth_divider_text">Hoặc</string>
     <string name="auth_google_button">Đăng nhập với Google</string>
