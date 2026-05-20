@@ -1,9 +1,7 @@
 package com.example.closenest.features.auth.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,15 +11,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,188 +37,245 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.closenest.features.auth.model.AuthMode
+import com.example.closenest.R
+import com.example.closenest.core.ui.theme.AppTheme
+import com.example.closenest.core.ui.theme.CloseNestPrimary
+import com.example.closenest.core.ui.theme.CloseNestSurface
 
 @Composable
 fun AuthScreen(
-    mode: AuthMode,
     message: String,
     isLoading: Boolean,
-    onModeChange: (AuthMode) -> Unit,
     onLogin: (String, String) -> Unit,
-    onRegister: (String, String, String, String) -> Unit
+    onNavigateToRegister: () -> Unit,
+    onGoogleLoginClick: () -> Unit
 ) {
-    var firstName by rememberSaveable { mutableStateOf("") }
-    var lastName by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    val colorScheme = MaterialTheme.colorScheme
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+
+    val registerAnnotatedString = buildRegisterAnnotatedString()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colorScheme.background)
             .statusBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 18.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Image(
+            painter = painterResource(id = R.drawable.closenest_logo),
+            contentDescription = "CloseNest Logo",
+            modifier = Modifier.size(200.dp)
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "CloseNest",
+            text = stringResource(R.string.auth_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.ExtraBold,
-            color = colorScheme.onBackground
+            color = MaterialTheme.colorScheme.onBackground
         )
 
-        Text(
-            text = "Chào mừng đến với CloseNest.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = colorScheme.onSurfaceVariant,
-            lineHeight = 24.sp
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            label = { Text(stringResource(R.string.auth_email_label)) },
+            singleLine = true,
+            enabled = !isLoading,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AuthModeCard(
-                title = "Đăng nhập",
-                selected = mode == AuthMode.Login,
-                modifier = Modifier.weight(1f),
-                onClick = { onModeChange(AuthMode.Login) }
-            )
-            AuthModeCard(
-                title = "Đăng ký",
-                selected = mode == AuthMode.Register,
-                modifier = Modifier.weight(1f),
-                onClick = { onModeChange(AuthMode.Register) }
-            )
-        }
+        Spacer(modifier = Modifier.height(12.dp))
 
-        Card(
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceContainerLow)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                if (mode == AuthMode.Register) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
-                            value = firstName,
-                            onValueChange = { firstName = it },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(18.dp),
-                            label = { Text("Tên") },
-                            singleLine = true,
-                            enabled = !isLoading
-                        )
-
-                        OutlinedTextField(
-                            value = lastName,
-                            onValueChange = { lastName = it },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(18.dp),
-                            label = { Text("Họ") },
-                            singleLine = true,
-                            enabled = !isLoading
-                        )
-                    }
-                }
-
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    label = { Text("Email") },
-                    singleLine = true,
-                    enabled = !isLoading,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-                )
-
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    label = { Text("Mật khẩu") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    enabled = !isLoading
-                )
-
-                if (message.isNotBlank()) {
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colorScheme.onSurfaceVariant
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            label = { Text(stringResource(R.string.auth_password_label)) },
+            singleLine = true,
+            enabled = !isLoading,
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                        contentDescription = if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                        tint = MaterialTheme.colorScheme.outline
                     )
                 }
+            }
+        )
 
-                Button(
-                    onClick = {
-                        if (mode == AuthMode.Login) {
-                            onLogin(email, password)
-                        } else {
-                            onRegister(firstName, lastName, email, password)
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    enabled = !isLoading
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = colorScheme.onPrimary,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        } else {
-                            Text(if (mode == AuthMode.Login) "Đăng nhập" else "Tạo tài khoản")
-                        }
-                    }
-                }
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Button(
+            onClick = { onLogin(email, password) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            enabled = !isLoading,
+            colors = ButtonDefaults.buttonColors(containerColor = CloseNestPrimary)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.auth_login_button),
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        ClickableText(
+            text = registerAnnotatedString,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            ),
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { offset ->
+                registerAnnotatedString.getStringAnnotations("register", offset, offset)
+                    .firstOrNull()
+                    ?.let { onNavigateToRegister() }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HorizontalDivider(
+                modifier = Modifier.weight(1f),
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+            Text(
+                text = stringResource(R.string.auth_divider_text),
+                modifier = Modifier.padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            HorizontalDivider(
+                modifier = Modifier.weight(1f),
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedButton(
+            onClick = { onGoogleLoginClick() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = CloseNestSurface
+            )
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.google_icon),
+                    contentDescription = "Google",
+                    modifier = Modifier.size(20.dp),
+                    tint = androidx.compose.ui.graphics.Color.Unspecified
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = stringResource(R.string.auth_google_button),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 @Composable
-private fun AuthModeCard(
-    title: String,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val background = if (selected) colorScheme.primary else colorScheme.surfaceContainerLow
-    val content = if (selected) colorScheme.onPrimary else colorScheme.onSurface
+private fun buildRegisterAnnotatedString() = buildAnnotatedString {
+    val noAccount = stringResource(R.string.auth_no_account)
+    val registerLink = stringResource(R.string.auth_register_link)
 
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(22.dp))
-            .background(background)
-            .clickable(onClick = onClick)
-            .padding(vertical = 18.dp),
-        contentAlignment = Alignment.Center
+    append(noAccount)
+    append(" ")
+
+    withStyle(
+        SpanStyle(
+            color = CloseNestPrimary,
+            fontWeight = FontWeight.Bold
+        )
     ) {
-        Text(
-            text = title,
-            color = content,
-            fontWeight = FontWeight.SemiBold
+        append(registerLink)
+    }
+    addStringAnnotation(
+        tag = "register",
+        annotation = "register",
+        start = noAccount.length + 1,
+        end = noAccount.length + 1 + registerLink.length
+    )
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun AuthScreenPreview() {
+    AppTheme {
+        AuthScreen(
+            message = "",
+            isLoading = false,
+            onLogin = { _, _ -> },
+            onNavigateToRegister = {},
+            onGoogleLoginClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun AuthScreenLoadingPreview() {
+    AppTheme {
+        AuthScreen(
+            message = "",
+            isLoading = true,
+            onLogin = { _, _ -> },
+            onNavigateToRegister = {},
+            onGoogleLoginClick = {}
         )
     }
 }
