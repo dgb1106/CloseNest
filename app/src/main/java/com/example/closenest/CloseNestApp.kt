@@ -1,6 +1,12 @@
 package com.example.closenest
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,39 +36,55 @@ fun CloseNestApp() {
         val registerViewModel: RegisterViewModel = viewModel(factory = RegisterViewModel.Factory)
         val registerUiState by registerViewModel.uiState.collectAsStateWithLifecycle()
 
-        when (registerUiState.authRoute) {
-            AuthRoute.Login -> {
-                AuthScreen(
-                    message = authUiState.message,
-                    isLoading = authUiState.isLoading,
-                    onLogin = authViewModel::onLogin,
-                    onNavigateToRegister = registerViewModel::navigateToRegister,
-                    onGoogleLoginClick = authViewModel::onGoogleLoginClick
-                )
+        AnimatedContent(
+            targetState = registerUiState.authRoute,
+            transitionSpec = {
+                val isRegistering = targetState == AuthRoute.Register
+                (if (isRegistering) {
+                    slideInHorizontally { it } + fadeIn()
+                } else {
+                    slideInHorizontally { -it } + fadeIn()
+                }) togetherWith (if (isRegistering) {
+                    slideOutHorizontally { -it } + fadeOut()
+                } else {
+                    slideOutHorizontally { it } + fadeOut()
+                })
             }
-            AuthRoute.Register -> {
-                RegisterScreen(
-                    lastName = registerUiState.lastName,
-                    firstName = registerUiState.firstName,
-                    birthdayDisplay = registerUiState.birthdayDisplay,
-                    email = registerUiState.email,
-                    phoneNumber = registerUiState.phoneNumber,
-                    gender = registerUiState.gender,
-                    password = registerUiState.password,
-                    confirmPassword = registerUiState.confirmPassword,
-                    isLoading = registerUiState.isLoading,
-                    errorMessage = registerUiState.errorMessage,
-                    onLastNameChange = registerViewModel::updateLastName,
-                    onFirstNameChange = registerViewModel::updateFirstName,
-                    onBirthdayChange = registerViewModel::updateBirthdayText,
-                    onEmailChange = registerViewModel::updateEmail,
-                    onPhoneNumberChange = registerViewModel::updatePhoneNumber,
-                    onGenderChange = registerViewModel::updateGender,
-                    onPasswordChange = registerViewModel::updatePassword,
-                    onConfirmPasswordChange = registerViewModel::updateConfirmPassword,
-                    onRegisterClick = registerViewModel::register,
-                    onNavigateToLogin = registerViewModel::navigateToLogin
-                )
+        ) { route ->
+            when (route) {
+                AuthRoute.Login -> {
+                    AuthScreen(
+                        message = authUiState.message,
+                        isLoading = authUiState.isLoading,
+                        onLogin = authViewModel::onLogin,
+                        onNavigateToRegister = registerViewModel::navigateToRegister,
+                        onGoogleLoginClick = authViewModel::onGoogleLoginClick
+                    )
+                }
+                AuthRoute.Register -> {
+                    RegisterScreen(
+                        lastName = registerUiState.lastName,
+                        firstName = registerUiState.firstName,
+                        birthdayDisplay = registerUiState.birthdayDisplay,
+                        email = registerUiState.email,
+                        phoneNumber = registerUiState.phoneNumber,
+                        gender = registerUiState.gender,
+                        password = registerUiState.password,
+                        confirmPassword = registerUiState.confirmPassword,
+                        isLoading = registerUiState.isLoading,
+                        errorMessage = registerUiState.errorMessage,
+                        onLastNameChange = registerViewModel::updateLastName,
+                        onFirstNameChange = registerViewModel::updateFirstName,
+                        onBirthdayChange = registerViewModel::updateBirthdayText,
+                        onEmailChange = registerViewModel::updateEmail,
+                        onPhoneNumberChange = registerViewModel::updatePhoneNumber,
+                        onGenderChange = registerViewModel::updateGender,
+                        onPasswordChange = registerViewModel::updatePassword,
+                        onConfirmPasswordChange = registerViewModel::updateConfirmPassword,
+                        onRegisterClick = registerViewModel::register,
+                        onNavigateToLogin = registerViewModel::navigateToLogin
+                    )
+                }
             }
         }
         return
