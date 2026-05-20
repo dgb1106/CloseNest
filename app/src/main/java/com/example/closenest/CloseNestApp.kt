@@ -30,10 +30,6 @@ fun CloseNestApp() {
         val registerViewModel: RegisterViewModel = viewModel(factory = RegisterViewModel.Factory)
         val registerUiState by registerViewModel.uiState.collectAsStateWithLifecycle()
 
-        if (registerUiState.isSuccess) {
-            return
-        }
-
         when (registerUiState.authRoute) {
             AuthRoute.Login -> {
                 AuthScreen(
