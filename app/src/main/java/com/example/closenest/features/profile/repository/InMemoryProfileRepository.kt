@@ -3,22 +3,23 @@ package com.example.closenest.features.profile.repository
 import com.example.closenest.features.profile.model.ProfileUiState
 import com.example.closenest.features.profile.model.RelationshipQuickPreview
 import com.example.closenest.features.profile.model.UserProfile
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
-import java.time.Instant
 
 class InMemoryProfileRepository : ProfileRepository {
     
     private val mockUser = UserProfile(
-        id = "user_1",
-        name = "starryskies23",
+        uid = "user_1",
+        firstName = "Starry",
+        lastName = "Skies",
         email = "starry@example.com",
         phoneNumber = "+84 9 1234 5678",
-        avatarUrl = null, // Will show initials
-        dateOfBirth = "1995-03-15",
+        birthday = Timestamp.now(),
         gender = "Female",
-        createdAt = Instant.now(),
-        updatedAt = Instant.now()
+        createdAt = Timestamp.now(),
+        lastCheckedIn = Timestamp.now(),
+        streakCount = 1
     )
 
     private val mockRecentRelationships = listOf(

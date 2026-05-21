@@ -48,7 +48,7 @@ import com.example.closenest.features.profile.model.RelationshipQuickPreview
 import com.example.closenest.features.profile.model.UserProfile
 import com.example.closenest.features.profile.viewmodel.ProfileViewModel
 import com.example.closenest.core.ui.theme.AppTheme
-import java.time.Instant
+import com.google.firebase.Timestamp
 
 @Composable
 fun ProfileRoute(
@@ -389,11 +389,14 @@ private fun ProfileScreenPreview() {
             uiState = ProfileUiState(
                 isLoading = false,
                 user = UserProfile(
-                    id = "user_1",
-                    name = "starryskies23",
+                    uid = "user_1",
+                    firstName = "Starry",
+                    lastName = "Skies",
                     email = "starry@example.com",
                     phoneNumber = "+84 9 1234 5678",
-                    createdAt = Instant.now()
+                    createdAt = Timestamp.now(),
+                    lastCheckedIn = Timestamp.now(),
+                    streakCount = 1
                 ),
                 recentRelationships = listOf(
                     RelationshipQuickPreview("1", "Bảo Nam", initials = "BN"),

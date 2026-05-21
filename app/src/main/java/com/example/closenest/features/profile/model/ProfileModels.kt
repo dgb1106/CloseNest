@@ -8,19 +8,23 @@ import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.closenest.R
-import java.time.Instant
+import com.google.firebase.Timestamp
 
 data class UserProfile(
-    val id: String,
-    val name: String,
+    val uid: String,
+    val firstName: String,
+    val lastName: String,
     val email: String,
+    val birthday: Timestamp? = null,
     val phoneNumber: String? = null,
-    val avatarUrl: String? = null,
-    val dateOfBirth: String? = null,
     val gender: String? = null,
-    val createdAt: Instant? = null,
-    val updatedAt: Instant? = null
-)
+    val createdAt: Timestamp? = null,
+    val lastCheckedIn: Timestamp? = null,
+    val streakCount: Int = 0
+) {
+    val name: String
+        get() = "$firstName $lastName".trim()
+}
 
 enum class ProfileMenuItem(
     val id: String,
