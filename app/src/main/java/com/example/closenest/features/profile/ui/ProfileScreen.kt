@@ -32,13 +32,18 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.closenest.R
@@ -211,6 +216,70 @@ fun ProfileHeaderSection(
                 )
             }
         }
+
+        StreakBadgeSection(
+            streakCount = user?.streakCount ?: 0
+        )
+    }
+}
+
+@Composable
+fun StreakBadgeSection(
+    streakCount: Int,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+
+    Column(
+        modifier = Modifier
+            .background(
+                color = Color(0xFFFFF8F6),
+                shape = RoundedCornerShape(28.dp)
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.streak_flame),
+                contentDescription = stringResource(R.string.profile_streak_label),
+                modifier = Modifier.size(60.dp),
+                tint = Color.Unspecified
+            )
+
+            Text(
+                text = streakCount.toString(),
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    drawStyle = Stroke(
+                        width = 8f,
+                        join = StrokeJoin.Round
+                    )
+                ),
+                color = colorScheme.primary,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+
+            Text(
+                text = streakCount.toString(),
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                ),
+                color = colorScheme.onPrimary,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
+
+        Text(
+            text = stringResource(R.string.profile_streak_label),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            color = colorScheme.primary
+        )
+
     }
 }
 
