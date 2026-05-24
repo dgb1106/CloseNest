@@ -8,4 +8,6 @@ interface RelationshipRepository {
     fun observeRelationships(): Flow<List<RelationshipProfile>>
 
     suspend fun addRelationship(request: NewRelationshipRequest)
+
+    suspend fun deleteRelationship(relationshipId: String)
 }

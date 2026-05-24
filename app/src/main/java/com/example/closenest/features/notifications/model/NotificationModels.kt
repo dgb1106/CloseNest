@@ -55,7 +55,7 @@ enum class NotificationActionType {
     SEND_MESSAGE,
     VIEW_MEMORY,
     SEND_GIFT,
-    LOG_INTERACTION,
+    LOG_MEMORY,
     REFLECT,
     VIEW_PROFILE,
     MARK_READ,

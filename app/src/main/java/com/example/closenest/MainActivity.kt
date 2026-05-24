@@ -15,11 +15,25 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import android.content.pm.PackageManager
 import com.example.closenest.core.ui.theme.AppTheme
+import com.google.android.libraries.places.api.Places
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!Places.isInitialized()) {
+            val ai = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+            }
+            val apiKey = ai.metaData.getString("com.google.android.geo.API_KEY")
+            if (apiKey != null) {
+                Places.initializeWithNewPlacesApiEnabled(applicationContext, apiKey)
+            }
+        }
         enableEdgeToEdge()
         setContent {
             CloseNestRoot()

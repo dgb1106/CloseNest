@@ -41,6 +41,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            resValue("string", "google_maps_key", googleMapsApiKey)
+        }
+        debug {
+            buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            resValue("string", "google_maps_key", googleMapsApiKey)
         }
     }
     compileOptions {
@@ -50,6 +56,8 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
+        resValues = true
     }
 }
 
@@ -78,6 +86,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-storage")
     implementation(libs.google.maps.compose)
     implementation(libs.google.places)
     implementation(libs.google.play.services.location)
