@@ -38,6 +38,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -686,6 +688,7 @@ private fun AddActionCard(
     messageRes: Int? = null
 ) {
     Card(
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -740,6 +743,7 @@ private fun ReflectionEntryCard(
     onOpenReflection: () -> Unit
 ) {
     Card(
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         )
@@ -789,9 +793,9 @@ private fun BottomSaveBar(
     onSave: () -> Unit
 ) {
     Surface(
-        shadowElevation = 8.dp,
-        tonalElevation = 8.dp,
-        color = MaterialTheme.colorScheme.surface
+        shadowElevation = 0.dp,
+        tonalElevation = 0.dp,
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(
             modifier = Modifier
@@ -834,6 +838,7 @@ private fun ScreenIntroCard(
     body: String
 ) {
     Card(
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         )
@@ -972,20 +977,13 @@ private fun MoodSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle(text = stringResource(R.string.add_reflection_mood_question))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ReflectionMoodOptions.forEach { mood ->
-                SelectChip(
-                    label = stringResource(mood.labelRes),
-                    selected = selectedMood == mood,
-                    onClick = { onMoodSelected(mood) }
-                )
-            }
+        ChipRows(options = ReflectionMoodOptions) { mood, chipModifier ->
+            SelectChip(
+                label = stringResource(mood.labelRes),
+                selected = selectedMood == mood,
+                onClick = { onMoodSelected(mood) },
+                modifier = chipModifier
+            )
         }
     }
 }
@@ -997,20 +995,13 @@ private fun FeelingsSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle(text = stringResource(R.string.add_reflection_feeling_question))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ReflectionFeelingOptions.forEach { feeling ->
-                SelectChip(
-                    label = stringResource(feeling.labelRes),
-                    selected = feeling in selectedFeelings,
-                    onClick = { onFeelingToggled(feeling) }
-                )
-            }
+        ChipRows(options = ReflectionFeelingOptions) { feeling, chipModifier ->
+            MultiSelectChip(
+                label = stringResource(feeling.labelRes),
+                selected = feeling in selectedFeelings,
+                onClick = { onFeelingToggled(feeling) },
+                modifier = chipModifier
+            )
         }
     }
 }
@@ -1022,20 +1013,13 @@ private fun SourcesSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle(text = stringResource(R.string.add_reflection_source_question))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ReflectionSourceOptions.forEach { source ->
-                SelectChip(
-                    label = stringResource(source.labelRes),
-                    selected = source in selectedSources,
-                    onClick = { onSourceToggled(source) }
-                )
-            }
+        ChipRows(options = ReflectionSourceOptions) { source, chipModifier ->
+            MultiSelectChip(
+                label = stringResource(source.labelRes),
+                selected = source in selectedSources,
+                onClick = { onSourceToggled(source) },
+                modifier = chipModifier
+            )
         }
     }
 }
@@ -1069,10 +1053,12 @@ private fun InteractionTypeSection(
 private fun SelectChip(
     label: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     AssistChip(
         onClick = onClick,
+        modifier = modifier,
         leadingIcon = if (selected) {
             {
                 Icon(
@@ -1084,7 +1070,13 @@ private fun SelectChip(
         } else {
             null
         },
-        label = { Text(text = label) },
+        label = {
+            Text(
+                text = label,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
         colors = if (selected) {
             AssistChipDefaults.assistChipColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -1098,6 +1090,69 @@ private fun SelectChip(
             )
         }
     )
+}
+
+@Composable
+private fun MultiSelectChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier,
+        leadingIcon = if (selected) {
+            {
+                Icon(
+                    imageVector = Icons.Outlined.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        } else {
+            null
+        },
+        label = {
+            Text(
+                text = label,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+            selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary
+        )
+    )
+}
+
+@Composable
+private fun <T> ChipRows(
+    options: List<T>,
+    columns: Int = 2,
+    chip: @Composable (T, Modifier) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.chunked(columns).forEach { rowOptions ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                rowOptions.forEach { option ->
+                    chip(option, Modifier.weight(1f))
+                }
+                repeat(columns - rowOptions.size) {
+                    Box(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
 }
 
 @Preview(showBackground = true)
