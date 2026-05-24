@@ -33,6 +33,8 @@ class FirebaseAppointmentRepository(
                 FieldUserId to userId,
                 FieldName to request.name,
                 FieldLocation to request.location,
+                FieldLocationLatitude to request.locationLatitude,
+                FieldLocationLongitude to request.locationLongitude,
                 FieldAppointmentDateMillis to request.appointmentDateMillis,
                 FieldDateKey to dateFormatter.format(Date(request.appointmentDateMillis)),
                 FieldCreatedAtMillis to request.createdAtMillis
@@ -98,6 +100,8 @@ private const val FieldId = "id"
 private const val FieldUserId = "userId"
 private const val FieldName = "name"
 private const val FieldLocation = "location"
+private const val FieldLocationLatitude = "locationLatitude"
+private const val FieldLocationLongitude = "locationLongitude"
 private const val FieldAppointmentDateMillis = "appointmentDateMillis"
 private const val FieldDateKey = "dateKey"
 private const val FieldCreatedAtMillis = "createdAtMillis"

@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,8 +29,10 @@ import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,6 +40,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -54,11 +59,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +76,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.closenest.R
+import com.example.closenest.core.network.MapboxGeocodingResult
+import com.example.closenest.core.network.searchMapboxLocations
 import com.example.closenest.core.ui.theme.AppTheme
 import com.example.closenest.features.homepage.viewmodel.AddHubUiState
 import com.example.closenest.features.homepage.viewmodel.AddHubViewModel
@@ -80,6 +90,7 @@ import com.example.closenest.features.homepage.viewmodel.ReflectionMood
 import com.example.closenest.features.homepage.viewmodel.ReflectionMoodOptions
 import com.example.closenest.features.homepage.viewmodel.ReflectionSource
 import com.example.closenest.features.homepage.viewmodel.ReflectionSourceOptions
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -110,6 +121,7 @@ fun AddHubRoute(
             viewModel.startAppointment()
             onOpenAppointment()
         },
+        onSavedFeedbackDismissed = viewModel::clearSavedFeedback,
         modifier = modifier
     )
 }
@@ -184,6 +196,7 @@ fun AppointmentRoute(
         onNavigateBack = onNavigateBack,
         onNameChanged = viewModel::onAppointmentNameChanged,
         onLocationChanged = viewModel::onAppointmentLocationChanged,
+        onLocationSelected = viewModel::onAppointmentLocationSelected,
         onDateSelected = viewModel::onAppointmentDateSelected,
         onSave = viewModel::saveAppointment,
         modifier = modifier
@@ -197,8 +210,29 @@ fun AddHubScreen(
     onOpenReflection: () -> Unit,
     onOpenInteractionLog: () -> Unit,
     onOpenAppointment: () -> Unit,
+    onSavedFeedbackDismissed: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var savedFeedbackMessageRes by rememberSaveable { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(uiState.reflectionSavedMessageRes) {
+        uiState.reflectionSavedMessageRes?.let { messageRes ->
+            savedFeedbackMessageRes = messageRes
+        }
+    }
+
+    LaunchedEffect(uiState.interactionSavedMessageRes) {
+        uiState.interactionSavedMessageRes?.let { messageRes ->
+            savedFeedbackMessageRes = messageRes
+        }
+    }
+
+    LaunchedEffect(uiState.appointmentSavedMessageRes) {
+        uiState.appointmentSavedMessageRes?.let { messageRes ->
+            savedFeedbackMessageRes = messageRes
+        }
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -220,7 +254,6 @@ fun AddHubScreen(
                 description = stringResource(R.string.add_interaction_body),
                 icon = Icons.AutoMirrored.Outlined.Notes,
                 ctaLabel = stringResource(R.string.add_interaction_open),
-                messageRes = uiState.interactionSavedMessageRes,
                 onClick = onOpenInteractionLog
             )
         }
@@ -231,7 +264,6 @@ fun AddHubScreen(
                 description = stringResource(R.string.add_appointment_body),
                 icon = Icons.Outlined.Event,
                 ctaLabel = stringResource(R.string.add_appointment_open),
-                messageRes = uiState.appointmentSavedMessageRes,
                 onClick = onOpenAppointment
             )
         }
@@ -246,6 +278,16 @@ fun AddHubScreen(
             )
         }
     }
+
+    savedFeedbackMessageRes?.let { messageRes ->
+        SavedFeedbackDialog(
+            messageRes = messageRes,
+            onDismiss = {
+                savedFeedbackMessageRes = null
+                onSavedFeedbackDismissed()
+            }
+        )
+    }
 }
 
 @Composable
@@ -254,12 +296,15 @@ fun AppointmentScreen(
     onNavigateBack: () -> Unit,
     onNameChanged: (String) -> Unit,
     onLocationChanged: (String) -> Unit,
+    onLocationSelected: (String, Double, Double) -> Unit,
     onDateSelected: (Long) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     val appointmentNameEntered = uiState.appointmentName.isNotBlank()
+    val appointmentLocationSelected = uiState.appointmentLocationLatitude != null &&
+        uiState.appointmentLocationLongitude != null
 
     Scaffold(
         modifier = modifier,
@@ -286,6 +331,7 @@ fun AppointmentScreen(
                 enabled = !uiState.isSavingAppointment &&
                     uiState.appointmentName.isNotBlank() &&
                     uiState.appointmentLocation.isNotBlank() &&
+                    appointmentLocationSelected &&
                     uiState.appointmentDateMillis != null,
                 onSave = onSave
             )
@@ -307,29 +353,20 @@ fun AppointmentScreen(
             }
 
             item {
-                OutlinedTextField(
+                AppointmentNameField(
                     value = uiState.appointmentName,
-                    onValueChange = onNameChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(18.dp),
-                    label = {
-                        Text(text = stringResource(R.string.add_appointment_name_label))
-                    }
+                    contacts = uiState.contacts,
+                    onValueChange = onNameChanged
                 )
             }
 
             if (appointmentNameEntered) {
                 item {
-                    OutlinedTextField(
+                    AppointmentLocationField(
                         value = uiState.appointmentLocation,
+                        isSelected = appointmentLocationSelected,
                         onValueChange = onLocationChanged,
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(18.dp),
-                        label = {
-                            Text(text = stringResource(R.string.add_appointment_location_label))
-                        }
+                        onLocationSelected = onLocationSelected
                     )
                 }
 
@@ -362,6 +399,184 @@ fun AppointmentScreen(
             },
             onDismiss = { showDatePicker = false }
         )
+    }
+}
+
+@Composable
+private fun AppointmentNameField(
+    value: String,
+    contacts: List<ReflectionContactListItem>,
+    onValueChange: (String) -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
+    val query = value.trim()
+    val suggestions = remember(query, contacts) {
+        if (query.isEmpty()) {
+            emptyList()
+        } else {
+            contacts
+                .filter { contact -> contact.name.contains(query, ignoreCase = true) }
+                .take(5)
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { newValue ->
+                onValueChange(newValue)
+                expanded = newValue.isNotBlank()
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    isFocused = focusState.isFocused
+                    expanded = focusState.isFocused && suggestions.isNotEmpty()
+                },
+            singleLine = true,
+            shape = RoundedCornerShape(18.dp),
+            label = {
+                Text(text = stringResource(R.string.add_appointment_name_label))
+            }
+        )
+
+        DropdownMenu(
+            expanded = expanded && isFocused && suggestions.isNotEmpty(),
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            suggestions.forEach { contact ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = contact.name,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    onClick = {
+                        onValueChange(contact.name)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppointmentLocationField(
+    value: String,
+    isSelected: Boolean,
+    onValueChange: (String) -> Unit,
+    onLocationSelected: (String, Double, Double) -> Unit
+) {
+    val context = LocalContext.current
+    val accessToken = context.getString(R.string.mapbox_access_token)
+    var isFocused by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
+    var isSearching by remember { mutableStateOf(false) }
+    var suggestions by remember { mutableStateOf<List<MapboxGeocodingResult>>(emptyList()) }
+
+    LaunchedEffect(value, isFocused, isSelected) {
+        val query = value.trim()
+        if (!isFocused || isSelected || query.length < 2) {
+            suggestions = emptyList()
+            expanded = false
+            isSearching = false
+            return@LaunchedEffect
+        }
+
+        delay(350)
+        isSearching = true
+        suggestions = runCatching {
+            searchMapboxLocations(query = query, accessToken = accessToken)
+        }.getOrElse {
+            emptyList()
+        }
+        expanded = suggestions.isNotEmpty() && isFocused
+        isSearching = false
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { newValue ->
+                onValueChange(newValue)
+                expanded = newValue.length >= 2
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    isFocused = focusState.isFocused
+                    expanded = focusState.isFocused && suggestions.isNotEmpty() && !isSelected
+                },
+            singleLine = true,
+            shape = RoundedCornerShape(18.dp),
+            label = {
+                Text(text = stringResource(R.string.add_appointment_location_label))
+            },
+            leadingIcon = {
+                if (isSearching) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Place,
+                        contentDescription = null
+                    )
+                }
+            },
+            supportingText = {
+                Text(
+                    text = if (value.isNotBlank() && !isSelected) {
+                        stringResource(R.string.add_appointment_location_hint)
+                    } else {
+                        " "
+                    }
+                )
+            }
+        )
+
+        DropdownMenu(
+            expanded = expanded && suggestions.isNotEmpty(),
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 240.dp)
+        ) {
+            suggestions.forEach { suggestion ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(
+                                text = suggestion.name,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = suggestion.fullAddress,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    },
+                    onClick = {
+                        onLocationSelected(
+                            suggestion.fullAddress,
+                            suggestion.point.latitude(),
+                            suggestion.point.longitude()
+                        )
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -684,8 +899,7 @@ private fun AddActionCard(
     description: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     ctaLabel: String,
-    onClick: () -> Unit,
-    messageRes: Int? = null
+    onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -726,13 +940,6 @@ private fun AddActionCard(
             ) {
                 Text(text = ctaLabel)
             }
-            messageRes?.let { savedMessageRes ->
-                Text(
-                    text = stringResource(savedMessageRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
         }
     }
 }
@@ -772,15 +979,29 @@ private fun ReflectionEntryCard(
             ) {
                 Text(text = stringResource(R.string.add_reflection_start))
             }
-            uiState.reflectionSavedMessageRes?.let { messageRes ->
-                Text(
-                    text = stringResource(messageRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
         }
     }
+}
+
+@Composable
+private fun SavedFeedbackDialog(
+    messageRes: Int,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = stringResource(R.string.common_saved_title))
+        },
+        text = {
+            Text(text = stringResource(messageRes))
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.common_close))
+            }
+        }
+    )
 }
 
 @Composable
@@ -1172,7 +1393,8 @@ private fun AddHubScreenPreview() {
             onAddRelationship = {},
             onOpenReflection = {},
             onOpenInteractionLog = {},
-            onOpenAppointment = {}
+            onOpenAppointment = {},
+            onSavedFeedbackDismissed = {}
         )
     }
 }

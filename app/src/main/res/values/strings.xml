@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">CloseNest</string>
+    <string name="common_saved_title">Đã lưu</string>
 
     <string name="tab_map">Trang chủ</string>
     <string name="tab_relationships">Danh bạ</string>
@@ -126,7 +127,7 @@
     <string name="add_reflection_source_classmate">Bạn học</string>
 
     <string name="add_interaction_title">Lưu tương tác</string>
-    <string name="add_interaction_body">Ghi lại một lần nhắn tin, gọi điện, gặp mặt hoặc hỗ trợ để theo dõi nhịp kết nối.</string>
+    <string name="add_interaction_body">Ghi lại một lần gặp mặt hoặc hỗ trợ để theo dõi nhịp kết nối.</string>
     <string name="add_interaction_open">Lưu tương tác</string>
     <string name="add_interaction_screen_title">Lưu tương tác</string>
     <string name="add_interaction_contact_title">Bạn đã tương tác với ai?</string>
@@ -134,7 +135,7 @@
     <string name="add_interaction_contact_required">Hãy chọn một người để lưu tương tác.</string>
     <string name="add_interaction_type_question">Tương tác này thuộc loại nào?</string>
     <string name="add_interaction_note_label">Ghi chú ngắn</string>
-    <string name="add_interaction_note_hint">Ví dụ: đã nhắn hỏi thăm sau giờ học, hẹn cà phê cuối tuần.</string>
+    <string name="add_interaction_note_hint">Ví dụ: hẹn cà phê cuối tuần, hỗ trợ làm bài hoặc gặp ở câu lạc bộ.</string>
     <string name="add_interaction_done">Lưu tương tác</string>
     <string name="add_interaction_saving">Đang lưu tương tác</string>
     <string name="add_interaction_saved">Đã lưu tương tác.</string>
@@ -154,6 +155,7 @@
     <string name="add_appointment_screen_title">Tạo cuộc hẹn mới</string>
     <string name="add_appointment_name_label">Tên người hẹn</string>
     <string name="add_appointment_location_label">Địa điểm hẹn</string>
+    <string name="add_appointment_location_hint">Gõ rồi chọn địa điểm từ danh sách gợi ý.</string>
     <string name="add_appointment_date_label">Ngày hẹn</string>
     <string name="add_appointment_pick_date">Chọn ngày tháng năm</string>
     <string name="add_appointment_date_confirm">Chọn ngày</string>
@@ -162,6 +164,7 @@
     <string name="add_appointment_saved">Đã tạo cuộc hẹn mới.</string>
     <string name="add_appointment_name_required">Hãy nhập tên người hẹn.</string>
     <string name="add_appointment_location_required">Hãy nhập địa điểm hẹn.</string>
+    <string name="add_appointment_location_select_required">Hãy chọn địa điểm từ danh sách gợi ý.</string>
     <string name="add_appointment_date_required">Hãy chọn ngày hẹn.</string>
     <string name="add_appointment_connection_error">Không kết nối được máy chủ. Bạn kiểm tra mạng của thiết bị rồi thử lại nhé.</string>
     <string name="add_appointment_permission_error">Máy chủ chưa cho phép lưu cuộc hẹn. Bạn kiểm tra quyền ghi dữ liệu rồi thử lại nhé.</string>

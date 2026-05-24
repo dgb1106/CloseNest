@@ -43,11 +43,13 @@ data class AddHubUiState(
     val selectedSources: Set<ReflectionSource> = emptySet(),
     val isSavingReflection: Boolean = false,
     val selectedInteractionContactId: String? = null,
-    val selectedInteractionType: InteractionLogType = InteractionLogType.Message,
+    val selectedInteractionType: InteractionLogType = InteractionLogType.Meetup,
     val interactionNote: String = "",
     val isSavingInteractionLog: Boolean = false,
     val appointmentName: String = "",
     val appointmentLocation: String = "",
+    val appointmentLocationLatitude: Double? = null,
+    val appointmentLocationLongitude: Double? = null,
     val appointmentDateMillis: Long? = null,
     val isSavingAppointment: Boolean = false,
     @param:StringRes val contactsErrorMessageRes: Int? = null,
@@ -137,8 +139,6 @@ enum class InteractionLogType(
 }
 
 val InteractionLogTypeOptions = listOf(
-    InteractionLogType.Message,
-    InteractionLogType.Call,
     InteractionLogType.Meetup,
     InteractionLogType.Support,
     InteractionLogType.Other
@@ -186,6 +186,8 @@ class AddHubViewModel(
             isSavingInteractionLog = draft.isSavingInteractionLog,
             appointmentName = draft.appointmentName,
             appointmentLocation = draft.appointmentLocation,
+            appointmentLocationLatitude = draft.appointmentLocationLatitude,
+            appointmentLocationLongitude = draft.appointmentLocationLongitude,
             appointmentDateMillis = draft.appointmentDateMillis,
             isSavingAppointment = draft.isSavingAppointment,
             contactsErrorMessageRes = result.errorMessageRes,
@@ -396,7 +398,7 @@ class AddHubViewModel(
                 addHubDraft.update { current ->
                     current.copy(
                         selectedInteractionContactId = null,
-                        selectedInteractionType = InteractionLogType.Message,
+                        selectedInteractionType = InteractionLogType.Meetup,
                         interactionNote = "",
                         isSavingInteractionLog = false,
                         interactionErrorMessageRes = null,
@@ -438,6 +440,24 @@ class AddHubViewModel(
         addHubDraft.update { current ->
             current.copy(
                 appointmentLocation = location,
+                appointmentLocationLatitude = null,
+                appointmentLocationLongitude = null,
+                appointmentErrorMessageRes = null,
+                appointmentSavedMessageRes = null
+            )
+        }
+    }
+
+    fun onAppointmentLocationSelected(
+        location: String,
+        latitude: Double,
+        longitude: Double
+    ) {
+        addHubDraft.update { current ->
+            current.copy(
+                appointmentLocation = location,
+                appointmentLocationLatitude = latitude,
+                appointmentLocationLongitude = longitude,
                 appointmentErrorMessageRes = null,
                 appointmentSavedMessageRes = null
             )
@@ -460,11 +480,15 @@ class AddHubViewModel(
 
         val name = currentState.appointmentName.trim()
         val location = currentState.appointmentLocation.trim()
+        val locationLatitude = currentState.appointmentLocationLatitude
+        val locationLongitude = currentState.appointmentLocationLongitude
         val dateMillis = currentState.appointmentDateMillis
 
         val validationErrorRes = when {
             name.isEmpty() -> R.string.add_appointment_name_required
             location.isEmpty() -> R.string.add_appointment_location_required
+            locationLatitude == null || locationLongitude == null ->
+                R.string.add_appointment_location_select_required
             dateMillis == null -> R.string.add_appointment_date_required
             else -> null
         }
@@ -479,6 +503,8 @@ class AddHubViewModel(
             return
         }
         val appointmentDateMillis = dateMillis ?: return
+        val selectedLocationLatitude = locationLatitude ?: return
+        val selectedLocationLongitude = locationLongitude ?: return
 
         viewModelScope.launch {
             addHubDraft.update { current ->
@@ -495,6 +521,8 @@ class AddHubViewModel(
                         NewAppointmentRequest(
                             name = name,
                             location = location,
+                            locationLatitude = selectedLocationLatitude,
+                            locationLongitude = selectedLocationLongitude,
                             appointmentDateMillis = appointmentDateMillis,
                             createdAtMillis = System.currentTimeMillis()
                         )
@@ -505,6 +533,8 @@ class AddHubViewModel(
                     current.copy(
                         appointmentName = "",
                         appointmentLocation = "",
+                        appointmentLocationLatitude = null,
+                        appointmentLocationLongitude = null,
                         appointmentDateMillis = null,
                         isSavingAppointment = false,
                         appointmentErrorMessageRes = null,
@@ -520,6 +550,16 @@ class AddHubViewModel(
                     )
                 }
             }
+        }
+    }
+
+    fun clearSavedFeedback() {
+        addHubDraft.update { current ->
+            current.copy(
+                reflectionSavedMessageRes = null,
+                interactionSavedMessageRes = null,
+                appointmentSavedMessageRes = null
+            )
         }
     }
 
@@ -546,11 +586,13 @@ private data class AddHubDraft(
     val selectedSources: Set<ReflectionSource> = emptySet(),
     val isSavingReflection: Boolean = false,
     val selectedInteractionContactId: String? = null,
-    val selectedInteractionType: InteractionLogType = InteractionLogType.Message,
+    val selectedInteractionType: InteractionLogType = InteractionLogType.Meetup,
     val interactionNote: String = "",
     val isSavingInteractionLog: Boolean = false,
     val appointmentName: String = "",
     val appointmentLocation: String = "",
+    val appointmentLocationLatitude: Double? = null,
+    val appointmentLocationLongitude: Double? = null,
     val appointmentDateMillis: Long? = null,
     val isSavingAppointment: Boolean = false,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
