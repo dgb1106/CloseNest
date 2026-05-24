@@ -12,6 +12,9 @@ lifecycleRuntimeCompose = "2.10.0"
 lifecycleViewmodelCompose = "2.10.0"
 navigationCompose = "2.9.7"
 desugarJdkLibs = "2.1.5"
+mapsCompose = "6.12.0"
+places = "5.1.1"
+playServicesLocation = "21.3.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -34,6 +37,9 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 androidx-compose-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
+google-maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
+google-places = { group = "com.google.android.libraries.places", name = "places", version.ref = "places" }
+google-play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

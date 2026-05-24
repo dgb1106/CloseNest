@@ -1,8 +1,19 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
 }
+
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use(::load)
+    }
+}
+
+val googleMapsApiKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
 
 android {
     namespace = "com.example.closenest"
@@ -20,6 +31,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
     }
 
     buildTypes {
@@ -66,6 +78,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
-    implementation("com.mapbox.maps:android-ndk27:11.23.1")
-    implementation("com.mapbox.extension:maps-compose-ndk27:11.23.1")
+    implementation(libs.google.maps.compose)
+    implementation(libs.google.places)
+    implementation(libs.google.play.services.location)
 }
