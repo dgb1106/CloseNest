@@ -297,6 +297,9 @@ private fun MoreDetailsForm(
             shape = RoundedCornerShape(18.dp),
             label = {
                 Text(text = stringResource(R.string.add_relationship_phone_label))
+            },
+            supportingText = {
+                Text(text = " ")
             }
         )
 
@@ -311,9 +314,13 @@ private fun MoreDetailsForm(
                 Text(text = stringResource(R.string.add_relationship_email_label))
             },
             supportingText = {
-                if (uiState.emailError) {
-                    Text(text = stringResource(R.string.add_relationship_email_error))
-                }
+                Text(
+                    text = if (uiState.emailError) {
+                        stringResource(R.string.add_relationship_email_error)
+                    } else {
+                        " "
+                    }
+                )
             }
         )
 
