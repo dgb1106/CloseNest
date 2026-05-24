@@ -17,6 +17,7 @@ data class UserProfile(
     val email: String,
     val birthday: Timestamp? = null,
     val phoneNumber: String? = null,
+    val avatarUrl: String? = null,
     val gender: String? = null,
     val createdAt: Timestamp? = null,
     val lastCheckedIn: Timestamp? = null,
