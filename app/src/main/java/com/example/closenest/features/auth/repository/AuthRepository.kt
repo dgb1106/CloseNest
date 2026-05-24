@@ -1,11 +1,13 @@
 package com.example.closenest.features.auth.repository
 
+import com.example.closenest.features.auth.model.UserDocument
 import kotlinx.coroutines.flow.Flow
 
 interface AuthRepository {
     val authState: Flow<Boolean>
     fun isLoggedIn(): Boolean
-    fun login(email: String, password: String, onResult: (Result<Unit>) -> Unit)
-    fun register(firstName: String, lastName: String, email: String, password: String, onResult: (Result<Unit>) -> Unit)
+    suspend fun login(email: String, password: String): Result<Unit>
+    suspend fun register(user: UserDocument, password: String): Result<Unit>
+    suspend fun getUserDocument(uid: String): Result<UserDocument>
     fun logout()
 }
