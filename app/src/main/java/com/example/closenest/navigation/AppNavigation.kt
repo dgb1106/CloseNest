@@ -7,7 +7,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -18,9 +20,13 @@ import androidx.navigation.navArgument
 import com.example.closenest.R
 import com.example.closenest.core.model.MainTab
 import com.example.closenest.core.ui.components.HomeBottomBar
-import com.example.closenest.features.homepage.ui.AddHubScreen
+import com.example.closenest.features.homepage.ui.AddHubRoute
+import com.example.closenest.features.homepage.ui.AppointmentRoute
 import com.example.closenest.features.homepage.ui.HomeMapScreen
+import com.example.closenest.features.homepage.ui.InteractionLogRoute
+import com.example.closenest.features.homepage.ui.ReflectionRoute
 import com.example.closenest.features.homepage.ui.SectionPlaceholderScreen
+import com.example.closenest.features.homepage.viewmodel.AddHubViewModel
 import com.example.closenest.features.notifications.ui.NotificationsRoute
 import com.example.closenest.features.profile.ui.ProfileRoute
 import com.example.closenest.features.relationships.ui.AddRelationshipRoute
@@ -28,6 +34,9 @@ import com.example.closenest.features.relationships.ui.RelationshipDetailRoute
 import com.example.closenest.features.relationships.ui.RelationshipsRoute
 
 private const val AddRelationshipRouteName = "add_relationship"
+private const val AddReflectionRouteName = "add_reflection"
+private const val AddInteractionLogRouteName = "add_interaction_log"
+private const val AddAppointmentRouteName = "add_appointment"
 private const val RelationshipDetailRouteName = "relationship_detail"
 private const val RelationshipIdArgument = "relationshipId"
 private const val RelationshipDetailRoutePattern = "$RelationshipDetailRouteName/{$RelationshipIdArgument}"
@@ -39,9 +48,27 @@ fun AppNavigation(onLogout: () -> Unit) {
     val currentRoute = navBackStackEntry?.destination?.route
     val selectedTab = MainTab.fromRoute(currentRoute) ?: MainTab.Map
     val showBottomBar = currentRoute != AddRelationshipRouteName &&
+        currentRoute != AddReflectionRouteName &&
+        currentRoute != AddInteractionLogRouteName &&
+        currentRoute != AddAppointmentRouteName &&
         currentRoute != RelationshipDetailRoutePattern
     val navigateToAddRelationship = {
         navController.navigate(AddRelationshipRouteName) {
+            launchSingleTop = true
+        }
+    }
+    val navigateToReflection = {
+        navController.navigate(AddReflectionRouteName) {
+            launchSingleTop = true
+        }
+    }
+    val navigateToInteractionLog = {
+        navController.navigate(AddInteractionLogRouteName) {
+            launchSingleTop = true
+        }
+    }
+    val navigateToAppointment = {
+        navController.navigate(AddAppointmentRouteName) {
             launchSingleTop = true
         }
     }
@@ -88,8 +115,11 @@ fun AppNavigation(onLogout: () -> Unit) {
                 )
             }
             composable(MainTab.Add.route) {
-                AddHubScreen(
+                AddHubRoute(
                     onAddRelationship = navigateToAddRelationship,
+                    onOpenReflection = navigateToReflection,
+                    onOpenInteractionLog = navigateToInteractionLog,
+                    onOpenAppointment = navigateToAppointment,
                     modifier = Modifier
                 )
             }
@@ -120,6 +150,48 @@ fun AppNavigation(onLogout: () -> Unit) {
                 AddRelationshipRoute(
                     onNavigateBack = { navController.popBackStack() },
                     modifier = Modifier
+                )
+            }
+            composable(AddReflectionRouteName) { backStackEntry ->
+                val addBackStackEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry(MainTab.Add.route)
+                }
+
+                ReflectionRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                    modifier = Modifier,
+                    viewModel = viewModel(
+                        viewModelStoreOwner = addBackStackEntry,
+                        factory = AddHubViewModel.Factory
+                    )
+                )
+            }
+            composable(AddInteractionLogRouteName) { backStackEntry ->
+                val addBackStackEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry(MainTab.Add.route)
+                }
+
+                InteractionLogRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                    modifier = Modifier,
+                    viewModel = viewModel(
+                        viewModelStoreOwner = addBackStackEntry,
+                        factory = AddHubViewModel.Factory
+                    )
+                )
+            }
+            composable(AddAppointmentRouteName) { backStackEntry ->
+                val addBackStackEntry = remember(backStackEntry) {
+                    navController.getBackStackEntry(MainTab.Add.route)
+                }
+
+                AppointmentRoute(
+                    onNavigateBack = { navController.popBackStack() },
+                    modifier = Modifier,
+                    viewModel = viewModel(
+                        viewModelStoreOwner = addBackStackEntry,
+                        factory = AddHubViewModel.Factory
+                    )
                 )
             }
             composable(

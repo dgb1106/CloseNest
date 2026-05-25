@@ -6,11 +6,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.closenest.R
+import com.example.closenest.core.network.FirebaseConnectionException
 import com.example.closenest.features.relationships.model.NewRelationshipRequest
 import com.example.closenest.features.relationships.model.RelationshipPriority
 import com.example.closenest.features.relationships.model.RelationshipTag
 import com.example.closenest.features.relationships.repository.RelationshipRepository
 import com.example.closenest.features.relationships.repository.RelationshipRepositoryProvider
+import com.google.firebase.firestore.FirebaseFirestoreException
 import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -19,6 +21,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 
 data class AddRelationshipUiState(
     val isLoading: Boolean = false,
@@ -123,28 +127,41 @@ class AddRelationshipViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, errorMessageRes = null) }
             runCatching {
-                repository.addRelationship(
-                    NewRelationshipRequest(
-                        name = trimmedName,
-                        tag = currentState.selectedTag,
-                        birthdayIso = birthdayIso,
-                        phoneNumber = currentState.phoneNumber.trim().ifBlank { null },
-                        email = trimmedEmail.ifBlank { null },
-                        interests = currentState.interests
-                            .split(",")
-                            .map { it.trim() }
-                            .filter { it.isNotEmpty() },
-                        notes = currentState.notes.trim().ifBlank { null },
-                        priority = currentState.priority
+                withTimeout(SaveTimeoutMillis) {
+                    repository.addRelationship(
+                        NewRelationshipRequest(
+                            name = trimmedName,
+                            tag = currentState.selectedTag,
+                            birthdayIso = birthdayIso,
+                            phoneNumber = currentState.phoneNumber.trim().ifBlank { null },
+                            email = trimmedEmail.ifBlank { null },
+                            interests = currentState.interests
+                                .split(",")
+                                .map { it.trim() }
+                                .filter { it.isNotEmpty() },
+                            notes = currentState.notes.trim().ifBlank { null },
+                            priority = currentState.priority
+                        )
                     )
-                )
+                }
             }.onSuccess {
                 _uiState.update { it.copy(isSubmitting = false, isSaved = true) }
-            }.onFailure {
-                _uiState.update {
-                    it.copy(
+            }.onFailure { throwable ->
+                _uiState.update { state ->
+                    state.copy(
                         isSubmitting = false,
-                        errorMessageRes = R.string.add_relationship_unknown_error
+                        errorMessageRes = when (throwable) {
+                            is FirebaseConnectionException -> R.string.add_relationship_connection_error
+                            is FirebaseFirestoreException -> {
+                                if (throwable.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                                    R.string.add_relationship_permission_error
+                                } else {
+                                    R.string.add_relationship_unknown_error
+                                }
+                            }
+                            is TimeoutCancellationException -> R.string.add_relationship_save_timeout
+                            else -> R.string.add_relationship_unknown_error
+                        }
                     )
                 }
             }
@@ -177,5 +194,7 @@ class AddRelationshipViewModel(
         }
 
         private val birthdayInputRegex = Regex("^\\d{2}/\\d{2}/\\d{4}$")
+
+        private const val SaveTimeoutMillis = 15_000L
     }
 }
