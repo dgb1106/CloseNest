@@ -28,11 +28,15 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,9 +49,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -98,10 +107,17 @@ fun RelationshipDetailRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val relationship = uiState.relationships.firstOrNull { item -> item.id == relationshipId }
 
+    LaunchedEffect(uiState.deletedRelationshipId) {
+        if (uiState.deletedRelationshipId == relationshipId) {
+            onNavigateBack()
+        }
+    }
+
     RelationshipDetailScreen(
         uiState = uiState,
         relationship = relationship,
         onNavigateBack = onNavigateBack,
+        onDeleteRelationship = { viewModel.deleteRelationship(relationshipId) },
         modifier = modifier
     )
 }
@@ -217,8 +233,11 @@ private fun RelationshipDetailScreen(
     uiState: RelationshipsUiState,
     relationship: RelationshipListItem?,
     onNavigateBack: () -> Unit,
+    onDeleteRelationship: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
@@ -317,9 +336,61 @@ private fun RelationshipDetailScreen(
                             )
                         }
                     }
+
+                    item {
+                        DeleteRelationshipSection(
+                            isDeleting = uiState.isDeletingRelationship,
+                            errorMessageRes = uiState.deleteErrorMessageRes,
+                            onDeleteClick = { showDeleteDialog = true }
+                        )
+                    }
                 }
             }
         }
+    }
+
+    if (showDeleteDialog && relationship != null) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!uiState.isDeletingRelationship) {
+                    showDeleteDialog = false
+                }
+            },
+            title = {
+                Text(text = stringResource(R.string.relationship_delete_confirm_title))
+            },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.relationship_delete_confirm_body,
+                        relationship.name
+                    )
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDeleteRelationship()
+                    },
+                    enabled = !uiState.isDeletingRelationship,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text(text = stringResource(R.string.relationship_delete_confirm_action))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteDialog = false },
+                    enabled = !uiState.isDeletingRelationship
+                ) {
+                    Text(text = stringResource(R.string.relationship_delete_cancel))
+                }
+            }
+        )
     }
 }
 
@@ -553,6 +624,61 @@ private fun DetailSection(
                 color = MaterialTheme.colorScheme.onSurface
             )
             content()
+        }
+    }
+}
+
+@Composable
+private fun DeleteRelationshipSection(
+    isDeleting: Boolean,
+    errorMessageRes: Int?,
+    onDeleteClick: () -> Unit
+) {
+    ElevatedCard(
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            errorMessageRes?.let { messageRes ->
+                Text(
+                    text = stringResource(messageRes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Button(
+                onClick = onDeleteClick,
+                enabled = !isDeleting,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ),
+                contentPadding = PaddingValues(vertical = 14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = stringResource(
+                        if (isDeleting) {
+                            R.string.relationship_delete_saving
+                        } else {
+                            R.string.relationship_delete_action
+                        }
+                    )
+                )
+            }
         }
     }
 }

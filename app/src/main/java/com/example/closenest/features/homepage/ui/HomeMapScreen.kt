@@ -54,6 +54,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.closenest.R
+import com.example.closenest.core.network.MapboxGeocodingResult
+import com.example.closenest.core.network.searchMapboxLocations
 import com.example.closenest.features.homepage.model.MapMarker
 import com.mapbox.geojson.Point
 import com.mapbox.maps.extension.compose.MapEffect
@@ -63,21 +65,9 @@ import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
-
-private data class GeocodingResult(
-    val name: String,
-    val fullAddress: String,
-    val point: Point
-)
 
 @Composable
 fun HomeMapScreen(
@@ -86,7 +76,7 @@ fun HomeMapScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFF6F1EA))
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -163,7 +153,7 @@ private fun MapBackground() {
     val coroutineScope = rememberCoroutineScope()
 
     var mapSearchQuery by rememberSaveable { mutableStateOf("") }
-    var searchResults by remember { mutableStateOf<List<GeocodingResult>>(emptyList()) }
+    var searchResults by remember { mutableStateOf<List<MapboxGeocodingResult>>(emptyList()) }
     var showDropdown by remember { mutableStateOf(false) }
     var isSearchFocused by remember { mutableStateOf(false) }
     var isSearching by remember { mutableStateOf(false) }
@@ -295,7 +285,7 @@ private fun MapBackground() {
                             delay(300)
                             isSearching = true
                             try {
-                                searchResults = geocode(query, accessToken)
+                                searchResults = searchMapboxLocations(query, accessToken)
                                 showDropdown = searchResults.isNotEmpty() && isSearchFocused
                             } catch (_: Exception) {
                                 searchResults = emptyList()
@@ -357,33 +347,6 @@ private fun MapBackground() {
                 )
             )
         }
-    }
-}
-
-private suspend fun geocode(
-    query: String,
-    accessToken: String
-): List<GeocodingResult> = withContext(Dispatchers.IO) {
-    val encoded = URLEncoder.encode(query, "UTF-8")
-    val url = URL("https://api.mapbox.com/geocoding/v5/mapbox.places/$encoded.json?access_token=$accessToken&limit=5&language=vi")
-    val connection = url.openConnection() as HttpURLConnection
-    try {
-        connection.connectTimeout = 5000
-        connection.readTimeout = 5000
-        val response = connection.inputStream.bufferedReader().readText()
-        val json = JSONObject(response)
-        val features = json.getJSONArray("features")
-        (0 until features.length()).map { i ->
-            val feature = features.getJSONObject(i)
-            val center = feature.getJSONArray("center")
-            GeocodingResult(
-                name = feature.getString("text"),
-                fullAddress = feature.getString("place_name"),
-                point = Point.fromLngLat(center.getDouble(0), center.getDouble(1))
-            )
-        }
-    } finally {
-        connection.disconnect()
     }
 }
 

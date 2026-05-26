@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,22 +56,16 @@ fun HomeBottomBar(
 
     Surface(
         modifier = modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(
-                start = 16.dp,
-                end = 16.dp,
-                top = 10.dp,
-                bottom = 0.dp
-            ),
-        shape = RoundedCornerShape(28.dp),
-        tonalElevation = 12.dp,
-        shadowElevation = 10.dp,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
+            .fillMaxWidth(),
+        shape = RectangleShape,
+        tonalElevation = 2.dp,
+        shadowElevation = 1.dp,
+        color = MaterialTheme.colorScheme.surface
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 6.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -207,3 +202,6 @@ private fun BottomTabItem(
         )
     }
 }
+
+
+
