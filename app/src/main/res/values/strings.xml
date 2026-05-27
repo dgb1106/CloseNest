@@ -193,7 +193,7 @@
 
     <!-- Profile Sections -->
     <string name="profile_relationships_section">Danh bạ của bạn</string>
-    <string name="profile_streak_label">day streak!</string>
+    <string name="profile_streak_label">chuỗi!</string>
 
     <!-- Profile Logout Confirmation -->
     <string name="profile_logout_confirm_title">Xác nhận đăng xuất</string>
