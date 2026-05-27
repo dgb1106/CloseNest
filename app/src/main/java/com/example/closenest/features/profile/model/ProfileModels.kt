@@ -77,5 +77,14 @@ data class ProfileUiState(
     val user: UserProfile? = null,
     val recentRelationships: List<RelationshipQuickPreview> = emptyList(),
     val errorMessage: String? = null,
-    val showLogoutDialog: Boolean = false
+    val showLogoutDialog: Boolean = false,
+    // Account detail screen state
+    val showAccountDetail: Boolean = false,
+    val isEditingAccount: Boolean = false,
+    val accountEditFirstName: String = "",
+    val accountEditLastName: String = "",
+    val accountEditEmail: String = "",
+    val accountEditPhone: String = "",
+    val accountEditBirthdayIso: String = "",
+    val accountEditGender: String = ""
 )
