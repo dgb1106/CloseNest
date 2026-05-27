@@ -5,23 +5,11 @@ import com.example.closenest.features.profile.model.RelationshipQuickPreview
 import com.example.closenest.features.profile.model.UserProfile
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 class InMemoryProfileRepository : ProfileRepository {
     
-    private val mockUser = UserProfile(
-        uid = "user_1",
-        firstName = "Starry",
-        lastName = "Skies",
-        email = "starry@example.com",
-        phoneNumber = "+84 9 1234 5678",
-        birthday = Timestamp.now(),
-        gender = "Female",
-        createdAt = Timestamp.now(),
-        lastCheckedIn = Timestamp.now(),
-        streakCount = 1
-    )
-
     private val mockRecentRelationships = listOf(
         RelationshipQuickPreview(
             id = "rel_1",
@@ -43,20 +31,36 @@ class InMemoryProfileRepository : ProfileRepository {
         )
     )
 
+    // Use MutableStateFlow for reactive updates
+    private val _currentUser = MutableStateFlow(
+        UserProfile(
+            uid = "user_1",
+            firstName = "Starry",
+            lastName = "Skies",
+            email = "starry@example.com",
+            phoneNumber = "+84 9 1234 5678",
+            birthday = Timestamp.now(),
+            gender = "Female",
+            createdAt = Timestamp.now(),
+            lastCheckedIn = Timestamp.now(),
+            streakCount = 1
+        )
+    )
+
     override fun observeCurrentUser(): Flow<UserProfile?> {
-        return flowOf(mockUser)
+        return _currentUser
     }
 
     override fun observeProfileUiState(): Flow<ProfileUiState> {
-        return flowOf(
+        return _currentUser.map { user ->
             ProfileUiState(
                 isLoading = false,
-                user = mockUser,
+                user = user,
                 recentRelationships = mockRecentRelationships,
                 errorMessage = null,
                 showLogoutDialog = false
             )
-        )
+        }
     }
 
     override suspend fun logout(): Result<Unit> {
@@ -64,6 +68,8 @@ class InMemoryProfileRepository : ProfileRepository {
     }
 
     override suspend fun updateProfile(user: UserProfile): Result<Unit> {
+        // Update the mutable state flow
+        _currentUser.value = user
         return Result.success(Unit)
     }
 }
