@@ -78,8 +78,17 @@ object ProfileRepositoryProvider {
     private var instance: ProfileRepository? = null
 
     fun getInstance(): ProfileRepository {
-        return instance ?: InMemoryProfileRepository().also {
-            instance = it
+        return instance ?: run {
+            val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+            val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            FirebaseProfileRepository(firestore, auth).also {
+                instance = it
+            }
         }
+    }
+
+    // For testing: use InMemoryProfileRepository
+    fun getInMemoryInstance(): ProfileRepository {
+        return InMemoryProfileRepository()
     }
 }
