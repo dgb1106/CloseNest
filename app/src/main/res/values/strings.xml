@@ -208,12 +208,31 @@
 
     <!-- Profile Sections -->
     <string name="profile_relationships_section">Danh bạ của bạn</string>
+    <string name="profile_streak_label">chuỗi!</string>
 
     <!-- Profile Logout Confirmation -->
     <string name="profile_logout_confirm_title">Xác nhận đăng xuất</string>
     <string name="profile_logout_confirm_message">Bạn chắc chắn muốn đăng xuất khỏi ứng dụng không?</string>
     <string name="profile_logout_confirm_button">Đăng xuất</string>
     <string name="profile_logout_cancel_button">Hủy</string>
+
+    <!-- Account Detail Screen Strings -->
+    <string name="profile_account_detail_title">Thông tin tài khoản</string>
+    <string name="profile_account_edit_button">Chỉnh sửa</string>
+    <string name="profile_account_save_button">Lưu</string>
+    <string name="profile_account_cancel_button">Hủy</string>
+    <string name="profile_account_personal_info_title">Thông tin cá nhân</string>
+    <string name="profile_account_first_name_label">Tên</string>
+    <string name="profile_account_last_name_label">Họ</string>
+    <string name="profile_account_gender_label">Giới tính</string>
+    <string name="profile_account_contact_info_title">Thông tin liên hệ</string>
+    <string name="profile_account_email_label">Thư điện tử</string>
+    <string name="profile_account_phone_label">Số điện thoại</string>
+    <string name="profile_account_birthday_label">Ngày sinh</string>
+    <string name="profile_account_profile_info_title">Thông tin hồ sơ</string>
+    <string name="profile_account_created_date_label">Ngày tạo tài khoản</string>
+    <string name="profile_account_streak_label">Chuỗi tương tác</string>
+    <string name="profile_account_empty_value">Chưa có thông tin</string>
 
     <!-- Notifications Screen Strings -->
     <string name="notifications_title">Thông báo</string>

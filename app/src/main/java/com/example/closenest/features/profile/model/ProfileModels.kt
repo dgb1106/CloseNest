@@ -8,19 +8,24 @@ import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.closenest.R
-import java.time.Instant
+import com.google.firebase.Timestamp
 
 data class UserProfile(
-    val id: String,
-    val name: String,
+    val uid: String,
+    val firstName: String,
+    val lastName: String,
     val email: String,
+    val birthday: Timestamp? = null,
     val phoneNumber: String? = null,
     val avatarUrl: String? = null,
-    val dateOfBirth: String? = null,
     val gender: String? = null,
-    val createdAt: Instant? = null,
-    val updatedAt: Instant? = null
-)
+    val createdAt: Timestamp? = null,
+    val lastCheckedIn: Timestamp? = null,
+    val streakCount: Int = 0
+) {
+    val name: String
+        get() = "$firstName $lastName".trim()
+}
 
 enum class ProfileMenuItem(
     val id: String,
@@ -72,5 +77,14 @@ data class ProfileUiState(
     val user: UserProfile? = null,
     val recentRelationships: List<RelationshipQuickPreview> = emptyList(),
     val errorMessage: String? = null,
-    val showLogoutDialog: Boolean = false
+    val showLogoutDialog: Boolean = false,
+    // Account detail screen state
+    val showAccountDetail: Boolean = false,
+    val isEditingAccount: Boolean = false,
+    val accountEditFirstName: String = "",
+    val accountEditLastName: String = "",
+    val accountEditEmail: String = "",
+    val accountEditPhone: String = "",
+    val accountEditBirthdayIso: String = "",
+    val accountEditGender: String = ""
 )
