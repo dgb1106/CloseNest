@@ -33,6 +33,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 
 data class AddHubUiState(
     val isLoadingContacts: Boolean = true,
@@ -56,6 +59,9 @@ data class AddHubUiState(
     val appointmentLocationLatitude: Double? = null,
     val appointmentLocationLongitude: Double? = null,
     val appointmentDateMillis: Long? = null,
+    val isAppointmentAllDay: Boolean = false,
+    val appointmentTimeHour: Int? = null,
+    val appointmentTimeMinute: Int? = null,
     val isSavingAppointment: Boolean = false,
     @param:StringRes val contactsErrorMessageRes: Int? = null,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
@@ -199,6 +205,9 @@ class AddHubViewModel(
             appointmentLocationLatitude = draft.appointmentLocationLatitude,
             appointmentLocationLongitude = draft.appointmentLocationLongitude,
             appointmentDateMillis = draft.appointmentDateMillis,
+            isAppointmentAllDay = draft.isAppointmentAllDay,
+            appointmentTimeHour = draft.appointmentTimeHour,
+            appointmentTimeMinute = draft.appointmentTimeMinute,
             isSavingAppointment = draft.isSavingAppointment,
             contactsErrorMessageRes = result.errorMessageRes,
             reflectionErrorMessageRes = draft.reflectionErrorMessageRes,
@@ -549,6 +558,29 @@ class AddHubViewModel(
         }
     }
 
+    fun onAppointmentAllDayToggled(isAllDay: Boolean) {
+        addHubDraft.update { current ->
+            current.copy(
+                isAppointmentAllDay = isAllDay,
+                appointmentTimeHour = if (isAllDay) null else current.appointmentTimeHour,
+                appointmentTimeMinute = if (isAllDay) null else current.appointmentTimeMinute,
+                appointmentErrorMessageRes = null,
+                appointmentSavedMessageRes = null
+            )
+        }
+    }
+
+    fun onAppointmentTimeSelected(hour: Int, minute: Int) {
+        addHubDraft.update { current ->
+            current.copy(
+                appointmentTimeHour = hour,
+                appointmentTimeMinute = minute,
+                appointmentErrorMessageRes = null,
+                appointmentSavedMessageRes = null
+            )
+        }
+    }
+
     fun saveAppointment() {
         val currentState = uiState.value
         if (currentState.isSavingAppointment) return
@@ -558,6 +590,9 @@ class AddHubViewModel(
         val locationLatitude = currentState.appointmentLocationLatitude
         val locationLongitude = currentState.appointmentLocationLongitude
         val dateMillis = currentState.appointmentDateMillis
+        val isAllDay = currentState.isAppointmentAllDay
+        val hour = currentState.appointmentTimeHour
+        val minute = currentState.appointmentTimeMinute
 
         val validationErrorRes = when {
             name.isEmpty() -> R.string.add_appointment_name_required
@@ -565,6 +600,7 @@ class AddHubViewModel(
             locationLatitude == null || locationLongitude == null ->
                 R.string.add_appointment_location_select_required
             dateMillis == null -> R.string.add_appointment_date_required
+            !isAllDay && (hour == null || minute == null) -> R.string.add_appointment_time_required
             else -> null
         }
 
@@ -577,7 +613,15 @@ class AddHubViewModel(
             }
             return
         }
-        val appointmentDateMillis = dateMillis ?: return
+        val appointmentDateMillis = if (isAllDay) {
+            dateMillis ?: return
+        } else {
+            combineAppointmentDateTimeMillis(
+                dateMillis = dateMillis ?: return,
+                hour = hour ?: return,
+                minute = minute ?: return
+            )
+        }
         val selectedLocationLatitude = locationLatitude ?: return
         val selectedLocationLongitude = locationLongitude ?: return
 
@@ -611,6 +655,9 @@ class AddHubViewModel(
                         appointmentLocationLatitude = null,
                         appointmentLocationLongitude = null,
                         appointmentDateMillis = null,
+                        isAppointmentAllDay = false,
+                        appointmentTimeHour = null,
+                        appointmentTimeMinute = null,
                         isSavingAppointment = false,
                         appointmentErrorMessageRes = null,
                         appointmentSavedMessageRes = R.string.add_appointment_saved
@@ -674,6 +721,9 @@ private data class AddHubDraft(
     val appointmentLocationLatitude: Double? = null,
     val appointmentLocationLongitude: Double? = null,
     val appointmentDateMillis: Long? = null,
+    val isAppointmentAllDay: Boolean = false,
+    val appointmentTimeHour: Int? = null,
+    val appointmentTimeMinute: Int? = null,
     val isSavingAppointment: Boolean = false,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
     @param:StringRes val reflectionSavedMessageRes: Int? = null,
@@ -693,6 +743,17 @@ private fun RelationshipProfile.toReflectionContactListItem(): ReflectionContact
         id = id,
         name = name
     )
+}
+
+private fun combineAppointmentDateTimeMillis(dateMillis: Long, hour: Int, minute: Int): Long {
+    val localDate = Instant.ofEpochMilli(dateMillis)
+        .atZone(ZoneOffset.UTC)
+        .toLocalDate()
+    return localDate
+        .atTime(hour, minute)
+        .atZone(ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
 }
 
 private fun Throwable.toReflectionErrorMessageRes(): Int {

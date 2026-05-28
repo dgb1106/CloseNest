@@ -169,6 +169,10 @@
     <string name="add_appointment_date_label">Ngày hẹn</string>
     <string name="add_appointment_pick_date">Chọn ngày tháng năm</string>
     <string name="add_appointment_date_confirm">Chọn ngày</string>
+    <string name="add_appointment_time_label">Giờ hẹn</string>
+    <string name="add_appointment_all_day">Cả ngày</string>
+    <string name="add_appointment_pick_time">Chọn giờ</string>
+    <string name="add_appointment_time_confirm">Chọn giờ</string>
     <string name="add_appointment_done">Lưu cuộc hẹn</string>
     <string name="add_appointment_saving">Đang lưu cuộc hẹn</string>
     <string name="add_appointment_saved">Đã tạo cuộc hẹn mới.</string>
@@ -176,6 +180,7 @@
     <string name="add_appointment_location_required">Hãy nhập địa điểm hẹn.</string>
     <string name="add_appointment_location_select_required">Hãy chọn địa điểm từ danh sách gợi ý.</string>
     <string name="add_appointment_date_required">Hãy chọn ngày hẹn.</string>
+    <string name="add_appointment_time_required">Hãy chọn giờ hẹn.</string>
     <string name="add_appointment_connection_error">Không kết nối được máy chủ. Bạn kiểm tra mạng của thiết bị rồi thử lại nhé.</string>
     <string name="add_appointment_permission_error">Máy chủ chưa cho phép lưu cuộc hẹn. Bạn kiểm tra quyền ghi dữ liệu rồi thử lại nhé.</string>
     <string name="add_appointment_save_timeout">Máy chủ phản hồi quá lâu. Bạn kiểm tra mạng rồi thử lại nhé.</string>

@@ -338,7 +338,7 @@ fun RegisterScreen(
                 CircularProgressIndicator(
                     color = MaterialTheme.colorScheme.onPrimary,
                     strokeWidth = 2.dp,
-                    modifier = Modifier.padding(4.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             } else {
                 Text(

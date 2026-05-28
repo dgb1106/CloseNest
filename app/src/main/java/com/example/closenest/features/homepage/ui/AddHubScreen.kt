@@ -12,11 +12,13 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
@@ -66,8 +68,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -122,6 +129,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.coroutines.resume
@@ -307,6 +315,8 @@ fun AppointmentRoute(
         onLocationChanged = viewModel::onAppointmentLocationChanged,
         onLocationSelected = viewModel::onAppointmentLocationSelected,
         onDateSelected = viewModel::onAppointmentDateSelected,
+        onAllDayToggled = viewModel::onAppointmentAllDayToggled,
+        onTimeSelected = viewModel::onAppointmentTimeSelected,
         onSave = viewModel::saveAppointment,
         modifier = modifier
     )
@@ -407,10 +417,13 @@ fun AppointmentScreen(
     onLocationChanged: (String) -> Unit,
     onLocationSelected: (String, Double, Double) -> Unit,
     onDateSelected: (Long) -> Unit,
+    onAllDayToggled: (Boolean) -> Unit,
+    onTimeSelected: (Int, Int) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
     val appointmentNameEntered = uiState.appointmentName.isNotBlank()
     val appointmentLocationSelected = uiState.appointmentLocationLatitude != null &&
         uiState.appointmentLocationLongitude != null
@@ -441,7 +454,11 @@ fun AppointmentScreen(
                     uiState.appointmentName.isNotBlank() &&
                     uiState.appointmentLocation.isNotBlank() &&
                     appointmentLocationSelected &&
-                    uiState.appointmentDateMillis != null,
+                    uiState.appointmentDateMillis != null &&
+                    (uiState.isAppointmentAllDay || (
+                        uiState.appointmentTimeHour != null &&
+                            uiState.appointmentTimeMinute != null
+                        )),
                 onSave = onSave
             )
         }
@@ -455,29 +472,25 @@ fun AppointmentScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                ScreenIntroCard(
-                    title = stringResource(R.string.add_appointment_title),
-                    body = stringResource(R.string.add_appointment_body)
-                )
-            }
-
-            item {
-                AppointmentNameField(
-                    value = uiState.appointmentName,
-                    contacts = uiState.contacts,
-                    onValueChange = onNameChanged
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionTitle(text = stringResource(R.string.add_appointment_name_label))
+                    AppointmentNameField(
+                        value = uiState.appointmentName,
+                        contacts = uiState.contacts,
+                        onValueChange = onNameChanged
+                    )
+                }
             }
 
             if (appointmentNameEntered) {
-//                item {
-//                    AppointmentLocationField(
-//                        value = uiState.appointmentLocation,
-//                        isSelected = appointmentLocationSelected,
-//                        onValueChange = onLocationChanged,
-//                        onLocationSelected = onLocationSelected
-//                    )
-//                }
+                item {
+                    LocationSection(
+                        location = uiState.appointmentLocation,
+                        onLocationChanged = onLocationChanged,
+                        onLocationSelected = onLocationSelected,
+                        context = LocalContext.current
+                    )
+                }
 
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -493,6 +506,40 @@ fun AppointmentScreen(
                                 } ?: stringResource(R.string.add_appointment_pick_date)
                             )
                         }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SectionTitle(text = stringResource(R.string.add_appointment_all_day))
+                            Switch(
+                                checked = uiState.isAppointmentAllDay,
+                                onCheckedChange = onAllDayToggled
+                            )
+                        }
+
+                        if (!uiState.isAppointmentAllDay) {
+                            SectionTitle(text = stringResource(R.string.add_appointment_time_label))
+                            FilledTonalButton(
+                                onClick = { showTimePicker = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(vertical = 14.dp)
+                            ) {
+                                Text(
+                                    text = if (uiState.appointmentTimeHour != null &&
+                                        uiState.appointmentTimeMinute != null
+                                    ) {
+                                        formatAppointmentTime(
+                                            hour = uiState.appointmentTimeHour,
+                                            minute = uiState.appointmentTimeMinute
+                                        )
+                                    } else {
+                                        stringResource(R.string.add_appointment_pick_time)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -507,6 +554,18 @@ fun AppointmentScreen(
                 showDatePicker = false
             },
             onDismiss = { showDatePicker = false }
+        )
+    }
+
+    if (showTimePicker) {
+        AppointmentTimePickerDialog(
+            selectedHour = uiState.appointmentTimeHour,
+            selectedMinute = uiState.appointmentTimeMinute,
+            onTimeSelected = { hour, minute ->
+                onTimeSelected(hour, minute)
+                showTimePicker = false
+            },
+            onDismiss = { showTimePicker = false }
         )
     }
 }
@@ -545,7 +604,7 @@ private fun AppointmentNameField(
                 },
             singleLine = true,
             shape = RoundedCornerShape(18.dp),
-            label = {
+            placeholder = {
                 Text(text = stringResource(R.string.add_appointment_name_label))
             }
         )
@@ -1014,19 +1073,58 @@ fun MemoryScreen(
             }
 
             item {
-                OutlinedTextField(
-                    value = uiState.memoryNote,
-                    onValueChange = onNoteChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(18.dp),
-                    label = {
-                        Text(text = stringResource(R.string.add_interaction_note_label))
-                    }
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SectionTitle(text = "Ghi chú")
+                    OutlinedTextField(
+                        value = uiState.memoryNote,
+                        onValueChange = onNoteChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
+                        label = {
+                            Text(text = stringResource(R.string.add_interaction_note_label))
+                        }
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun AppointmentTimePickerDialog(
+    selectedHour: Int?,
+    selectedMinute: Int?,
+    onTimeSelected: (Int, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val calendar = remember {
+        Calendar.getInstance()
+    }
+    val timePickerState = rememberTimePickerState(
+        initialHour = selectedHour ?: calendar.get(Calendar.HOUR_OF_DAY),
+        initialMinute = selectedMinute ?: calendar.get(Calendar.MINUTE),
+        is24Hour = true
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = { onTimeSelected(timePickerState.hour, timePickerState.minute) }
+            ) {
+                Text(text = stringResource(R.string.add_appointment_time_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.profile_logout_cancel_button))
+            }
+        },
+        text = {
+            TimePicker(state = timePickerState)
+        }
+    )
 }
 
 @Composable
@@ -1137,50 +1235,75 @@ private fun LocationSection(
         SectionTitle(text = stringResource(R.string.add_interaction_location_title))
         Box(modifier = Modifier.fillMaxWidth()) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline,
+                        shape = RoundedCornerShape(18.dp)
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { newValue ->
-                        query = newValue
-                        onLocationChanged(newValue)
-                        showDropdown = newValue.isNotBlank()
-                    },
-                    modifier = Modifier.weight(3f),
-                    singleLine = true,
-                    shape = RoundedCornerShape(18.dp),
-                    label = {
-                        Text(
-                            text = if (location.isBlank()) {
-                                stringResource(R.string.add_interaction_location_label)
-                            } else {
-                                stringResource(R.string.add_interaction_location_added)
-                            }
+                Row(
+                    modifier = Modifier
+                        .weight(3f)
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextField(
+                        value = query,
+                        onValueChange = { newValue ->
+                            query = newValue
+                            onLocationChanged(newValue)
+                            showDropdown = newValue.isNotBlank()
+                        },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        placeholder = {
+                            Text(text = stringResource(R.string.add_interaction_location_label))
+                        },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent
                         )
-                    },
-                    trailingIcon = {
-                        if (isSearching) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
+                    )
+                    if (isSearching) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
                     }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
                 )
 
-                FilledTonalButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            context.findCurrentReadableLocation()?.let { (label, latitude, longitude) ->
-                                query = label
-                                onLocationSelected(label, latitude, longitude)
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable {
+                            coroutineScope.launch {
+                                context.findCurrentReadableLocation()?.let { (label, latitude, longitude) ->
+                                    query = label
+                                    onLocationSelected(label, latitude, longitude)
+                                }
                             }
                         }
-                    },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 16.dp)
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Place,
@@ -1798,6 +1921,10 @@ private fun AddHubScreenPreview() {
 
 private fun formatAppointmentDate(dateMillis: Long): String {
     return appointmentDateFormatter.format(Date(dateMillis))
+}
+
+private fun formatAppointmentTime(hour: Int, minute: Int): String {
+    return String.format(Locale.getDefault(), "%02d:%02d", hour, minute)
 }
 
 private fun Context.createMemoryPhotoUri(): Uri {

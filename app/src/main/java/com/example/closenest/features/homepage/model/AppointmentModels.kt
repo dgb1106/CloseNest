@@ -8,3 +8,14 @@ data class NewAppointmentRequest(
     val appointmentDateMillis: Long,
     val createdAtMillis: Long
 )
+
+data class AppointmentItem(
+    val id: String,
+    val name: String,
+    val location: String,
+    val locationLatitude: Double,
+    val locationLongitude: Double,
+    val appointmentDateMillis: Long,
+    val dateKey: String,
+    val createdAtMillis: Long
+)

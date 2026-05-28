@@ -7,20 +7,32 @@ import android.content.pm.PackageManager
 import android.location.Location
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
@@ -35,16 +47,27 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.closenest.features.homepage.model.AppointmentItem
+import com.example.closenest.features.homepage.repository.AppointmentRepositoryProvider
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -68,6 +91,29 @@ private const val FocusedMapZoom = 14f
 fun HomeMapScreen(
     modifier: Modifier = Modifier
 ) {
+    val appointmentRepository = remember { AppointmentRepositoryProvider.repository }
+    var upcomingCount by remember { mutableStateOf<Int?>(null) }
+    var appointmentList by remember { mutableStateOf<List<AppointmentItem>>(emptyList()) }
+    var showAppointmentsDialog by rememberSaveable { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                coroutineScope.launch {
+                    val latestAppointments = runCatching {
+                        appointmentRepository.getUpcomingAppointments()
+                    }.getOrDefault(emptyList())
+                    appointmentList = latestAppointments
+                    upcomingCount = latestAppointments.size
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -75,18 +121,232 @@ fun HomeMapScreen(
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Text(
-            text = "CloseNest",
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 34.sp,
-            color = MaterialTheme.colorScheme.onBackground,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "CloseNest",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 34.sp,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Card(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+            ),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 14.dp)
-        )
+                .clickable { showAppointmentsDialog = true }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val label = buildAnnotatedString {
+                    withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
+                        append("Bạn đang có ")
+                    }
+                    when (val count = upcomingCount) {
+                        null -> withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
+                            append("...")
+                        }
+                        else -> withStyle(
+                            SpanStyle(
+                                color = Color(0xFF8B5E34),
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        ) {
+                            append(count.toString())
+                        }
+                    }
+                    withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
+                        append(" cuộc hẹn")
+                    }
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 22.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "▼",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 14.sp,
+                    color = Color(0xFF9E9E9E),
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+        }
 
-        MapCard(modifier = Modifier.fillMaxSize())
+        Spacer(modifier = Modifier.height(12.dp))
+
+        MapCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        )
+    }
+
+    if (showAppointmentsDialog) {
+        AppointmentsDialog(
+            appointments = appointmentList,
+            onDismiss = { showAppointmentsDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun AppointmentsDialog(
+    appointments: List<AppointmentItem>,
+    onDismiss: () -> Unit
+) {
+    val pagerState = rememberPagerState(pageCount = { appointments.size })
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(horizontal = 4.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 8.dp, top = 14.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Cuộc hẹn sắp tới",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Đóng",
+                            tint = Color(0xFF757575)
+                        )
+                    }
+                }
+
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                ) { page ->
+                    AppointmentCard(appointment = appointments[page])
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 18.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(appointments.size) { index ->
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .size(if (pagerState.currentPage == index) 10.dp else 8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (pagerState.currentPage == index) {
+                                        Color(0xFF616161)
+                                    } else {
+                                        Color(0xFFBDBDBD)
+                                    }
+                                )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppointmentCard(appointment: AppointmentItem) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F6FA)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE8E1D9)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Event,
+                        contentDescription = null,
+                        tint = Color(0xFF5D4E37)
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = appointment.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = formatAppointmentDate(appointment.appointmentDateMillis),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF757575)
+                    )
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Place,
+                    contentDescription = null,
+                    tint = Color(0xFF9E9E9E),
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = appointment.location,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF616161)
+                )
+            }
+        }
     }
 }
 
@@ -285,4 +545,10 @@ private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { conti
             continuation.cancel()
         }
     }
+}
+
+private val appointmentDateFormatter = SimpleDateFormat("EEEE, dd 'tháng' MM, yyyy", Locale("vi"))
+
+private fun formatAppointmentDate(dateMillis: Long): String {
+    return appointmentDateFormatter.format(Date(dateMillis))
 }
