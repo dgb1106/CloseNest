@@ -1,31 +1,39 @@
 package com.example.closenest.features.homepage.repository
 
 import com.example.closenest.core.network.FirebaseConnectionException
-import com.example.closenest.features.homepage.model.NewInteractionLogRequest
+import com.example.closenest.features.homepage.model.NewMemoryRequest
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
-class FirebaseInteractionLogRepository(
+class FirebaseMemoryRepository(
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
-) : InteractionLogRepository {
+    private val firestore: FirebaseFirestore,
+    private val storage: FirebaseStorage
+) : MemoryRepository {
 
-    override suspend fun addInteractionLog(request: NewInteractionLogRequest) {
+    override suspend fun addMemory(request: NewMemoryRequest) {
         val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
-        val document = interactionsCollection(userId).document()
+        val document = memoriesCollection(userId).document()
 
         ensureFirestoreReachable()
+
+        var photoDownloadUrl: String? = request.photoUri
+        if (!request.photoUri.isNullOrBlank() && request.photoUri.startsWith("content://")) {
+            photoDownloadUrl = uploadPhotoToStorage(userId, request.photoUri)
+        }
 
         document.set(
             mapOf(
@@ -33,9 +41,10 @@ class FirebaseInteractionLogRepository(
                 FieldUserId to userId,
                 FieldContactId to request.contactId,
                 FieldContactName to request.contactName,
+                FieldTitle to request.title,
                 FieldType to request.type,
                 FieldNote to request.note,
-                FieldPhotoUri to request.photoUri,
+                FieldPhotoUri to photoDownloadUrl,
                 FieldLocation to request.location,
                 FieldLocationLatitude to request.locationLatitude,
                 FieldLocationLongitude to request.locationLongitude,
@@ -45,17 +54,46 @@ class FirebaseInteractionLogRepository(
         ).awaitCompletion()
     }
 
-    private fun interactionsCollection(userId: String) =
+    private suspend fun uploadPhotoToStorage(userId: String, localUri: String): String? {
+        val extension = localUri.substringAfterLast(".").ifBlank { "jpg" }
+            .substringBefore("?").takeIf { it.length <= 4 } ?: "jpg"
+        val path = "memories/$userId/${UUID.randomUUID()}.$extension"
+        val ref = storage.reference.child(path)
+        return suspendCancellableCoroutine { continuation ->
+            ref.putFile(android.net.Uri.parse(localUri))
+                .addOnSuccessListener {
+                    ref.downloadUrl
+                        .addOnSuccessListener { uri ->
+                            if (continuation.isActive) {
+                                continuation.resume(uri.toString())
+                            }
+                        }
+                        .addOnFailureListener { exception ->
+                            if (continuation.isActive) {
+                                continuation.resumeWithException(exception)
+                            }
+                        }
+                }
+                .addOnFailureListener { exception ->
+                    if (continuation.isActive) {
+                        continuation.resumeWithException(exception)
+                    }
+                }
+        }
+    }
+
+    private fun memoriesCollection(userId: String) =
         firestore.collection(UsersCollection)
             .document(userId)
-            .collection(InteractionsCollection)
+            .collection(MemoriesCollection)
 }
 
-object InteractionLogRepositoryProvider {
-    val repository: InteractionLogRepository by lazy {
-        FirebaseInteractionLogRepository(
+object MemoryRepositoryProvider {
+    val repository: MemoryRepository by lazy {
+        FirebaseMemoryRepository(
             auth = FirebaseAuth.getInstance(),
-            firestore = FirebaseFirestore.getInstance()
+            firestore = FirebaseFirestore.getInstance(),
+            storage = FirebaseStorage.getInstance()
         )
     }
 }
@@ -93,7 +131,7 @@ private suspend fun ensureFirestoreReachable() {
 private val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
 private const val UsersCollection = "users"
-private const val InteractionsCollection = "interactions"
+private const val MemoriesCollection = "memories"
 
 private const val FirestoreHost = "firestore.googleapis.com"
 private const val HttpsPort = 443
@@ -103,6 +141,7 @@ private const val FieldId = "id"
 private const val FieldUserId = "userId"
 private const val FieldContactId = "contactId"
 private const val FieldContactName = "contactName"
+private const val FieldTitle = "title"
 private const val FieldType = "type"
 private const val FieldNote = "note"
 private const val FieldPhotoUri = "photoUri"

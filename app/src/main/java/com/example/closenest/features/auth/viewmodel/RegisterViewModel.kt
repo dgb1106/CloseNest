@@ -99,6 +99,16 @@ class RegisterViewModel(
         _uiState.update { it.copy(errorMessage = "") }
     }
 
+    fun onRegisterSuccessHandled() {
+        _uiState.update {
+            it.copy(
+                authRoute = AuthRoute.Login,
+                isSuccess = false,
+                errorMessage = ""
+            )
+        }
+    }
+
     fun register() {
         val state = _uiState.value
 

@@ -132,7 +132,7 @@ class InMemoryNotificationRepository : NotificationRepository {
                 createdAtMillis = now - 12.hoursInMillis,
                 expiresAtMillis = now + 1.daysInMillis,
                 actionLabel = "Log now",
-                actionType = NotificationActionType.LOG_INTERACTION
+                actionType = NotificationActionType.LOG_MEMORY
             ),
             
             // 5. Reflection reminder (end of day prompt)

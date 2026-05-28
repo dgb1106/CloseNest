@@ -9,13 +9,13 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.closenest.R
 import com.example.closenest.core.network.FirebaseConnectionException
 import com.example.closenest.features.homepage.model.NewAppointmentRequest
-import com.example.closenest.features.homepage.model.NewInteractionLogRequest
+import com.example.closenest.features.homepage.model.NewMemoryRequest
 import com.example.closenest.features.homepage.model.NewReflectionRequest
 import com.example.closenest.features.homepage.model.ReflectionContactSnapshot
 import com.example.closenest.features.homepage.repository.AppointmentRepository
 import com.example.closenest.features.homepage.repository.AppointmentRepositoryProvider
-import com.example.closenest.features.homepage.repository.InteractionLogRepository
-import com.example.closenest.features.homepage.repository.InteractionLogRepositoryProvider
+import com.example.closenest.features.homepage.repository.MemoryRepository
+import com.example.closenest.features.homepage.repository.MemoryRepositoryProvider
 import com.example.closenest.features.homepage.repository.ReflectionRepository
 import com.example.closenest.features.homepage.repository.ReflectionRepositoryProvider
 import com.example.closenest.features.relationships.model.RelationshipProfile
@@ -33,6 +33,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 
 data class AddHubUiState(
     val isLoadingContacts: Boolean = true,
@@ -42,21 +45,29 @@ data class AddHubUiState(
     val selectedFeelings: Set<ReflectionFeeling> = emptySet(),
     val selectedSources: Set<ReflectionSource> = emptySet(),
     val isSavingReflection: Boolean = false,
-    val selectedInteractionContactId: String? = null,
-    val selectedInteractionType: InteractionLogType = InteractionLogType.Meetup,
-    val interactionNote: String = "",
-    val isSavingInteractionLog: Boolean = false,
+    val selectedMemoryContactId: String? = null,
+    val memoryTitle: String = "",
+    val selectedMemoryType: MemoryType = MemoryType.Meetup,
+    val memoryNote: String = "",
+    val memoryPhotoUri: String? = null,
+    val memoryLocation: String = "",
+    val memoryLocationLatitude: Double? = null,
+    val memoryLocationLongitude: Double? = null,
+    val isSavingMemory: Boolean = false,
     val appointmentName: String = "",
     val appointmentLocation: String = "",
     val appointmentLocationLatitude: Double? = null,
     val appointmentLocationLongitude: Double? = null,
     val appointmentDateMillis: Long? = null,
+    val isAppointmentAllDay: Boolean = false,
+    val appointmentTimeHour: Int? = null,
+    val appointmentTimeMinute: Int? = null,
     val isSavingAppointment: Boolean = false,
     @param:StringRes val contactsErrorMessageRes: Int? = null,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
     @param:StringRes val reflectionSavedMessageRes: Int? = null,
-    @param:StringRes val interactionErrorMessageRes: Int? = null,
-    @param:StringRes val interactionSavedMessageRes: Int? = null,
+    @param:StringRes val memoryErrorMessageRes: Int? = null,
+    @param:StringRes val memorySavedMessageRes: Int? = null,
     @param:StringRes val appointmentErrorMessageRes: Int? = null,
     @param:StringRes val appointmentSavedMessageRes: Int? = null
 )
@@ -127,7 +138,7 @@ val ReflectionSourceOptions = listOf(
     ReflectionSource.Classmate
 )
 
-enum class InteractionLogType(
+enum class MemoryType(
     val storageValue: String,
     @param:StringRes val labelRes: Int
 ) {
@@ -138,16 +149,16 @@ enum class InteractionLogType(
     Other("other", R.string.add_interaction_type_other)
 }
 
-val InteractionLogTypeOptions = listOf(
-    InteractionLogType.Meetup,
-    InteractionLogType.Support,
-    InteractionLogType.Other
+val MemoryTypeOptions = listOf(
+    MemoryType.Meetup,
+    MemoryType.Support,
+    MemoryType.Other
 )
 
 class AddHubViewModel(
     private val relationshipRepository: RelationshipRepository,
     private val reflectionRepository: ReflectionRepository,
-    private val interactionLogRepository: InteractionLogRepository,
+    private val memoryRepository: MemoryRepository,
     private val appointmentRepository: AppointmentRepository
 ) : ViewModel() {
     private val addHubDraft = MutableStateFlow(AddHubDraft())
@@ -169,7 +180,7 @@ class AddHubViewModel(
     ) { result, draft ->
         val visibleContactIds = result.contacts.map { contact -> contact.id }.toSet()
         val selectedContactIds = draft.selectedContactIds.intersect(visibleContactIds)
-        val selectedInteractionContactId = draft.selectedInteractionContactId
+        val selectedMemoryContactId = draft.selectedMemoryContactId
             ?.takeIf { contactId -> contactId in visibleContactIds }
 
         AddHubUiState(
@@ -180,21 +191,29 @@ class AddHubViewModel(
             selectedFeelings = draft.selectedFeelings,
             selectedSources = draft.selectedSources,
             isSavingReflection = draft.isSavingReflection,
-            selectedInteractionContactId = selectedInteractionContactId,
-            selectedInteractionType = draft.selectedInteractionType,
-            interactionNote = draft.interactionNote,
-            isSavingInteractionLog = draft.isSavingInteractionLog,
+            selectedMemoryContactId = selectedMemoryContactId,
+            memoryTitle = draft.memoryTitle,
+            selectedMemoryType = draft.selectedMemoryType,
+            memoryNote = draft.memoryNote,
+            memoryPhotoUri = draft.memoryPhotoUri,
+            memoryLocation = draft.memoryLocation,
+            memoryLocationLatitude = draft.memoryLocationLatitude,
+            memoryLocationLongitude = draft.memoryLocationLongitude,
+            isSavingMemory = draft.isSavingMemory,
             appointmentName = draft.appointmentName,
             appointmentLocation = draft.appointmentLocation,
             appointmentLocationLatitude = draft.appointmentLocationLatitude,
             appointmentLocationLongitude = draft.appointmentLocationLongitude,
             appointmentDateMillis = draft.appointmentDateMillis,
+            isAppointmentAllDay = draft.isAppointmentAllDay,
+            appointmentTimeHour = draft.appointmentTimeHour,
+            appointmentTimeMinute = draft.appointmentTimeMinute,
             isSavingAppointment = draft.isSavingAppointment,
             contactsErrorMessageRes = result.errorMessageRes,
             reflectionErrorMessageRes = draft.reflectionErrorMessageRes,
             reflectionSavedMessageRes = draft.reflectionSavedMessageRes,
-            interactionErrorMessageRes = draft.interactionErrorMessageRes,
-            interactionSavedMessageRes = draft.interactionSavedMessageRes,
+            memoryErrorMessageRes = draft.memoryErrorMessageRes,
+            memorySavedMessageRes = draft.memorySavedMessageRes,
             appointmentErrorMessageRes = draft.appointmentErrorMessageRes,
             appointmentSavedMessageRes = draft.appointmentSavedMessageRes
         )
@@ -317,57 +336,112 @@ class AddHubViewModel(
         }
     }
 
-    fun startInteractionLog() {
+    fun startMemory() {
         addHubDraft.update { current ->
             current.copy(
-                interactionErrorMessageRes = null,
-                interactionSavedMessageRes = null
+                memoryErrorMessageRes = null,
+                memorySavedMessageRes = null
             )
         }
     }
 
-    fun onInteractionContactSelected(contactId: String) {
+    fun onMemoryContactSelected(contactId: String) {
         addHubDraft.update { current ->
             current.copy(
-                selectedInteractionContactId = contactId,
-                interactionErrorMessageRes = null,
-                interactionSavedMessageRes = null
+                selectedMemoryContactId = contactId,
+                memoryErrorMessageRes = null,
+                memorySavedMessageRes = null
             )
         }
     }
 
-    fun onInteractionTypeSelected(type: InteractionLogType) {
+    fun onMemoryTitleChanged(title: String) {
         addHubDraft.update { current ->
             current.copy(
-                selectedInteractionType = type,
-                interactionErrorMessageRes = null,
-                interactionSavedMessageRes = null
+                memoryTitle = title,
+                memoryErrorMessageRes = null,
+                memorySavedMessageRes = null
             )
         }
     }
 
-    fun onInteractionNoteChanged(note: String) {
+    fun onMemoryTypeSelected(type: MemoryType) {
         addHubDraft.update { current ->
             current.copy(
-                interactionNote = note,
-                interactionErrorMessageRes = null,
-                interactionSavedMessageRes = null
+                selectedMemoryType = type,
+                memoryErrorMessageRes = null,
+                memorySavedMessageRes = null
             )
         }
     }
 
-    fun saveInteractionLog() {
+    fun onMemoryNoteChanged(note: String) {
+        addHubDraft.update { current ->
+            current.copy(
+                memoryNote = note,
+                memoryErrorMessageRes = null,
+                memorySavedMessageRes = null
+            )
+        }
+    }
+
+    fun onMemoryPhotoChanged(photoUri: String?) {
+        addHubDraft.update { current ->
+            current.copy(
+                memoryPhotoUri = photoUri,
+                memoryErrorMessageRes = null,
+                memorySavedMessageRes = null
+            )
+        }
+    }
+
+    fun onMemoryLocationChanged(location: String) {
+        addHubDraft.update { current ->
+            current.copy(
+                memoryLocation = location,
+                memoryLocationLatitude = null,
+                memoryLocationLongitude = null,
+                memoryErrorMessageRes = null,
+                memorySavedMessageRes = null
+            )
+        }
+    }
+
+    fun onMemoryLocationSelected(
+        location: String,
+        latitude: Double,
+        longitude: Double
+    ) {
+        addHubDraft.update { current ->
+            current.copy(
+                memoryLocation = location,
+                memoryLocationLatitude = latitude,
+                memoryLocationLongitude = longitude,
+                memoryErrorMessageRes = null,
+                memorySavedMessageRes = null
+            )
+        }
+    }
+
+    fun saveMemory() {
         val currentState = uiState.value
-        if (currentState.isSavingInteractionLog) return
+        if (currentState.isSavingMemory) return
 
         val selectedContact = currentState.contacts
-            .firstOrNull { contact -> contact.id == currentState.selectedInteractionContactId }
+            .firstOrNull { contact -> contact.id == currentState.selectedMemoryContactId }
+        val title = currentState.memoryTitle.trim()
 
-        if (selectedContact == null) {
+        val validationErrorRes = when {
+            selectedContact == null -> R.string.add_interaction_contact_required
+            title.isBlank() -> R.string.add_memory_title_required
+            else -> null
+        }
+
+        if (validationErrorRes != null) {
             addHubDraft.update { current ->
                 current.copy(
-                    interactionErrorMessageRes = R.string.add_interaction_contact_required,
-                    interactionSavedMessageRes = null
+                    memoryErrorMessageRes = validationErrorRes,
+                    memorySavedMessageRes = null
                 )
             }
             return
@@ -376,41 +450,51 @@ class AddHubViewModel(
         viewModelScope.launch {
             addHubDraft.update { current ->
                 current.copy(
-                    isSavingInteractionLog = true,
-                    interactionErrorMessageRes = null,
-                    interactionSavedMessageRes = null
+                    isSavingMemory = true,
+                    memoryErrorMessageRes = null,
+                    memorySavedMessageRes = null
                 )
             }
 
             runCatching {
                 withTimeout(SaveTimeoutMillis) {
-                    interactionLogRepository.addInteractionLog(
-                        NewInteractionLogRequest(
-                            contactId = selectedContact.id,
+                    memoryRepository.addMemory(
+                        NewMemoryRequest(
+                            contactId = selectedContact!!.id,
                             contactName = selectedContact.name,
-                            type = currentState.selectedInteractionType.storageValue,
-                            note = currentState.interactionNote.trim().takeIf { note -> note.isNotEmpty() },
+                            title = title,
+                            type = currentState.selectedMemoryType.storageValue,
+                            note = currentState.memoryNote.trim().takeIf { it.isNotEmpty() },
+                            photoUri = currentState.memoryPhotoUri,
+                            location = currentState.memoryLocation.trim().takeIf { it.isNotEmpty() },
+                            locationLatitude = currentState.memoryLocationLatitude,
+                            locationLongitude = currentState.memoryLocationLongitude,
                             createdAtMillis = System.currentTimeMillis()
                         )
                     )
                 }
             }.onSuccess {
                 addHubDraft.update { current ->
-                    current.copy(
-                        selectedInteractionContactId = null,
-                        selectedInteractionType = InteractionLogType.Meetup,
-                        interactionNote = "",
-                        isSavingInteractionLog = false,
-                        interactionErrorMessageRes = null,
-                        interactionSavedMessageRes = R.string.add_interaction_saved
+                        current.copy(
+                            selectedMemoryContactId = null,
+                            memoryTitle = "",
+                            selectedMemoryType = MemoryType.Meetup,
+                            memoryNote = "",
+                            memoryPhotoUri = null,
+                            memoryLocation = "",
+                            memoryLocationLatitude = null,
+                            memoryLocationLongitude = null,
+                            isSavingMemory = false,
+                            memoryErrorMessageRes = null,
+                            memorySavedMessageRes = R.string.add_interaction_saved
                     )
                 }
             }.onFailure { throwable ->
                 addHubDraft.update { current ->
                     current.copy(
-                        isSavingInteractionLog = false,
-                        interactionErrorMessageRes = throwable.toInteractionErrorMessageRes(),
-                        interactionSavedMessageRes = null
+                        isSavingMemory = false,
+                        memoryErrorMessageRes = throwable.toMemoryErrorMessageRes(),
+                        memorySavedMessageRes = null
                     )
                 }
             }
@@ -474,6 +558,29 @@ class AddHubViewModel(
         }
     }
 
+    fun onAppointmentAllDayToggled(isAllDay: Boolean) {
+        addHubDraft.update { current ->
+            current.copy(
+                isAppointmentAllDay = isAllDay,
+                appointmentTimeHour = if (isAllDay) null else current.appointmentTimeHour,
+                appointmentTimeMinute = if (isAllDay) null else current.appointmentTimeMinute,
+                appointmentErrorMessageRes = null,
+                appointmentSavedMessageRes = null
+            )
+        }
+    }
+
+    fun onAppointmentTimeSelected(hour: Int, minute: Int) {
+        addHubDraft.update { current ->
+            current.copy(
+                appointmentTimeHour = hour,
+                appointmentTimeMinute = minute,
+                appointmentErrorMessageRes = null,
+                appointmentSavedMessageRes = null
+            )
+        }
+    }
+
     fun saveAppointment() {
         val currentState = uiState.value
         if (currentState.isSavingAppointment) return
@@ -483,6 +590,9 @@ class AddHubViewModel(
         val locationLatitude = currentState.appointmentLocationLatitude
         val locationLongitude = currentState.appointmentLocationLongitude
         val dateMillis = currentState.appointmentDateMillis
+        val isAllDay = currentState.isAppointmentAllDay
+        val hour = currentState.appointmentTimeHour
+        val minute = currentState.appointmentTimeMinute
 
         val validationErrorRes = when {
             name.isEmpty() -> R.string.add_appointment_name_required
@@ -490,6 +600,7 @@ class AddHubViewModel(
             locationLatitude == null || locationLongitude == null ->
                 R.string.add_appointment_location_select_required
             dateMillis == null -> R.string.add_appointment_date_required
+            !isAllDay && (hour == null || minute == null) -> R.string.add_appointment_time_required
             else -> null
         }
 
@@ -502,7 +613,15 @@ class AddHubViewModel(
             }
             return
         }
-        val appointmentDateMillis = dateMillis ?: return
+        val appointmentDateMillis = if (isAllDay) {
+            dateMillis ?: return
+        } else {
+            combineAppointmentDateTimeMillis(
+                dateMillis = dateMillis ?: return,
+                hour = hour ?: return,
+                minute = minute ?: return
+            )
+        }
         val selectedLocationLatitude = locationLatitude ?: return
         val selectedLocationLongitude = locationLongitude ?: return
 
@@ -536,6 +655,9 @@ class AddHubViewModel(
                         appointmentLocationLatitude = null,
                         appointmentLocationLongitude = null,
                         appointmentDateMillis = null,
+                        isAppointmentAllDay = false,
+                        appointmentTimeHour = null,
+                        appointmentTimeMinute = null,
                         isSavingAppointment = false,
                         appointmentErrorMessageRes = null,
                         appointmentSavedMessageRes = R.string.add_appointment_saved
@@ -557,7 +679,7 @@ class AddHubViewModel(
         addHubDraft.update { current ->
             current.copy(
                 reflectionSavedMessageRes = null,
-                interactionSavedMessageRes = null,
+                memorySavedMessageRes = null,
                 appointmentSavedMessageRes = null
             )
         }
@@ -571,7 +693,7 @@ class AddHubViewModel(
                 AddHubViewModel(
                     relationshipRepository = RelationshipRepositoryProvider.repository,
                     reflectionRepository = ReflectionRepositoryProvider.repository,
-                    interactionLogRepository = InteractionLogRepositoryProvider.repository,
+                    memoryRepository = MemoryRepositoryProvider.repository,
                     appointmentRepository = AppointmentRepositoryProvider.repository
                 )
             }
@@ -585,20 +707,28 @@ private data class AddHubDraft(
     val selectedFeelings: Set<ReflectionFeeling> = emptySet(),
     val selectedSources: Set<ReflectionSource> = emptySet(),
     val isSavingReflection: Boolean = false,
-    val selectedInteractionContactId: String? = null,
-    val selectedInteractionType: InteractionLogType = InteractionLogType.Meetup,
-    val interactionNote: String = "",
-    val isSavingInteractionLog: Boolean = false,
+    val selectedMemoryContactId: String? = null,
+    val memoryTitle: String = "",
+    val selectedMemoryType: MemoryType = MemoryType.Meetup,
+    val memoryNote: String = "",
+    val memoryPhotoUri: String? = null,
+    val memoryLocation: String = "",
+    val memoryLocationLatitude: Double? = null,
+    val memoryLocationLongitude: Double? = null,
+    val isSavingMemory: Boolean = false,
     val appointmentName: String = "",
     val appointmentLocation: String = "",
     val appointmentLocationLatitude: Double? = null,
     val appointmentLocationLongitude: Double? = null,
     val appointmentDateMillis: Long? = null,
+    val isAppointmentAllDay: Boolean = false,
+    val appointmentTimeHour: Int? = null,
+    val appointmentTimeMinute: Int? = null,
     val isSavingAppointment: Boolean = false,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
     @param:StringRes val reflectionSavedMessageRes: Int? = null,
-    @param:StringRes val interactionErrorMessageRes: Int? = null,
-    @param:StringRes val interactionSavedMessageRes: Int? = null,
+    @param:StringRes val memoryErrorMessageRes: Int? = null,
+    @param:StringRes val memorySavedMessageRes: Int? = null,
     @param:StringRes val appointmentErrorMessageRes: Int? = null,
     @param:StringRes val appointmentSavedMessageRes: Int? = null
 )
@@ -613,6 +743,17 @@ private fun RelationshipProfile.toReflectionContactListItem(): ReflectionContact
         id = id,
         name = name
     )
+}
+
+private fun combineAppointmentDateTimeMillis(dateMillis: Long, hour: Int, minute: Int): Long {
+    val localDate = Instant.ofEpochMilli(dateMillis)
+        .atZone(ZoneOffset.UTC)
+        .toLocalDate()
+    return localDate
+        .atTime(hour, minute)
+        .atZone(ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
 }
 
 private fun Throwable.toReflectionErrorMessageRes(): Int {
@@ -630,7 +771,7 @@ private fun Throwable.toReflectionErrorMessageRes(): Int {
     }
 }
 
-private fun Throwable.toInteractionErrorMessageRes(): Int {
+private fun Throwable.toMemoryErrorMessageRes(): Int {
     return when (this) {
         is FirebaseConnectionException -> R.string.add_interaction_connection_error
         is FirebaseFirestoreException -> {

@@ -1,9 +1,9 @@
 package com.example.closenest.features.homepage.model
 
-data class NewInteractionLogRequest(
+data class NewMemoryRequest(
     val contactId: String,
     val contactName: String,
-    val title: String?,
+    val title: String,
     val type: String,
     val note: String?,
     val photoUri: String?,

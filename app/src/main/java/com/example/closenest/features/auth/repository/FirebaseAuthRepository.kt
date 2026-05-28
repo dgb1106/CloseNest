@@ -61,6 +61,9 @@ class FirebaseAuthRepository(
                 .set(userDoc.toMap())
                 .await()
 
+            // Keep post-register flow on the auth screens so user can log in explicitly.
+            auth.signOut()
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

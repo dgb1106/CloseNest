@@ -2,11 +2,24 @@
 
 package com.example.closenest.features.homepage.ui
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.location.Geocoder
+import android.location.Location
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,8 +41,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -52,20 +68,29 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -73,16 +98,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.closenest.R
-import com.example.closenest.core.network.MapboxGeocodingResult
-import com.example.closenest.core.network.searchMapboxLocations
 import com.example.closenest.core.ui.theme.AppTheme
 import com.example.closenest.features.homepage.viewmodel.AddHubUiState
 import com.example.closenest.features.homepage.viewmodel.AddHubViewModel
-import com.example.closenest.features.homepage.viewmodel.InteractionLogType
-import com.example.closenest.features.homepage.viewmodel.InteractionLogTypeOptions
+import com.example.closenest.features.homepage.viewmodel.MemoryType
+import com.example.closenest.features.homepage.viewmodel.MemoryTypeOptions
 import com.example.closenest.features.homepage.viewmodel.ReflectionContactListItem
 import com.example.closenest.features.homepage.viewmodel.ReflectionFeeling
 import com.example.closenest.features.homepage.viewmodel.ReflectionFeelingOptions
@@ -90,16 +115,31 @@ import com.example.closenest.features.homepage.viewmodel.ReflectionMood
 import com.example.closenest.features.homepage.viewmodel.ReflectionMoodOptions
 import com.example.closenest.features.homepage.viewmodel.ReflectionSource
 import com.example.closenest.features.homepage.viewmodel.ReflectionSourceOptions
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.net.FetchPlaceRequest
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 @Composable
 fun AddHubRoute(
     onAddRelationship: () -> Unit,
     onOpenReflection: () -> Unit,
-    onOpenInteractionLog: () -> Unit,
+    onOpenMemory: () -> Unit,
     onOpenAppointment: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AddHubViewModel = viewModel(factory = AddHubViewModel.Factory)
@@ -113,9 +153,9 @@ fun AddHubRoute(
             viewModel.startReflection()
             onOpenReflection()
         },
-        onOpenInteractionLog = {
-            viewModel.startInteractionLog()
-            onOpenInteractionLog()
+        onOpenMemory = {
+            viewModel.startMemory()
+            onOpenMemory()
         },
         onOpenAppointment = {
             viewModel.startAppointment()
@@ -153,28 +193,105 @@ fun ReflectionRoute(
 }
 
 @Composable
-fun InteractionLogRoute(
+fun MemoryRoute(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AddHubViewModel = viewModel(factory = AddHubViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var showPhotoOptions by rememberSaveable { mutableStateOf(false) }
+    var pendingCameraPhotoUri by remember { mutableStateOf<Uri?>(null) }
 
-    LaunchedEffect(uiState.interactionSavedMessageRes) {
-        if (uiState.interactionSavedMessageRes != null) {
+    val openDocumentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            viewModel.onMemoryPhotoChanged(uri.toString())
+        }
+    }
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        viewModel.onMemoryPhotoChanged(
+            if (success) pendingCameraPhotoUri?.toString() else null
+        )
+    }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val uri = context.createMemoryPhotoUri()
+            pendingCameraPhotoUri = uri
+            takePictureLauncher.launch(uri)
+        }
+    }
+
+    LaunchedEffect(uiState.memorySavedMessageRes) {
+        if (uiState.memorySavedMessageRes != null) {
             onNavigateBack()
         }
     }
 
-    InteractionLogScreen(
+    MemoryScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
-        onContactSelected = viewModel::onInteractionContactSelected,
-        onTypeSelected = viewModel::onInteractionTypeSelected,
-        onNoteChanged = viewModel::onInteractionNoteChanged,
-        onSave = viewModel::saveInteractionLog,
-        modifier = modifier
+        onContactSelected = viewModel::onMemoryContactSelected,
+        onTitleChanged = viewModel::onMemoryTitleChanged,
+        onTypeSelected = viewModel::onMemoryTypeSelected,
+        onNoteChanged = viewModel::onMemoryNoteChanged,
+        onAddPhotoClick = { showPhotoOptions = true },
+        onLocationChanged = viewModel::onMemoryLocationChanged,
+        onLocationSelected = viewModel::onMemoryLocationSelected,
+        onSave = viewModel::saveMemory,
+        modifier = modifier,
+        context = context
     )
+
+    if (showPhotoOptions) {
+        AlertDialog(
+            onDismissRequest = { showPhotoOptions = false },
+            title = { Text(text = stringResource(R.string.add_interaction_photo_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(
+                        onClick = {
+                            showPhotoOptions = false
+                            openDocumentLauncher.launch(arrayOf("image/*"))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(text = stringResource(R.string.add_interaction_photo_album))
+                    }
+                    FilledTonalButton(
+                        onClick = {
+                            showPhotoOptions = false
+                            if (ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.CAMERA
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            ) {
+                                val uri = context.createMemoryPhotoUri()
+                                pendingCameraPhotoUri = uri
+                                takePictureLauncher.launch(uri)
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(text = stringResource(R.string.add_interaction_photo_camera))
+                    }
+                }
+            },
+            confirmButton = {}
+        )
+    }
 }
 
 @Composable
@@ -198,6 +315,8 @@ fun AppointmentRoute(
         onLocationChanged = viewModel::onAppointmentLocationChanged,
         onLocationSelected = viewModel::onAppointmentLocationSelected,
         onDateSelected = viewModel::onAppointmentDateSelected,
+        onAllDayToggled = viewModel::onAppointmentAllDayToggled,
+        onTimeSelected = viewModel::onAppointmentTimeSelected,
         onSave = viewModel::saveAppointment,
         modifier = modifier
     )
@@ -208,7 +327,7 @@ fun AddHubScreen(
     uiState: AddHubUiState,
     onAddRelationship: () -> Unit,
     onOpenReflection: () -> Unit,
-    onOpenInteractionLog: () -> Unit,
+    onOpenMemory: () -> Unit,
     onOpenAppointment: () -> Unit,
     onSavedFeedbackDismissed: () -> Unit,
     modifier: Modifier = Modifier
@@ -221,8 +340,8 @@ fun AddHubScreen(
         }
     }
 
-    LaunchedEffect(uiState.interactionSavedMessageRes) {
-        uiState.interactionSavedMessageRes?.let { messageRes ->
+    LaunchedEffect(uiState.memorySavedMessageRes) {
+        uiState.memorySavedMessageRes?.let { messageRes ->
             savedFeedbackMessageRes = messageRes
         }
     }
@@ -254,7 +373,7 @@ fun AddHubScreen(
                 description = stringResource(R.string.add_interaction_body),
                 icon = Icons.AutoMirrored.Outlined.Notes,
                 ctaLabel = stringResource(R.string.add_interaction_open),
-                onClick = onOpenInteractionLog
+                onClick = onOpenMemory
             )
         }
 
@@ -298,10 +417,13 @@ fun AppointmentScreen(
     onLocationChanged: (String) -> Unit,
     onLocationSelected: (String, Double, Double) -> Unit,
     onDateSelected: (Long) -> Unit,
+    onAllDayToggled: (Boolean) -> Unit,
+    onTimeSelected: (Int, Int) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
     val appointmentNameEntered = uiState.appointmentName.isNotBlank()
     val appointmentLocationSelected = uiState.appointmentLocationLatitude != null &&
         uiState.appointmentLocationLongitude != null
@@ -332,7 +454,11 @@ fun AppointmentScreen(
                     uiState.appointmentName.isNotBlank() &&
                     uiState.appointmentLocation.isNotBlank() &&
                     appointmentLocationSelected &&
-                    uiState.appointmentDateMillis != null,
+                    uiState.appointmentDateMillis != null &&
+                    (uiState.isAppointmentAllDay || (
+                        uiState.appointmentTimeHour != null &&
+                            uiState.appointmentTimeMinute != null
+                        )),
                 onSave = onSave
             )
         }
@@ -346,27 +472,23 @@ fun AppointmentScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                ScreenIntroCard(
-                    title = stringResource(R.string.add_appointment_title),
-                    body = stringResource(R.string.add_appointment_body)
-                )
-            }
-
-            item {
-                AppointmentNameField(
-                    value = uiState.appointmentName,
-                    contacts = uiState.contacts,
-                    onValueChange = onNameChanged
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionTitle(text = stringResource(R.string.add_appointment_name_label))
+                    AppointmentNameField(
+                        value = uiState.appointmentName,
+                        contacts = uiState.contacts,
+                        onValueChange = onNameChanged
+                    )
+                }
             }
 
             if (appointmentNameEntered) {
                 item {
-                    AppointmentLocationField(
-                        value = uiState.appointmentLocation,
-                        isSelected = appointmentLocationSelected,
-                        onValueChange = onLocationChanged,
-                        onLocationSelected = onLocationSelected
+                    LocationSection(
+                        location = uiState.appointmentLocation,
+                        onLocationChanged = onLocationChanged,
+                        onLocationSelected = onLocationSelected,
+                        context = LocalContext.current
                     )
                 }
 
@@ -384,6 +506,40 @@ fun AppointmentScreen(
                                 } ?: stringResource(R.string.add_appointment_pick_date)
                             )
                         }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SectionTitle(text = stringResource(R.string.add_appointment_all_day))
+                            Switch(
+                                checked = uiState.isAppointmentAllDay,
+                                onCheckedChange = onAllDayToggled
+                            )
+                        }
+
+                        if (!uiState.isAppointmentAllDay) {
+                            SectionTitle(text = stringResource(R.string.add_appointment_time_label))
+                            FilledTonalButton(
+                                onClick = { showTimePicker = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(vertical = 14.dp)
+                            ) {
+                                Text(
+                                    text = if (uiState.appointmentTimeHour != null &&
+                                        uiState.appointmentTimeMinute != null
+                                    ) {
+                                        formatAppointmentTime(
+                                            hour = uiState.appointmentTimeHour,
+                                            minute = uiState.appointmentTimeMinute
+                                        )
+                                    } else {
+                                        stringResource(R.string.add_appointment_pick_time)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -398,6 +554,18 @@ fun AppointmentScreen(
                 showDatePicker = false
             },
             onDismiss = { showDatePicker = false }
+        )
+    }
+
+    if (showTimePicker) {
+        AppointmentTimePickerDialog(
+            selectedHour = uiState.appointmentTimeHour,
+            selectedMinute = uiState.appointmentTimeMinute,
+            onTimeSelected = { hour, minute ->
+                onTimeSelected(hour, minute)
+                showTimePicker = false
+            },
+            onDismiss = { showTimePicker = false }
         )
     }
 }
@@ -436,7 +604,7 @@ private fun AppointmentNameField(
                 },
             singleLine = true,
             shape = RoundedCornerShape(18.dp),
-            label = {
+            placeholder = {
                 Text(text = stringResource(R.string.add_appointment_name_label))
             }
         )
@@ -465,120 +633,120 @@ private fun AppointmentNameField(
     }
 }
 
-@Composable
-private fun AppointmentLocationField(
-    value: String,
-    isSelected: Boolean,
-    onValueChange: (String) -> Unit,
-    onLocationSelected: (String, Double, Double) -> Unit
-) {
-    val context = LocalContext.current
-    val accessToken = context.getString(R.string.mapbox_access_token)
-    var isFocused by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf(false) }
-    var isSearching by remember { mutableStateOf(false) }
-    var suggestions by remember { mutableStateOf<List<MapboxGeocodingResult>>(emptyList()) }
-
-    LaunchedEffect(value, isFocused, isSelected) {
-        val query = value.trim()
-        if (!isFocused || isSelected || query.length < 2) {
-            suggestions = emptyList()
-            expanded = false
-            isSearching = false
-            return@LaunchedEffect
-        }
-
-        delay(350)
-        isSearching = true
-        suggestions = runCatching {
-            searchMapboxLocations(query = query, accessToken = accessToken)
-        }.getOrElse {
-            emptyList()
-        }
-        expanded = suggestions.isNotEmpty() && isFocused
-        isSearching = false
-    }
-
-    Box(modifier = Modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { newValue ->
-                onValueChange(newValue)
-                expanded = newValue.length >= 2
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    isFocused = focusState.isFocused
-                    expanded = focusState.isFocused && suggestions.isNotEmpty() && !isSelected
-                },
-            singleLine = true,
-            shape = RoundedCornerShape(18.dp),
-            label = {
-                Text(text = stringResource(R.string.add_appointment_location_label))
-            },
-            leadingIcon = {
-                if (isSearching) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.Place,
-                        contentDescription = null
-                    )
-                }
-            },
-            supportingText = {
-                Text(
-                    text = if (value.isNotBlank() && !isSelected) {
-                        stringResource(R.string.add_appointment_location_hint)
-                    } else {
-                        " "
-                    }
-                )
-            }
-        )
-
-        DropdownMenu(
-            expanded = expanded && suggestions.isNotEmpty(),
-            onDismissRequest = { expanded = false },
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 240.dp)
-        ) {
-            suggestions.forEach { suggestion ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(
-                                text = suggestion.name,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = suggestion.fullAddress,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    },
-                    onClick = {
-                        onLocationSelected(
-                            suggestion.fullAddress,
-                            suggestion.point.latitude(),
-                            suggestion.point.longitude()
-                        )
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
+//@Composable
+//private fun AppointmentLocationField(
+//    value: String,
+//    isSelected: Boolean,
+//    onValueChange: (String) -> Unit,
+//    onLocationSelected: (String, Double, Double) -> Unit
+//) {
+//    val context = LocalContext.current
+//    val accessToken = context.getString(R.string.mapbox_access_token)
+//    var isFocused by remember { mutableStateOf(false) }
+//    var expanded by remember { mutableStateOf(false) }
+//    var isSearching by remember { mutableStateOf(false) }
+//    var suggestions by remember { mutableStateOf<List<MapboxGeocodingResult>>(emptyList()) }
+//
+//    LaunchedEffect(value, isFocused, isSelected) {
+//        val query = value.trim()
+//        if (!isFocused || isSelected || query.length < 2) {
+//            suggestions = emptyList()
+//            expanded = false
+//            isSearching = false
+//            return@LaunchedEffect
+//        }
+//
+//        delay(350)
+//        isSearching = true
+//        suggestions = runCatching {
+//            searchMapboxLocations(query = query, accessToken = accessToken)
+//        }.getOrElse {
+//            emptyList()
+//        }
+//        expanded = suggestions.isNotEmpty() && isFocused
+//        isSearching = false
+//    }
+//
+//    Box(modifier = Modifier.fillMaxWidth()) {
+//        OutlinedTextField(
+//            value = value,
+//            onValueChange = { newValue ->
+//                onValueChange(newValue)
+//                expanded = newValue.length >= 2
+//            },
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .onFocusChanged { focusState ->
+//                    isFocused = focusState.isFocused
+//                    expanded = focusState.isFocused && suggestions.isNotEmpty() && !isSelected
+//                },
+//            singleLine = true,
+//            shape = RoundedCornerShape(18.dp),
+//            label = {
+//                Text(text = stringResource(R.string.add_appointment_location_label))
+//            },
+//            leadingIcon = {
+//                if (isSearching) {
+//                    CircularProgressIndicator(
+//                        modifier = Modifier.size(18.dp),
+//                        strokeWidth = 2.dp
+//                    )
+//                } else {
+//                    Icon(
+//                        imageVector = Icons.Outlined.Place,
+//                        contentDescription = null
+//                    )
+//                }
+//            },
+//            supportingText = {
+//                Text(
+//                    text = if (value.isNotBlank() && !isSelected) {
+//                        stringResource(R.string.add_appointment_location_hint)
+//                    } else {
+//                        " "
+//                    }
+//                )
+//            }
+//        )
+//
+//        DropdownMenu(
+//            expanded = expanded && suggestions.isNotEmpty(),
+//            onDismissRequest = { expanded = false },
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .heightIn(max = 240.dp)
+//        ) {
+//            suggestions.forEach { suggestion ->
+//                DropdownMenuItem(
+//                    text = {
+//                        Column {
+//                            Text(
+//                                text = suggestion.name,
+//                                maxLines = 1,
+//                                overflow = TextOverflow.Ellipsis
+//                            )
+//                            Text(
+//                                text = suggestion.fullAddress,
+//                                style = MaterialTheme.typography.bodySmall,
+//                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                                maxLines = 2,
+//                                overflow = TextOverflow.Ellipsis
+//                            )
+//                        }
+//                    },
+//                    onClick = {
+//                        onLocationSelected(
+//                            suggestion.fullAddress,
+//                            suggestion.point.latitude(),
+//                            suggestion.point.longitude()
+//                        )
+//                        expanded = false
+//                    }
+//                )
+//            }
+//        }
+//    }
+//}
 
 @Composable
 fun ReflectionScreen(
@@ -771,14 +939,19 @@ private fun AppointmentDatePickerDialog(
 }
 
 @Composable
-fun InteractionLogScreen(
+fun MemoryScreen(
     uiState: AddHubUiState,
     onNavigateBack: () -> Unit,
     onContactSelected: (String) -> Unit,
-    onTypeSelected: (InteractionLogType) -> Unit,
+    onTitleChanged: (String) -> Unit,
+    onTypeSelected: (MemoryType) -> Unit,
     onNoteChanged: (String) -> Unit,
+    onAddPhotoClick: () -> Unit,
+    onLocationChanged: (String) -> Unit,
+    onLocationSelected: (String, Double, Double) -> Unit,
     onSave: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    context: Context = LocalContext.current
 ) {
     Scaffold(
         modifier = modifier,
@@ -798,11 +971,11 @@ fun InteractionLogScreen(
         },
         bottomBar = {
             BottomSaveBar(
-                errorMessageRes = uiState.interactionErrorMessageRes,
-                isSaving = uiState.isSavingInteractionLog,
+                errorMessageRes = uiState.memoryErrorMessageRes,
+                isSaving = uiState.isSavingMemory,
                 savingLabelRes = R.string.add_interaction_saving,
                 saveLabelRes = R.string.add_interaction_done,
-                enabled = !uiState.isSavingInteractionLog &&
+                enabled = !uiState.isSavingMemory &&
                     !uiState.isLoadingContacts &&
                     uiState.contactsErrorMessageRes == null &&
                     uiState.contacts.isNotEmpty(),
@@ -818,13 +991,6 @@ fun InteractionLogScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                ScreenIntroCard(
-                    title = stringResource(R.string.add_interaction_screen_title),
-                    body = stringResource(R.string.add_interaction_body)
-                )
-            }
-
             when {
                 uiState.isLoadingContacts -> {
                     item { LoadingContactsRow() }
@@ -860,7 +1026,7 @@ fun InteractionLogScreen(
                     ) { contact ->
                         ContactRadioRow(
                             contact = contact,
-                            selected = contact.id == uiState.selectedInteractionContactId,
+                            selected = contact.id == uiState.selectedMemoryContactId,
                             onContactSelected = onContactSelected
                         )
                     }
@@ -868,26 +1034,380 @@ fun InteractionLogScreen(
             }
 
             item {
-                InteractionTypeSection(
-                    selectedType = uiState.selectedInteractionType,
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionTitle(text = "Bạn đã có kỷ niệm gì?")
+                    OutlinedTextField(
+                        value = uiState.memoryTitle,
+                        onValueChange = onTitleChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
+                        label = {
+                            Text(text = "Tên kỷ niệm")
+                        }
+                    )
+                }
+            }
+
+            item {
+                MemoryTypeSection(
+                    selectedType = uiState.selectedMemoryType,
                     onTypeSelected = onTypeSelected
                 )
             }
 
             item {
-                OutlinedTextField(
-                    value = uiState.interactionNote,
-                    onValueChange = onNoteChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 4,
-                    shape = RoundedCornerShape(18.dp),
-                    label = {
-                        Text(text = stringResource(R.string.add_interaction_note_label))
-                    },
-                    supportingText = {
-                        Text(text = stringResource(R.string.add_interaction_note_hint))
-                    }
+                PhotoSection(
+                    photoUri = uiState.memoryPhotoUri,
+                    onAddPhotoClick = onAddPhotoClick
                 )
+            }
+
+            item {
+                LocationSection(
+                    location = uiState.memoryLocation,
+                    onLocationChanged = onLocationChanged,
+                    onLocationSelected = onLocationSelected,
+                    context = context
+                )
+            }
+
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SectionTitle(text = "Ghi chú")
+                    OutlinedTextField(
+                        value = uiState.memoryNote,
+                        onValueChange = onNoteChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
+                        label = {
+                            Text(text = stringResource(R.string.add_interaction_note_label))
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppointmentTimePickerDialog(
+    selectedHour: Int?,
+    selectedMinute: Int?,
+    onTimeSelected: (Int, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val calendar = remember {
+        Calendar.getInstance()
+    }
+    val timePickerState = rememberTimePickerState(
+        initialHour = selectedHour ?: calendar.get(Calendar.HOUR_OF_DAY),
+        initialMinute = selectedMinute ?: calendar.get(Calendar.MINUTE),
+        is24Hour = true
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = { onTimeSelected(timePickerState.hour, timePickerState.minute) }
+            ) {
+                Text(text = stringResource(R.string.add_appointment_time_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.profile_logout_cancel_button))
+            }
+        },
+        text = {
+            TimePicker(state = timePickerState)
+        }
+    )
+}
+
+@Composable
+private fun PhotoSection(
+    photoUri: String?,
+    onAddPhotoClick: () -> Unit
+) {
+    val context = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionTitle(text = stringResource(R.string.add_interaction_photo_title))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilledTonalButton(
+                onClick = onAddPhotoClick,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (photoUri.isNullOrBlank()) {
+                            Icons.Outlined.Image
+                        } else {
+                            Icons.Outlined.Check
+                        },
+                        contentDescription = null
+                    )
+                    Text(
+                        text = if (photoUri.isNullOrBlank()) {
+                            stringResource(R.string.add_interaction_photo_add)
+                        } else {
+                            stringResource(R.string.add_interaction_photo_added)
+                        }
+                    )
+                }
+            }
+
+            if (!photoUri.isNullOrBlank()) {
+                val bitmap = remember(photoUri) {
+                    val uri = Uri.parse(photoUri)
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)?.use { stream ->
+                            BitmapFactory.decodeStream(stream)
+                        }
+                    }.getOrNull()
+                }
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFF0EDE8))
+                ) {
+                    if (bitmap != null) {
+                        androidx.compose.foundation.Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Ảnh kỷ niệm",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.CameraAlt,
+                            contentDescription = null,
+                            tint = Color(0xFFB0A89E),
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocationSection(
+    location: String,
+    onLocationChanged: (String) -> Unit,
+    onLocationSelected: (String, Double, Double) -> Unit,
+    context: Context
+) {
+    var query by rememberSaveable { mutableStateOf(location) }
+    var predictions by remember { mutableStateOf<List<PlacePrediction>>(emptyList()) }
+    var isSearching by remember { mutableStateOf(false) }
+    var showDropdown by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(query) {
+        if (query.isBlank() || query == location) {
+            predictions = emptyList()
+            showDropdown = false
+            return@LaunchedEffect
+        }
+        delay(300)
+        if (query != location) {
+            isSearching = true
+            predictions = searchPlaces(query, context)
+            showDropdown = predictions.isNotEmpty()
+            isSearching = false
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionTitle(text = stringResource(R.string.add_interaction_location_title))
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline,
+                        shape = RoundedCornerShape(18.dp)
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier
+                        .weight(3f)
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextField(
+                        value = query,
+                        onValueChange = { newValue ->
+                            query = newValue
+                            onLocationChanged(newValue)
+                            showDropdown = newValue.isNotBlank()
+                        },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        placeholder = {
+                            Text(text = stringResource(R.string.add_interaction_location_label))
+                        },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent
+                        )
+                    )
+                    if (isSearching) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable {
+                            coroutineScope.launch {
+                                context.findCurrentReadableLocation()?.let { (label, latitude, longitude) ->
+                                    query = label
+                                    onLocationSelected(label, latitude, longitude)
+                                }
+                            }
+                        }
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Place,
+                        contentDescription = stringResource(R.string.add_interaction_location_add)
+                    )
+                }
+            }
+
+            DropdownMenu(
+                expanded = showDropdown && predictions.isNotEmpty(),
+                onDismissRequest = { showDropdown = false },
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .heightIn(max = 200.dp)
+            ) {
+                predictions.forEach { prediction ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = prediction.primaryText,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = prediction.secondaryText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        },
+                        onClick = {
+                            query = prediction.fullText
+                            showDropdown = false
+                            coroutineScope.launch {
+                                fetchPlaceLatLng(prediction.placeId, context)?.let { (lat, lng) ->
+                                    onLocationSelected(prediction.fullText, lat, lng)
+                                } ?: onLocationSelected(prediction.fullText, 0.0, 0.0)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private data class PlacePrediction(
+    val placeId: String,
+    val primaryText: String,
+    val secondaryText: String,
+    val fullText: String
+)
+
+private suspend fun searchPlaces(query: String, context: Context): List<PlacePrediction> {
+    val placesClient = com.google.android.libraries.places.api.Places.createClient(context)
+    return suspendCancellableCoroutine { continuation ->
+        placesClient.findAutocompletePredictions(
+            FindAutocompletePredictionsRequest.builder()
+                .setQuery(query)
+                .setCountries("VN")
+                .build()
+        ).addOnSuccessListener { response ->
+            val items = response.autocompletePredictions.map { prediction ->
+                PlacePrediction(
+                    placeId = prediction.placeId,
+                    primaryText = prediction.getPrimaryText(null).toString(),
+                    secondaryText = prediction.getSecondaryText(null).toString(),
+                    fullText = prediction.getFullText(null).toString()
+                )
+            }
+            if (continuation.isActive) {
+                continuation.resume(items)
+            }
+        }.addOnFailureListener {
+            if (continuation.isActive) {
+                continuation.resume(emptyList())
+            }
+        }
+    }
+}
+
+private suspend fun fetchPlaceLatLng(placeId: String, context: Context): Pair<Double, Double>? {
+    val placesClient = com.google.android.libraries.places.api.Places.createClient(context)
+    return suspendCancellableCoroutine { continuation ->
+        placesClient.fetchPlace(
+            FetchPlaceRequest.builder(
+                placeId,
+                listOf(Place.Field.LOCATION)
+            ).build()
+        ).addOnSuccessListener { response ->
+            val location = response.place.location
+            if (continuation.isActive) {
+                if (location != null) {
+                    continuation.resume(Pair(location.latitude, location.longitude))
+                } else {
+                    continuation.resume(null)
+                }
+            }
+        }.addOnFailureListener {
+            if (continuation.isActive) {
+                continuation.resume(null)
             }
         }
     }
@@ -1246,9 +1766,9 @@ private fun SourcesSection(
 }
 
 @Composable
-private fun InteractionTypeSection(
-    selectedType: InteractionLogType,
-    onTypeSelected: (InteractionLogType) -> Unit
+private fun MemoryTypeSection(
+    selectedType: MemoryType,
+    onTypeSelected: (MemoryType) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle(text = stringResource(R.string.add_interaction_type_question))
@@ -1259,7 +1779,7 @@ private fun InteractionTypeSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            InteractionLogTypeOptions.forEach { type ->
+            MemoryTypeOptions.forEach { type ->
                 SelectChip(
                     label = stringResource(type.labelRes),
                     selected = selectedType == type,
@@ -1392,7 +1912,7 @@ private fun AddHubScreenPreview() {
             ),
             onAddRelationship = {},
             onOpenReflection = {},
-            onOpenInteractionLog = {},
+            onOpenMemory = {},
             onOpenAppointment = {},
             onSavedFeedbackDismissed = {}
         )
@@ -1402,5 +1922,80 @@ private fun AddHubScreenPreview() {
 private fun formatAppointmentDate(dateMillis: Long): String {
     return appointmentDateFormatter.format(Date(dateMillis))
 }
+
+private fun formatAppointmentTime(hour: Int, minute: Int): String {
+    return String.format(Locale.getDefault(), "%02d:%02d", hour, minute)
+}
+
+private fun Context.createMemoryPhotoUri(): Uri {
+    val imagesDirectory = File(cacheDir, "images").apply { mkdirs() }
+    val imageFile = File.createTempFile("memory_", ".jpg", imagesDirectory)
+    return FileProvider.getUriForFile(
+        this,
+        "$packageName.fileprovider",
+        imageFile
+    )
+}
+
+private suspend fun Context.findCurrentReadableLocation(): Triple<String, Double, Double>? {
+    val location = findBestUserLocation() ?: return null
+    val label = reverseGeocode(location) ?: "${location.latitude}, ${location.longitude}"
+    return Triple(label, location.latitude, location.longitude)
+}
+
+private suspend fun Context.findBestUserLocation(): Location? {
+    val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+    val lastLocation = runCatching { fusedLocationClient.lastLocation.awaitResult() }.getOrNull()
+    if (lastLocation != null) {
+        return lastLocation
+    }
+
+    val cancellationTokenSource = CancellationTokenSource()
+    return try {
+        fusedLocationClient
+            .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellationTokenSource.token)
+            .awaitResult()
+    } finally {
+        cancellationTokenSource.cancel()
+    }
+}
+
+private suspend fun Context.reverseGeocode(location: Location): String? =
+    withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val geocoder = Geocoder(this@reverseGeocode, Locale.getDefault())
+        val addresses = try {
+            @Suppress("DEPRECATION")
+            geocoder.getFromLocation(location.latitude, location.longitude, 1)
+        } catch (_: IOException) {
+            null
+        }.orEmpty()
+
+        addresses.firstOrNull()?.let { address ->
+            buildList {
+                for (index in 0..address.maxAddressLineIndex) {
+                    address.getAddressLine(index)?.takeIf { it.isNotBlank() }?.let(::add)
+                }
+            }.joinToString(", ").takeIf { it.isNotBlank() }
+        }
+    }
+
+private suspend fun <T> com.google.android.gms.tasks.Task<T>.awaitResult(): T =
+    suspendCancellableCoroutine { continuation ->
+        addOnSuccessListener { result ->
+            if (continuation.isActive) {
+                continuation.resume(result)
+            }
+        }
+        addOnFailureListener { exception ->
+            if (continuation.isActive) {
+                continuation.resumeWithException(exception)
+            }
+        }
+        addOnCanceledListener {
+            if (continuation.isActive) {
+                continuation.cancel()
+            }
+        }
+    }
 
 private val appointmentDateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.forLanguageTag("vi-VN"))

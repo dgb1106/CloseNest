@@ -1,8 +1,11 @@
 package com.example.closenest.features.homepage.ui
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Location
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,32 +13,32 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Place
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,85 +48,305 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.closenest.R
-import com.example.closenest.core.network.MapboxGeocodingResult
-import com.example.closenest.core.network.searchMapboxLocations
-import com.example.closenest.features.homepage.model.MapMarker
-import com.mapbox.geojson.Point
-import com.mapbox.maps.extension.compose.MapEffect
-import com.mapbox.maps.extension.compose.MapboxMap
-import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
-import com.mapbox.maps.plugin.PuckBearing
-import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
-import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
-import com.mapbox.maps.plugin.locationcomponent.location
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.closenest.features.homepage.model.AppointmentItem
+import com.example.closenest.features.homepage.repository.AppointmentRepositoryProvider
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.android.gms.tasks.Task
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+
+private const val DefaultMapZoom = 2f
+private const val FocusedMapZoom = 14f
 
 @Composable
 fun HomeMapScreen(
     modifier: Modifier = Modifier
 ) {
+    val appointmentRepository = remember { AppointmentRepositoryProvider.repository }
+    var upcomingCount by remember { mutableStateOf<Int?>(null) }
+    var appointmentList by remember { mutableStateOf<List<AppointmentItem>>(emptyList()) }
+    var showAppointmentsDialog by rememberSaveable { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                coroutineScope.launch {
+                    val latestAppointments = runCatching {
+                        appointmentRepository.getUpcomingAppointments()
+                    }.getOrDefault(emptyList())
+                    appointmentList = latestAppointments
+                    upcomingCount = latestAppointments.size
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(label = "Bộ lọc")
-                FilterChip(label = "Sắp xếp")
-            }
             Text(
-                text = "99 kết quả",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF5F5650),
-                maxLines = 1
+                text = "CloseNest",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 34.sp,
+                color = MaterialTheme.colorScheme.onBackground
             )
         }
+        Spacer(modifier = Modifier.height(14.dp))
 
-        MapCard(modifier = Modifier.weight(1f))
+        Card(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showAppointmentsDialog = true }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val label = buildAnnotatedString {
+                    withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
+                        append("Bạn đang có ")
+                    }
+                    when (val count = upcomingCount) {
+                        null -> withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
+                            append("...")
+                        }
+                        else -> withStyle(
+                            SpanStyle(
+                                color = Color(0xFF8B5E34),
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        ) {
+                            append(count.toString())
+                        }
+                    }
+                    withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
+                        append(" cuộc hẹn")
+                    }
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 22.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "▼",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 14.sp,
+                    color = Color(0xFF9E9E9E),
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        MapCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        )
+    }
+
+    if (showAppointmentsDialog) {
+        AppointmentsDialog(
+            appointments = appointmentList,
+            onDismiss = { showAppointmentsDialog = false }
+        )
     }
 }
 
 @Composable
-private fun FilterChip(label: String) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
-            .border(1.dp, Color(0xFFE3DCD3), RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+private fun AppointmentsDialog(
+    appointments: List<AppointmentItem>,
+    onDismiss: () -> Unit
+) {
+    val pagerState = rememberPagerState(pageCount = { appointments.size })
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF2A2724),
-            maxLines = 1
-        )
-        Text(
-            text = "▾",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF7A6F67)
-        )
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(horizontal = 4.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 8.dp, top = 14.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Cuộc hẹn sắp tới",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Đóng",
+                            tint = Color(0xFF757575)
+                        )
+                    }
+                }
+
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                ) { page ->
+                    AppointmentCard(appointment = appointments[page])
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 18.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(appointments.size) { index ->
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .size(if (pagerState.currentPage == index) 10.dp else 8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (pagerState.currentPage == index) {
+                                        Color(0xFF616161)
+                                    } else {
+                                        Color(0xFFBDBDBD)
+                                    }
+                                )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppointmentCard(appointment: AppointmentItem) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F6FA)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE8E1D9)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Event,
+                        contentDescription = null,
+                        tint = Color(0xFF5D4E37)
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = appointment.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = formatAppointmentDate(appointment.appointmentDateMillis),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF757575)
+                    )
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Place,
+                    contentDescription = null,
+                    tint = Color(0xFF9E9E9E),
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = appointment.location,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF616161)
+                )
+            }
+        }
     }
 }
 
@@ -137,270 +360,195 @@ private fun MapCard(
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF2F4F8)),
         modifier = modifier.fillMaxWidth()
     ) {
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             MapBackground()
         }
     }
 }
 
+@SuppressLint("MissingPermission")
 @Composable
 private fun MapBackground() {
-    var requestedCameraOnce by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val accessToken = context.getString(R.string.mapbox_access_token)
+    val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
 
-    var mapSearchQuery by rememberSaveable { mutableStateOf("") }
-    var searchResults by remember { mutableStateOf<List<MapboxGeocodingResult>>(emptyList()) }
-    var showDropdown by remember { mutableStateOf(false) }
-    var isSearchFocused by remember { mutableStateOf(false) }
-    var isSearching by remember { mutableStateOf(false) }
-    var searchJob by remember { mutableStateOf<Job?>(null) }
-    var selectedPoint by remember { mutableStateOf<Point?>(null) }
+    var hasLocationPermission by remember { mutableStateOf(context.hasLocationPermission()) }
+    var hasCenteredOnUser by rememberSaveable { mutableStateOf(false) }
+    var isMapLoaded by remember { mutableStateOf(false) }
 
-    val mapViewportState = rememberMapViewportState {
-        setCameraOptions {
-            zoom(2.0)
-            center(Point.fromLngLat(-98.0, 39.5))
-            pitch(0.0)
-            bearing(0.0)
+    val defaultCenter = LatLng(39.5, -98.0)
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(defaultCenter, DefaultMapZoom)
+    }
+
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasLocationPermission = context.hasLocationPermission()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(hasLocationPermission, hasCenteredOnUser, isMapLoaded) {
+        if (!hasLocationPermission || hasCenteredOnUser) {
+            return@LaunchedEffect
+        }
+
+        val userLatLng = context.findBestUserLocation()
+        if (userLatLng != null) {
+            if (isMapLoaded) {
+                cameraPositionState.animate(
+                    CameraUpdateFactory.newLatLngZoom(userLatLng, FocusedMapZoom)
+                )
+            } else {
+                cameraPositionState.position = CameraPosition.fromLatLngZoom(
+                    userLatLng,
+                    FocusedMapZoom
+                )
+            }
+            hasCenteredOnUser = true
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        MapboxMap(
+        GoogleMap(
             modifier = Modifier.fillMaxSize(),
-            mapViewportState = mapViewportState,
-            scaleBar = {},
-            logo = {
-                Logo()
-            },
-            attribution = {
-                Attribution()
-            }
-        ) {
-            MapEffect(Unit) { mapView ->
-                mapView.location.updateSettings {
-                    locationPuck = createDefault2DPuck(withBearing = true)
-                    enabled = true
-                    puckBearing = PuckBearing.HEADING
-                    puckBearingEnabled = true
-                }
-
-                if (!requestedCameraOnce) {
-                    requestedCameraOnce = true
-                    mapView.location.addOnIndicatorPositionChangedListener(
-                        object : OnIndicatorPositionChangedListener {
-                            override fun onIndicatorPositionChanged(point: Point) {
-                                mapViewportState.setCameraOptions {
-                                    center(point)
-                                    zoom(14.0)
-                                    pitch(0.0)
-                                    bearing(0.0)
-                                }
-                                mapView.location.removeOnIndicatorPositionChangedListener(this)
-                            }
-                        }
-                    )
-                }
-            }
-        }
-
-        // Search overlay at top of map
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (showDropdown && searchResults.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 220.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-                ) {
-                    LazyColumn {
-                        items(searchResults) { result ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        mapSearchQuery = result.name
-                                        selectedPoint = result.point
-                                        showDropdown = false
-                                        mapViewportState.setCameraOptions {
-                                            center(result.point)
-                                            zoom(14.0)
-                                            pitch(0.0)
-                                            bearing(0.0)
-                                        }
-                                    }
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Place,
-                                    contentDescription = null,
-                                    tint = Color(0xFFE18567),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = result.name,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color(0xFF2A2724),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = result.fullAddress,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color(0xFF7A6F67),
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            OutlinedTextField(
-                value = mapSearchQuery,
-                onValueChange = { query ->
-                    mapSearchQuery = query
-                    searchJob?.cancel()
-                    if (query.length >= 2) {
-                        searchJob = coroutineScope.launch {
-                            delay(300)
-                            isSearching = true
-                            try {
-                                searchResults = searchMapboxLocations(query, accessToken)
-                                showDropdown = searchResults.isNotEmpty() && isSearchFocused
-                            } catch (_: Exception) {
-                                searchResults = emptyList()
-                                showDropdown = false
-                            }
-                            isSearching = false
-                        }
-                    } else {
-                        searchResults = emptyList()
-                        showDropdown = false
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { focusState ->
-                        isSearchFocused = focusState.isFocused
-                        if (focusState.isFocused && searchResults.isNotEmpty()) {
-                            showDropdown = true
-                        } else if (!focusState.isFocused) {
-                            showDropdown = false
-                        }
-                    },
-                shape = RoundedCornerShape(22.dp),
-                singleLine = true,
-                leadingIcon = {
-                    if (isSearching) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = Color(0xFFE18567)
-                        )
-                    } else {
-                        Icon(
-                            Icons.Outlined.Search,
-                            contentDescription = "Tìm kiếm",
-                            tint = Color(0xFF5F5650)
-                        )
-                    }
-                },
-                trailingIcon = {
-                    Icon(
-                        Icons.Outlined.Share,
-                        contentDescription = "Chia sẻ"
-                    )
-                },
-                label = { Text("Khu vực tìm kiếm") },
-                supportingText = {
-                    Text(
-                        text = "12 - 15 thg 9  •  1 phòng  •  2 khách",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedBorderColor = Color(0xFFE18567),
-                    unfocusedBorderColor = Color(0xFFE3DCD3)
-                )
+            cameraPositionState = cameraPositionState,
+            onMapLoaded = { isMapLoaded = true },
+            properties = MapProperties(isMyLocationEnabled = hasLocationPermission),
+            uiSettings = MapUiSettings(
+                mapToolbarEnabled = false,
+                zoomControlsEnabled = false,
+                myLocationButtonEnabled = false
             )
+        )
+
+        Card(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 20.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .width(76.dp)
+                    .height(38.dp)
+            ) {
+                ZoomControlButton(
+                    symbol = "-",
+                    onClick = {
+                        coroutineScope.launch {
+                            if (isMapLoaded) {
+                                cameraPositionState.animate(CameraUpdateFactory.zoomOut())
+                            }
+                        }
+                    }
+                )
+                VerticalDivider(
+                    modifier = Modifier.fillMaxHeight(),
+                    color = Color(0xFFE8E1D9)
+                )
+                ZoomControlButton(
+                    symbol = "+",
+                    onClick = {
+                        coroutineScope.launch {
+                            if (isMapLoaded) {
+                                cameraPositionState.animate(CameraUpdateFactory.zoomIn())
+                            }
+                        }
+                    }
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun PersonMarker(
-    marker: MapMarker,
-    offsetX: Dp,
-    offsetY: Dp
+private fun ZoomControlButton(
+    symbol: String,
+    onClick: () -> Unit
 ) {
-    val markerSize = if (marker.highlighted) 54.dp else 36.dp
-    val background = if (marker.highlighted) Color(0xFF273746) else Color.White
-    val border = if (marker.highlighted) Color(0xFF3E5667) else Color(0xFFE3DDD6)
-    val textColor = if (marker.highlighted) Color.White else Color(0xFF2A2622)
-
     Box(
         modifier = Modifier
-            .offset(
-                x = offsetX - markerSize / 2,
-                y = offsetY - markerSize / 2
-            )
-            .size(markerSize)
-            .clip(CircleShape)
-            .background(background)
-            .border(2.dp, border, CircleShape)
-            .clickable(enabled = marker.highlighted) {},
+            .width(38.dp)
+            .fillMaxHeight()
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (marker.highlighted) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Outlined.Place,
-                    contentDescription = null,
-                    tint = Color(0xFFE18567),
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = marker.label,
-                    color = textColor,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-            }
-        } else {
-            Text(
-                text = marker.label,
-                color = textColor,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                maxLines = 1
-            )
+        Text(
+            text = symbol,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = Color(0xFF2A2724)
+        )
+    }
+}
+
+private suspend fun Context.findBestUserLocation(): LatLng? {
+    if (!hasLocationPermission()) {
+        return null
+    }
+
+    val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+    val lastLocation = runCatching { fusedLocationClient.lastLocation.await() }.getOrNull()
+    if (lastLocation != null) {
+        return lastLocation.toLatLng()
+    }
+
+    val cancellationTokenSource = CancellationTokenSource()
+    return try {
+        fusedLocationClient
+            .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellationTokenSource.token)
+            .await()
+            ?.toLatLng()
+    } finally {
+        cancellationTokenSource.cancel()
+    }
+}
+
+private fun Location.toLatLng(): LatLng = LatLng(latitude, longitude)
+
+private fun Context.hasLocationPermission(): Boolean {
+    val fineLocationGranted = ContextCompat.checkSelfPermission(
+        this,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    val coarseLocationGranted = ContextCompat.checkSelfPermission(
+        this,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+
+    return fineLocationGranted || coarseLocationGranted
+}
+
+private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { continuation ->
+    addOnSuccessListener { result ->
+        if (continuation.isActive) {
+            continuation.resume(result)
         }
     }
+    addOnFailureListener { exception ->
+        if (continuation.isActive) {
+            continuation.resumeWithException(exception)
+        }
+    }
+    addOnCanceledListener {
+        if (continuation.isActive) {
+            continuation.cancel()
+        }
+    }
+}
+
+private val appointmentDateFormatter = SimpleDateFormat("EEEE, dd 'tháng' MM, yyyy", Locale("vi"))
+
+private fun formatAppointmentDate(dateMillis: Long): String {
+    return appointmentDateFormatter.format(Date(dateMillis))
 }

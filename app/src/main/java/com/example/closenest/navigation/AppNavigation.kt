@@ -23,7 +23,7 @@ import com.example.closenest.core.ui.components.HomeBottomBar
 import com.example.closenest.features.homepage.ui.AddHubRoute
 import com.example.closenest.features.homepage.ui.AppointmentRoute
 import com.example.closenest.features.homepage.ui.HomeMapScreen
-import com.example.closenest.features.homepage.ui.InteractionLogRoute
+import com.example.closenest.features.homepage.ui.MemoryRoute
 import com.example.closenest.features.homepage.ui.ReflectionRoute
 import com.example.closenest.features.homepage.ui.SectionPlaceholderScreen
 import com.example.closenest.features.homepage.viewmodel.AddHubViewModel
@@ -35,7 +35,7 @@ import com.example.closenest.features.relationships.ui.RelationshipsRoute
 
 private const val AddRelationshipRouteName = "add_relationship"
 private const val AddReflectionRouteName = "add_reflection"
-private const val AddInteractionLogRouteName = "add_interaction_log"
+private const val AddMemoryRouteName = "add_memory"
 private const val AddAppointmentRouteName = "add_appointment"
 private const val RelationshipDetailRouteName = "relationship_detail"
 private const val RelationshipIdArgument = "relationshipId"
@@ -49,7 +49,7 @@ fun AppNavigation(onLogout: () -> Unit) {
     val selectedTab = MainTab.fromRoute(currentRoute) ?: MainTab.Map
     val showBottomBar = currentRoute != AddRelationshipRouteName &&
         currentRoute != AddReflectionRouteName &&
-        currentRoute != AddInteractionLogRouteName &&
+        currentRoute != AddMemoryRouteName &&
         currentRoute != AddAppointmentRouteName &&
         currentRoute != RelationshipDetailRoutePattern
     val navigateToAddRelationship = {
@@ -62,8 +62,8 @@ fun AppNavigation(onLogout: () -> Unit) {
             launchSingleTop = true
         }
     }
-    val navigateToInteractionLog = {
-        navController.navigate(AddInteractionLogRouteName) {
+    val navigateToMemory = {
+        navController.navigate(AddMemoryRouteName) {
             launchSingleTop = true
         }
     }
@@ -118,7 +118,7 @@ fun AppNavigation(onLogout: () -> Unit) {
                 AddHubRoute(
                     onAddRelationship = navigateToAddRelationship,
                     onOpenReflection = navigateToReflection,
-                    onOpenInteractionLog = navigateToInteractionLog,
+                    onOpenMemory = navigateToMemory,
                     onOpenAppointment = navigateToAppointment,
                     modifier = Modifier
                 )
@@ -166,12 +166,12 @@ fun AppNavigation(onLogout: () -> Unit) {
                     )
                 )
             }
-            composable(AddInteractionLogRouteName) { backStackEntry ->
+            composable(AddMemoryRouteName) { backStackEntry ->
                 val addBackStackEntry = remember(backStackEntry) {
                     navController.getBackStackEntry(MainTab.Add.route)
                 }
 
-                InteractionLogRoute(
+                MemoryRoute(
                     onNavigateBack = { navController.popBackStack() },
                     modifier = Modifier,
                     viewModel = viewModel(
