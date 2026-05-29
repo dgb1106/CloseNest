@@ -71,6 +71,29 @@ class AuthViewModel(
         }
     }
 
+    fun loginWithGoogle(idToken: String) {
+        _uiState.update { it.copy(isLoading = true, message = "") }
+
+        viewModelScope.launch {
+            repository.loginWithGoogle(idToken)
+                .fold(
+                    onSuccess = {
+                        _uiState.update {
+                            it.copy(isLoggedIn = true, isLoading = false, message = "")
+                        }
+                    },
+                    onFailure = { e ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                message = e.localizedMessage ?: "Đăng nhập với Google thất bại"
+                            )
+                        }
+                    }
+                )
+        }
+    }
+
     fun onLogout() {
         repository.logout()
         _uiState.update { it.copy(isLoggedIn = false) }

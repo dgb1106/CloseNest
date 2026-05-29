@@ -3,6 +3,7 @@ package com.example.closenest.features.auth.repository
 import com.example.closenest.features.auth.model.UserDocument
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
@@ -84,6 +85,49 @@ class FirebaseAuthRepository(
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    override suspend fun loginWithGoogle(idToken: String): Result<Unit> {
+        return try {
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            auth.signInWithCredential(credential).await()
+
+            val uid = auth.currentUser?.uid
+                ?: return Result.failure(Exception("User not found after Google login"))
+
+            updateStreakOnLogin(uid)
+            createOrUpdateGoogleUser(uid)
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun createOrUpdateGoogleUser(uid: String) {
+        try {
+            val userDoc = getUserDocument(uid).getOrNull()
+            if (userDoc == null) {
+                // Create new user from Google
+                val googleUser = auth.currentUser
+                val now = Timestamp.now()
+                val newUser = UserDocument(
+                    uid = uid,
+                    email = googleUser?.email ?: "",
+                    firstName = googleUser?.displayName?.split(" ")?.firstOrNull() ?: "User",
+                    lastName = googleUser?.displayName?.split(" ")?.drop(1)?.joinToString(" ") ?: "",
+                    createdAt = now,
+                    lastCheckedIn = now,
+                    streakCount = 1
+                )
+                firestore.collection(USERS_COLLECTION)
+                    .document(uid)
+                    .set(newUser.toMap())
+                    .await()
+            }
+        } catch (_: Exception) {
+            // User doc creation is non-critical for Google login; silently ignore failures
         }
     }
 
