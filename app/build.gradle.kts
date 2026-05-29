@@ -90,4 +90,14 @@ dependencies {
     implementation(libs.google.maps.compose)
     implementation(libs.google.places)
     implementation(libs.google.play.services.location)
+    
+    // Google Authentication
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
+    
+    // Credential Manager (Recommended by Google 2024)
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    
+    // Google Identity for ID Token
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 }
