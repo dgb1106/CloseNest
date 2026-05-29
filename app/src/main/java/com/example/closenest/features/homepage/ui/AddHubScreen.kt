@@ -5,6 +5,7 @@ package com.example.closenest.features.homepage.ui
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.location.Geocoder
 import android.location.Location
 import android.graphics.BitmapFactory
@@ -115,11 +116,8 @@ import com.example.closenest.features.homepage.viewmodel.ReflectionMood
 import com.example.closenest.features.homepage.viewmodel.ReflectionMoodOptions
 import com.example.closenest.features.homepage.viewmodel.ReflectionSource
 import com.example.closenest.features.homepage.viewmodel.ReflectionSourceOptions
+import com.example.closenest.core.network.PlacesApiClient
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.libraries.places.api.model.Place
-import com.google.android.libraries.places.api.net.FetchPlaceRequest
-import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.delay
@@ -633,121 +631,6 @@ private fun AppointmentNameField(
     }
 }
 
-//@Composable
-//private fun AppointmentLocationField(
-//    value: String,
-//    isSelected: Boolean,
-//    onValueChange: (String) -> Unit,
-//    onLocationSelected: (String, Double, Double) -> Unit
-//) {
-//    val context = LocalContext.current
-//    val accessToken = context.getString(R.string.mapbox_access_token)
-//    var isFocused by remember { mutableStateOf(false) }
-//    var expanded by remember { mutableStateOf(false) }
-//    var isSearching by remember { mutableStateOf(false) }
-//    var suggestions by remember { mutableStateOf<List<MapboxGeocodingResult>>(emptyList()) }
-//
-//    LaunchedEffect(value, isFocused, isSelected) {
-//        val query = value.trim()
-//        if (!isFocused || isSelected || query.length < 2) {
-//            suggestions = emptyList()
-//            expanded = false
-//            isSearching = false
-//            return@LaunchedEffect
-//        }
-//
-//        delay(350)
-//        isSearching = true
-//        suggestions = runCatching {
-//            searchMapboxLocations(query = query, accessToken = accessToken)
-//        }.getOrElse {
-//            emptyList()
-//        }
-//        expanded = suggestions.isNotEmpty() && isFocused
-//        isSearching = false
-//    }
-//
-//    Box(modifier = Modifier.fillMaxWidth()) {
-//        OutlinedTextField(
-//            value = value,
-//            onValueChange = { newValue ->
-//                onValueChange(newValue)
-//                expanded = newValue.length >= 2
-//            },
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .onFocusChanged { focusState ->
-//                    isFocused = focusState.isFocused
-//                    expanded = focusState.isFocused && suggestions.isNotEmpty() && !isSelected
-//                },
-//            singleLine = true,
-//            shape = RoundedCornerShape(18.dp),
-//            label = {
-//                Text(text = stringResource(R.string.add_appointment_location_label))
-//            },
-//            leadingIcon = {
-//                if (isSearching) {
-//                    CircularProgressIndicator(
-//                        modifier = Modifier.size(18.dp),
-//                        strokeWidth = 2.dp
-//                    )
-//                } else {
-//                    Icon(
-//                        imageVector = Icons.Outlined.Place,
-//                        contentDescription = null
-//                    )
-//                }
-//            },
-//            supportingText = {
-//                Text(
-//                    text = if (value.isNotBlank() && !isSelected) {
-//                        stringResource(R.string.add_appointment_location_hint)
-//                    } else {
-//                        " "
-//                    }
-//                )
-//            }
-//        )
-//
-//        DropdownMenu(
-//            expanded = expanded && suggestions.isNotEmpty(),
-//            onDismissRequest = { expanded = false },
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .heightIn(max = 240.dp)
-//        ) {
-//            suggestions.forEach { suggestion ->
-//                DropdownMenuItem(
-//                    text = {
-//                        Column {
-//                            Text(
-//                                text = suggestion.name,
-//                                maxLines = 1,
-//                                overflow = TextOverflow.Ellipsis
-//                            )
-//                            Text(
-//                                text = suggestion.fullAddress,
-//                                style = MaterialTheme.typography.bodySmall,
-//                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-//                                maxLines = 2,
-//                                overflow = TextOverflow.Ellipsis
-//                            )
-//                        }
-//                    },
-//                    onClick = {
-//                        onLocationSelected(
-//                            suggestion.fullAddress,
-//                            suggestion.point.latitude(),
-//                            suggestion.point.longitude()
-//                        )
-//                        expanded = false
-//                    }
-//                )
-//            }
-//        }
-//    }
-//}
-
 @Composable
 fun ReflectionScreen(
     uiState: AddHubUiState,
@@ -1210,25 +1093,34 @@ private fun LocationSection(
     onLocationSelected: (String, Double, Double) -> Unit,
     context: Context
 ) {
+    val tag = "LocationSection"
+    val accessToken = context.getString(R.string.mapbox_access_token)
+    val sessionToken = remember { java.util.UUID.randomUUID().toString() }
     var query by rememberSaveable { mutableStateOf(location) }
-    var predictions by remember { mutableStateOf<List<PlacePrediction>>(emptyList()) }
+    var suggestions by remember { mutableStateOf<List<PlacesApiClient.PlaceSuggestion>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
     var showDropdown by remember { mutableStateOf(false) }
+    var isFocused by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(query) {
-        if (query.isBlank() || query == location) {
-            predictions = emptyList()
+        Log.d(tag, "query='$query' focused=$isFocused")
+        if (query.isBlank() || !isFocused) {
+            suggestions = emptyList()
             showDropdown = false
+            Log.d(tag, "skip suggest blankOrNoFocus showDropdown=false")
             return@LaunchedEffect
         }
-        delay(300)
-        if (query != location) {
-            isSearching = true
-            predictions = searchPlaces(query, context)
-            showDropdown = predictions.isNotEmpty()
-            isSearching = false
-        }
+        delay(350)
+        isSearching = true
+        suggestions = PlacesApiClient.suggest(
+            query = query,
+            accessToken = accessToken,
+            sessionToken = sessionToken
+        )
+        showDropdown = suggestions.isNotEmpty() && isFocused
+        Log.d(tag, "suggestions=${suggestions.size} showDropdown=$showDropdown")
+        isSearching = false
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1257,9 +1149,15 @@ private fun LocationSection(
                         onValueChange = { newValue ->
                             query = newValue
                             onLocationChanged(newValue)
-                            showDropdown = newValue.isNotBlank()
+                            showDropdown = newValue.isNotBlank() && isFocused
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .onFocusChanged { focusState ->
+                                isFocused = focusState.isFocused
+                                showDropdown = focusState.isFocused && suggestions.isNotEmpty()
+                                Log.d(tag, "focus=$isFocused showDropdown=$showDropdown suggestions=${suggestions.size}")
+                            },
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyLarge,
                         placeholder = {
@@ -1313,23 +1211,23 @@ private fun LocationSection(
             }
 
             DropdownMenu(
-                expanded = showDropdown && predictions.isNotEmpty(),
+                expanded = showDropdown && isFocused && suggestions.isNotEmpty(),
                 onDismissRequest = { showDropdown = false },
                 modifier = Modifier
-                    .fillMaxWidth(0.7f)
-                    .heightIn(max = 200.dp)
+                    .fillMaxWidth()
+                    .heightIn(max = 240.dp)
             ) {
-                predictions.forEach { prediction ->
+                suggestions.take(5).forEach { suggestion ->
                     DropdownMenuItem(
                         text = {
                             Column {
                                 Text(
-                                    text = prediction.primaryText,
+                                    text = suggestion.name,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = prediction.secondaryText,
+                                    text = suggestion.placeFormatted,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 2,
@@ -1338,12 +1236,23 @@ private fun LocationSection(
                             }
                         },
                         onClick = {
-                            query = prediction.fullText
+                            val fullAddress = suggestion.fullAddress.ifBlank { suggestion.placeFormatted }
+                            query = fullAddress
                             showDropdown = false
+                            Log.d(tag, "click suggestion name='${suggestion.name}' mapboxId='${suggestion.mapboxId}'")
                             coroutineScope.launch {
-                                fetchPlaceLatLng(prediction.placeId, context)?.let { (lat, lng) ->
-                                    onLocationSelected(prediction.fullText, lat, lng)
-                                } ?: onLocationSelected(prediction.fullText, 0.0, 0.0)
+                                val result = PlacesApiClient.retrieve(
+                                    mapboxId = suggestion.mapboxId,
+                                    accessToken = accessToken,
+                                    sessionToken = sessionToken
+                                )
+                                if (result != null) {
+                                    Log.d(tag, "retrieve lat=${result.latitude} lon=${result.longitude}")
+                                    onLocationSelected(result.fullAddress, result.latitude, result.longitude)
+                                } else {
+                                    Log.e(tag, "retrieve null for mapboxId='${suggestion.mapboxId}'")
+                                    onLocationChanged(fullAddress)
+                                }
                             }
                         }
                     )
@@ -1352,67 +1261,6 @@ private fun LocationSection(
         }
     }
 }
-
-private data class PlacePrediction(
-    val placeId: String,
-    val primaryText: String,
-    val secondaryText: String,
-    val fullText: String
-)
-
-private suspend fun searchPlaces(query: String, context: Context): List<PlacePrediction> {
-    val placesClient = com.google.android.libraries.places.api.Places.createClient(context)
-    return suspendCancellableCoroutine { continuation ->
-        placesClient.findAutocompletePredictions(
-            FindAutocompletePredictionsRequest.builder()
-                .setQuery(query)
-                .setCountries("VN")
-                .build()
-        ).addOnSuccessListener { response ->
-            val items = response.autocompletePredictions.map { prediction ->
-                PlacePrediction(
-                    placeId = prediction.placeId,
-                    primaryText = prediction.getPrimaryText(null).toString(),
-                    secondaryText = prediction.getSecondaryText(null).toString(),
-                    fullText = prediction.getFullText(null).toString()
-                )
-            }
-            if (continuation.isActive) {
-                continuation.resume(items)
-            }
-        }.addOnFailureListener {
-            if (continuation.isActive) {
-                continuation.resume(emptyList())
-            }
-        }
-    }
-}
-
-private suspend fun fetchPlaceLatLng(placeId: String, context: Context): Pair<Double, Double>? {
-    val placesClient = com.google.android.libraries.places.api.Places.createClient(context)
-    return suspendCancellableCoroutine { continuation ->
-        placesClient.fetchPlace(
-            FetchPlaceRequest.builder(
-                placeId,
-                listOf(Place.Field.LOCATION)
-            ).build()
-        ).addOnSuccessListener { response ->
-            val location = response.place.location
-            if (continuation.isActive) {
-                if (location != null) {
-                    continuation.resume(Pair(location.latitude, location.longitude))
-                } else {
-                    continuation.resume(null)
-                }
-            }
-        }.addOnFailureListener {
-            if (continuation.isActive) {
-                continuation.resume(null)
-            }
-        }
-    }
-}
-
 @Composable
 private fun AddActionCard(
     title: String,

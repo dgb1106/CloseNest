@@ -14,6 +14,7 @@ val localProperties = Properties().apply {
 }
 
 val googleMapsApiKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
+val mapboxAccessToken = localProperties.getProperty("MAPBOX_ACCESS_TOKEN", "")
 
 android {
     namespace = "com.example.closenest"
@@ -42,11 +43,15 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
+            resValue("string", "mapbox_access_token", mapboxAccessToken)
         }
         debug {
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
+            resValue("string", "mapbox_access_token", mapboxAccessToken)
         }
     }
     compileOptions {
@@ -88,6 +93,5 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")
     implementation(libs.google.maps.compose)
-    implementation(libs.google.places)
     implementation(libs.google.play.services.location)
 }
