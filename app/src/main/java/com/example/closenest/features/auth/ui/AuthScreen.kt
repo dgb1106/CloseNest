@@ -33,10 +33,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -53,6 +55,7 @@ import com.example.closenest.R
 import com.example.closenest.core.ui.theme.AppTheme
 import com.example.closenest.core.ui.theme.CloseNestPrimary
 import com.example.closenest.core.ui.theme.CloseNestSurface
+import kotlinx.coroutines.launch
 
 @Composable
 fun AuthScreen(
@@ -60,13 +63,16 @@ fun AuthScreen(
     isLoading: Boolean,
     onLogin: (String, String) -> Unit,
     onNavigateToRegister: () -> Unit,
-    onGoogleLoginClick: () -> Unit
+    onGoogleLoginClick: (String) -> Unit
 ) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    var googleLoginLoading by rememberSaveable { mutableStateOf(false) }
 
     val registerAnnotatedString = buildRegisterAnnotatedString()
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -197,11 +203,26 @@ fun AuthScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedButton(
-            onClick = { onGoogleLoginClick() },
+            onClick = {
+                coroutineScope.launch {
+                    googleLoginLoading = true
+                    val result = getGoogleIdToken(context)
+                    googleLoginLoading = false
+                    result.fold(
+                        onSuccess = { idToken ->
+                            onGoogleLoginClick(idToken)
+                        },
+                        onFailure = { e ->
+                            // Error is shown via message in UI from ViewModel
+                        }
+                    )
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(16.dp),
+            enabled = !isLoading && !googleLoginLoading,
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = CloseNestSurface
             )
@@ -210,12 +231,20 @@ fun AuthScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.google_icon),
-                    contentDescription = "Google",
-                    modifier = Modifier.size(20.dp),
-                    tint = androidx.compose.ui.graphics.Color.Unspecified
-                )
+                if (googleLoginLoading) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(id = R.drawable.google_icon),
+                        contentDescription = "Google",
+                        modifier = Modifier.size(20.dp),
+                        tint = androidx.compose.ui.graphics.Color.Unspecified
+                    )
+                }
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = stringResource(R.string.auth_google_button),
@@ -261,7 +290,7 @@ fun AuthScreenPreview() {
             isLoading = false,
             onLogin = { _, _ -> },
             onNavigateToRegister = {},
-            onGoogleLoginClick = {}
+            onGoogleLoginClick = { _ -> }
         )
     }
 }
@@ -275,7 +304,7 @@ fun AuthScreenLoadingPreview() {
             isLoading = true,
             onLogin = { _, _ -> },
             onNavigateToRegister = {},
-            onGoogleLoginClick = {}
+            onGoogleLoginClick = { _ -> }
         )
     }
 }
