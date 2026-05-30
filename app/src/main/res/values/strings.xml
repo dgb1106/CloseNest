@@ -15,6 +15,12 @@
     <string name="chatbot_welcome">Hôm nay bạn muốn nói chuyện gì?</string>
     <string name="chatbot_history_title">Lịch sử trò chuyện</string>
     <string name="chatbot_history_empty">Chưa có cuộc trò chuyện nào. Bạn có thể bắt đầu ngay phía trên.</string>
+    <string name="chatbot_history_select">Chọn</string>
+    <string name="chatbot_history_cancel">Hủy</string>
+    <string name="chatbot_history_delete_count">Xoá (%1$d)</string>
+    <string name="chatbot_history_delete_confirm_title">Xoá cuộc trò chuyện</string>
+    <string name="chatbot_history_delete_confirm_body">Bạn chắc chắn muốn xoá %1$d cuộc trò chuyện đã chọn không?</string>
+    <string name="chatbot_history_delete_confirm_action">Xoá</string>
     <string name="chatbot_mode_vent">Mình muốn xả chút</string>
     <string name="chatbot_mode_gift">Tư vấn tặng quà</string>
     <string name="chatbot_mode_general_label">Trò chuyện</string>
@@ -34,6 +40,7 @@
     <string name="chatbot_ai_location_error">Gemini Developer API chưa hỗ trợ khu vực hiện tại của thiết bị.</string>
     <string name="chatbot_ai_blocked_error">Tin nhắn bị bộ lọc an toàn của Gemini chặn. Bạn viết lại nhẹ hơn một chút rồi gửi lại nhé.</string>
     <string name="chatbot_unknown_error">Có lỗi khi trò chuyện. Bạn thử lại một lần nữa nhé.</string>
+    <string name="chatbot_delete_error">Không thể xoá cuộc trò chuyện lúc này. Bạn thử lại sau nhé.</string>
 
     <string name="relationships_title">Danh bạ của bạn</string>
     <string name="relationships_subtitle">Lưu lại những người quan trọng cùng thông tin liên hệ cần thiết.</string>

@@ -172,6 +172,42 @@ class FirebaseChatbotRepository(
         )
     }
 
+    override suspend fun deleteSessions(sessionIds: List<String>) {
+        if (sessionIds.isEmpty()) return
+        val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
+
+        ensureFirestoreReachable()
+
+        sessionIds.distinct().forEach { sessionId ->
+            deleteSession(userId = userId, sessionId = sessionId)
+        }
+    }
+
+    private suspend fun deleteSession(userId: String, sessionId: String) {
+        val messagesRef = messagesCollection(userId, sessionId)
+
+        while (true) {
+            val snapshot = messagesRef
+                .limit(DeleteBatchSize.toLong())
+                .get()
+                .awaitResult()
+            if (snapshot.isEmpty) break
+
+            firestore.batch().apply {
+                snapshot.documents.forEach { document ->
+                    delete(document.reference)
+                }
+            }.commit().awaitCompletion()
+
+            if (snapshot.size() < DeleteBatchSize) break
+        }
+
+        sessionsCollection(userId)
+            .document(sessionId)
+            .delete()
+            .awaitCompletion()
+    }
+
     private fun sessionsCollection(userId: String) =
         firestore.collection(UsersCollection)
             .document(userId)
@@ -251,6 +287,21 @@ private suspend fun Task<*>.awaitCompletion() {
     }
 }
 
+private suspend fun <T> Task<T>.awaitResult(): T {
+    return suspendCancellableCoroutine { continuation ->
+        addOnSuccessListener { result ->
+            if (continuation.isActive) {
+                continuation.resume(result)
+            }
+        }
+        addOnFailureListener { exception ->
+            if (continuation.isActive) {
+                continuation.resumeWithException(exception)
+            }
+        }
+    }
+}
+
 private suspend fun ensureFirestoreReachable() {
     withContext(Dispatchers.IO) {
         runCatching {
@@ -284,3 +335,5 @@ private const val FieldText = "text"
 private const val FieldModel = "model"
 private const val FieldCreatedAtMillis = "createdAtMillis"
 private const val FieldUpdatedAtMillis = "updatedAtMillis"
+
+private const val DeleteBatchSize = 50

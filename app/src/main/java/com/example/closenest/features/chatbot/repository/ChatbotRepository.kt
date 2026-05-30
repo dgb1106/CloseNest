@@ -19,4 +19,6 @@ interface ChatbotRepository {
         text: String,
         model: String? = null
     ): ChatMessage
+
+    suspend fun deleteSessions(sessionIds: List<String>)
 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -38,9 +39,14 @@ import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +54,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -116,6 +123,10 @@ fun FloatingChatbotOverlay(
                 onNewConversation = viewModel::requestNewConversation,
                 onSelectMode = viewModel::selectMode,
                 onSelectSession = viewModel::selectSession,
+                onStartSessionSelection = viewModel::startSessionSelection,
+                onCancelSessionSelection = viewModel::cancelSessionSelection,
+                onToggleSessionSelection = viewModel::toggleSessionSelection,
+                onDeleteSelectedSessions = viewModel::deleteSelectedSessions,
                 onInputChanged = viewModel::onInputChanged,
                 onSend = viewModel::sendMessage,
                 onDismissError = viewModel::clearError,
@@ -123,7 +134,6 @@ fun FloatingChatbotOverlay(
                     .align(Alignment.BottomEnd)
                     .padding(horizontal = 12.dp, vertical = 12.dp)
                     .navigationBarsPadding()
-                    .imePadding()
             )
         } else {
             DraggableChatButton(
@@ -270,6 +280,10 @@ private fun ChatbotPanel(
     onNewConversation: () -> Unit,
     onSelectMode: (ChatMode) -> Unit,
     onSelectSession: (ChatSession) -> Unit,
+    onStartSessionSelection: () -> Unit,
+    onCancelSessionSelection: () -> Unit,
+    onToggleSessionSelection: (String) -> Unit,
+    onDeleteSelectedSessions: () -> Unit,
     onInputChanged: (String) -> Unit,
     onSend: () -> Unit,
     onDismissError: () -> Unit,
@@ -286,7 +300,11 @@ private fun ChatbotPanel(
         shadowElevation = 10.dp,
         color = MaterialTheme.colorScheme.surface
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+        ) {
             ChatbotHeader(
                 mode = uiState.mode,
                 onNewConversation = onNewConversation,
@@ -310,6 +328,10 @@ private fun ChatbotPanel(
                 uiState = uiState,
                 onSelectMode = onSelectMode,
                 onSelectSession = onSelectSession,
+                onStartSessionSelection = onStartSessionSelection,
+                onCancelSessionSelection = onCancelSessionSelection,
+                onToggleSessionSelection = onToggleSessionSelection,
+                onDeleteSelectedSessions = onDeleteSelectedSessions,
                 onInputChanged = onInputChanged,
                 onSend = onSend,
                 modifier = Modifier.weight(1f)
@@ -435,6 +457,10 @@ private fun ChatbotMessages(
     uiState: ChatbotUiState,
     onSelectMode: (ChatMode) -> Unit,
     onSelectSession: (ChatSession) -> Unit,
+    onStartSessionSelection: () -> Unit,
+    onCancelSessionSelection: () -> Unit,
+    onToggleSessionSelection: (String) -> Unit,
+    onDeleteSelectedSessions: () -> Unit,
     onInputChanged: (String) -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier
@@ -472,6 +498,10 @@ private fun ChatbotMessages(
                     uiState = uiState,
                     onSelectMode = onSelectMode,
                     onSelectSession = onSelectSession,
+                    onStartSessionSelection = onStartSessionSelection,
+                    onCancelSessionSelection = onCancelSessionSelection,
+                    onToggleSessionSelection = onToggleSessionSelection,
+                    onDeleteSelectedSessions = onDeleteSelectedSessions,
                     onInputChanged = onInputChanged,
                     onSend = onSend
                 )
@@ -498,9 +528,14 @@ private fun ChatHome(
     uiState: ChatbotUiState,
     onSelectMode: (ChatMode) -> Unit,
     onSelectSession: (ChatSession) -> Unit,
+    onStartSessionSelection: () -> Unit,
+    onCancelSessionSelection: () -> Unit,
+    onToggleSessionSelection: (String) -> Unit,
+    onDeleteSelectedSessions: () -> Unit,
     onInputChanged: (String) -> Unit,
     onSend: () -> Unit
 ) {
+    val isBusy = uiState.isSending || uiState.isCreatingSession || uiState.isDeletingSessions
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -508,29 +543,38 @@ private fun ChatHome(
         WelcomeInput(
             value = uiState.inputText,
             canSend = uiState.canSend,
-            isSending = uiState.isSending || uiState.isCreatingSession,
+            isSending = isBusy,
             onValueChange = onInputChanged,
             onSend = onSend
         )
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             ModeChip(
                 label = stringResource(R.string.chatbot_mode_vent),
                 icon = Icons.Outlined.FavoriteBorder,
+                enabled = !isBusy,
                 onClick = { onSelectMode(ChatMode.Vent) }
             )
             ModeChip(
                 label = stringResource(R.string.chatbot_mode_gift),
                 icon = Icons.Outlined.CardGiftcard,
+                enabled = !isBusy,
                 onClick = { onSelectMode(ChatMode.GiftAdvice) }
             )
         }
         ChatHistorySection(
             sessions = uiState.sessions,
-            onSelectSession = onSelectSession
+            isSelecting = uiState.isSelectingSessions,
+            selectedSessionIds = uiState.selectedSessionIds,
+            isDeleting = uiState.isDeletingSessions,
+            onSelectSession = onSelectSession,
+            onStartSelection = onStartSessionSelection,
+            onCancelSelection = onCancelSessionSelection,
+            onToggleSelection = onToggleSessionSelection,
+            onDeleteSelectedSessions = onDeleteSelectedSessions
         )
     }
 }
@@ -586,18 +630,77 @@ private fun WelcomeInput(
 @Composable
 private fun ChatHistorySection(
     sessions: List<ChatSession>,
-    onSelectSession: (ChatSession) -> Unit
+    isSelecting: Boolean,
+    selectedSessionIds: Set<String>,
+    isDeleting: Boolean,
+    onSelectSession: (ChatSession) -> Unit,
+    onStartSelection: () -> Unit,
+    onCancelSelection: () -> Unit,
+    onToggleSelection: (String) -> Unit,
+    onDeleteSelectedSessions: () -> Unit
 ) {
+    val selectedCount = selectedSessionIds.size
+    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(isSelecting, selectedCount) {
+        if (!isSelecting || selectedCount == 0) {
+            showDeleteDialog = false
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = stringResource(R.string.chatbot_history_title),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.chatbot_history_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            if (sessions.isNotEmpty()) {
+                if (isSelecting) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = onCancelSelection,
+                            enabled = !isDeleting
+                        ) {
+                            Text(text = stringResource(R.string.chatbot_history_cancel))
+                        }
+                        TextButton(
+                            onClick = { showDeleteDialog = true },
+                            enabled = selectedCount > 0 && !isDeleting,
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    R.string.chatbot_history_delete_count,
+                                    selectedCount
+                                )
+                            )
+                        }
+                    }
+                } else {
+                    TextButton(
+                        onClick = onStartSelection,
+                        enabled = !isDeleting
+                    ) {
+                        Text(text = stringResource(R.string.chatbot_history_select))
+                    }
+                }
+            }
+        }
 
         if (sessions.isEmpty()) {
             Text(
@@ -609,17 +712,74 @@ private fun ChatHistorySection(
         }
 
         sessions.take(MaxHistoryItems).forEach { session ->
+            val isSelected = selectedSessionIds.contains(session.id)
             ChatHistoryItem(
                 session = session,
-                onClick = { onSelectSession(session) }
+                isSelected = isSelected,
+                selectionEnabled = isSelecting,
+                isDeleting = isDeleting,
+                onClick = {
+                    if (isSelecting) {
+                        onToggleSelection(session.id)
+                    } else {
+                        onSelectSession(session)
+                    }
+                }
             )
         }
+    }
+
+    if (showDeleteDialog && selectedCount > 0) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!isDeleting) {
+                    showDeleteDialog = false
+                }
+            },
+            title = {
+                Text(text = stringResource(R.string.chatbot_history_delete_confirm_title))
+            },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.chatbot_history_delete_confirm_body,
+                        selectedCount
+                    )
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDeleteSelectedSessions()
+                    },
+                    enabled = !isDeleting,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text(text = stringResource(R.string.chatbot_history_delete_confirm_action))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteDialog = false },
+                    enabled = !isDeleting
+                ) {
+                    Text(text = stringResource(R.string.chatbot_history_cancel))
+                }
+            }
+        )
     }
 }
 
 @Composable
 private fun ChatHistoryItem(
     session: ChatSession,
+    isSelected: Boolean,
+    selectionEnabled: Boolean,
+    isDeleting: Boolean,
     onClick: () -> Unit
 ) {
     val modeLabel = stringResource(session.mode.labelRes())
@@ -640,14 +800,25 @@ private fun ChatHistoryItem(
         "$modeLabel · $updatedLabel"
     }
 
+    val backgroundColor = if (isSelected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f)
+    }
+    val contentColor = if (isSelected) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
+            .clickable(enabled = !isDeleting, onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        color = backgroundColor,
+        contentColor = contentColor
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -687,6 +858,23 @@ private fun ChatHistoryItem(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+
+            if (selectionEnabled) {
+                Icon(
+                    imageVector = if (isSelected) {
+                        Icons.Outlined.CheckCircle
+                    } else {
+                        Icons.Outlined.RadioButtonUnchecked
+                    },
+                    contentDescription = null,
+                    tint = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
@@ -695,10 +883,12 @@ private fun ChatHistoryItem(
 private fun ModeChip(
     label: String,
     icon: ImageVector,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     AssistChip(
         onClick = onClick,
+        enabled = enabled,
         leadingIcon = {
             Icon(
                 imageVector = icon,

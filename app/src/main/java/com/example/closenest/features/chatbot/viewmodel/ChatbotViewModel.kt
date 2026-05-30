@@ -40,6 +40,9 @@ data class ChatbotUiState(
     val mode: ChatMode? = null,
     val messages: List<ChatMessage> = emptyList(),
     val sessions: List<ChatSession> = emptyList(),
+    val isSelectingSessions: Boolean = false,
+    val selectedSessionIds: Set<String> = emptySet(),
+    val isDeletingSessions: Boolean = false,
     val inputText: String = "",
     val isCreatingSession: Boolean = false,
     val isSending: Boolean = false,
@@ -47,7 +50,8 @@ data class ChatbotUiState(
     @param:StringRes val errorMessageRes: Int? = null
 ) {
     val showModeOptions: Boolean = !isLoading && mode == null
-    val canSend: Boolean = inputText.isNotBlank() && !isSending && !isCreatingSession && !isLoading
+    val canSend: Boolean = inputText.isNotBlank() && !isSending && !isCreatingSession &&
+        !isLoading && !isDeletingSessions
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -93,6 +97,9 @@ class ChatbotViewModel(
             mode = session?.mode,
             messages = messagesResult.messages,
             sessions = sessionsResult.sessions,
+            isSelectingSessions = currentDraft.isSelectingSessions,
+            selectedSessionIds = currentDraft.selectedSessionIds,
+            isDeletingSessions = currentDraft.isDeletingSessions,
             inputText = currentDraft.inputText,
             isCreatingSession = currentDraft.isCreatingSession,
             isSending = currentDraft.isSending,
@@ -122,6 +129,8 @@ class ChatbotViewModel(
         draft.update { current ->
             current.copy(
                 inputText = "",
+                isSelectingSessions = false,
+                selectedSessionIds = emptySet(),
                 errorMessage = null,
                 errorMessageRes = null
             )
@@ -133,20 +142,100 @@ class ChatbotViewModel(
         draft.update { current ->
             current.copy(
                 inputText = "",
+                isSelectingSessions = false,
+                selectedSessionIds = emptySet(),
                 errorMessage = null,
                 errorMessageRes = null
             )
         }
     }
 
+    fun startSessionSelection() {
+        draft.update { current ->
+            if (current.isDeletingSessions) {
+                current
+            } else {
+                current.copy(
+                    isSelectingSessions = true,
+                    selectedSessionIds = emptySet()
+                )
+            }
+        }
+    }
+
+    fun cancelSessionSelection() {
+        draft.update { current ->
+            current.copy(
+                isSelectingSessions = false,
+                selectedSessionIds = emptySet()
+            )
+        }
+    }
+
+    fun toggleSessionSelection(sessionId: String) {
+        draft.update { current ->
+            if (!current.isSelectingSessions || current.isDeletingSessions) {
+                current
+            } else {
+                val updated = current.selectedSessionIds.toMutableSet()
+                if (!updated.add(sessionId)) {
+                    updated.remove(sessionId)
+                }
+                current.copy(selectedSessionIds = updated)
+            }
+        }
+    }
+
+    fun deleteSelectedSessions() {
+        val selectedIds = uiState.value.selectedSessionIds
+        if (selectedIds.isEmpty() || uiState.value.isDeletingSessions) return
+
+        viewModelScope.launch {
+            draft.update { current ->
+                current.copy(
+                    isDeletingSessions = true,
+                    errorMessage = null,
+                    errorMessageRes = null
+                )
+            }
+
+            runCatching {
+                withTimeout(FirestoreTimeoutMillis) {
+                    repository.deleteSessions(selectedIds.toList())
+                }
+            }.onSuccess {
+                if (selectedSession.value?.id in selectedIds) {
+                    selectedSession.value = null
+                }
+                draft.update { current ->
+                    current.copy(
+                        isDeletingSessions = false,
+                        isSelectingSessions = false,
+                        selectedSessionIds = emptySet()
+                    )
+                }
+            }.onFailure { throwable ->
+                Log.e(ChatbotLogTag, "Failed to delete chatbot sessions.", throwable)
+                draft.update { current ->
+                    current.copy(
+                        isDeletingSessions = false,
+                        errorMessageRes = R.string.chatbot_delete_error
+                    )
+                }
+            }
+        }
+    }
+
     fun selectMode(mode: ChatMode) {
         val currentState = uiState.value
-        if (currentState.isCreatingSession || currentState.isSending) return
+        if (currentState.isCreatingSession || currentState.isSending || currentState.isDeletingSessions) return
 
         viewModelScope.launch {
             draft.update { current ->
                 current.copy(
                     isCreatingSession = true,
+                    isSelectingSessions = false,
+                    selectedSessionIds = emptySet(),
                     errorMessage = null,
                     errorMessageRes = null
                 )
@@ -185,7 +274,7 @@ class ChatbotViewModel(
     fun sendMessage() {
         val currentState = uiState.value
         val text = currentState.inputText.trim()
-        if (text.isBlank() || !currentState.canSend) return
+        if (text.isBlank() || !currentState.canSend || currentState.isDeletingSessions) return
 
         viewModelScope.launch {
             draft.update { current ->
@@ -291,6 +380,9 @@ class ChatbotViewModel(
 
 private data class ChatbotDraft(
     val inputText: String = "",
+    val isSelectingSessions: Boolean = false,
+    val selectedSessionIds: Set<String> = emptySet(),
+    val isDeletingSessions: Boolean = false,
     val isCreatingSession: Boolean = false,
     val isSending: Boolean = false,
     val errorMessage: String? = null,
