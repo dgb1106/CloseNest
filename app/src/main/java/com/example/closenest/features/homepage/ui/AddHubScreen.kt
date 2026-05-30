@@ -6,6 +6,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import android.location.Address
 import android.location.Geocoder
 import android.location.Location
 import android.graphics.BitmapFactory
@@ -1101,11 +1102,12 @@ private fun LocationSection(
     var isSearching by remember { mutableStateOf(false) }
     var showDropdown by remember { mutableStateOf(false) }
     var isFocused by remember { mutableStateOf(false) }
+    var stopAutoSearchUntilUserTypes by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(query) {
         Log.d(tag, "query='$query' focused=$isFocused")
-        if (query.isBlank() || !isFocused) {
+        if (query.isBlank() || !isFocused || stopAutoSearchUntilUserTypes) {
             suggestions = emptyList()
             showDropdown = false
             Log.d(tag, "skip suggest blankOrNoFocus showDropdown=false")
@@ -1147,6 +1149,7 @@ private fun LocationSection(
                     TextField(
                         value = query,
                         onValueChange = { newValue ->
+                            stopAutoSearchUntilUserTypes = false
                             query = newValue
                             onLocationChanged(newValue)
                             showDropdown = newValue.isNotBlank() && isFocused
@@ -1194,6 +1197,9 @@ private fun LocationSection(
                         .clickable {
                             coroutineScope.launch {
                                 context.findCurrentReadableLocation()?.let { (label, latitude, longitude) ->
+                                    stopAutoSearchUntilUserTypes = true
+                                    suggestions = emptyList()
+                                    showDropdown = false
                                     query = label
                                     onLocationSelected(label, latitude, longitude)
                                 }
@@ -1236,8 +1242,12 @@ private fun LocationSection(
                             }
                         },
                         onClick = {
-                            val fullAddress = suggestion.fullAddress.ifBlank { suggestion.placeFormatted }
-                            query = fullAddress
+                            val locationLabel = suggestion.name.ifBlank {
+                                suggestion.placeFormatted.ifBlank { suggestion.fullAddress }
+                            }
+                            stopAutoSearchUntilUserTypes = true
+                            suggestions = emptyList()
+                            query = locationLabel
                             showDropdown = false
                             Log.d(tag, "click suggestion name='${suggestion.name}' mapboxId='${suggestion.mapboxId}'")
                             coroutineScope.launch {
@@ -1248,10 +1258,10 @@ private fun LocationSection(
                                 )
                                 if (result != null) {
                                     Log.d(tag, "retrieve lat=${result.latitude} lon=${result.longitude}")
-                                    onLocationSelected(result.fullAddress, result.latitude, result.longitude)
+                                    onLocationSelected(locationLabel, result.latitude, result.longitude)
                                 } else {
                                     Log.e(tag, "retrieve null for mapboxId='${suggestion.mapboxId}'")
-                                    onLocationChanged(fullAddress)
+                                    onLocationChanged(locationLabel)
                                 }
                             }
                         }
@@ -1818,14 +1828,28 @@ private suspend fun Context.reverseGeocode(location: Location): String? =
             null
         }.orEmpty()
 
-        addresses.firstOrNull()?.let { address ->
-            buildList {
-                for (index in 0..address.maxAddressLineIndex) {
-                    address.getAddressLine(index)?.takeIf { it.isNotBlank() }?.let(::add)
-                }
-            }.joinToString(", ").takeIf { it.isNotBlank() }
-        }
+        addresses.firstOrNull()?.toPreferredLocationLabel()
     }
+
+private fun Address.toPreferredLocationLabel(): String? {
+    val preferredName = listOf(
+        featureName,
+        premises,
+        thoroughfare,
+        subLocality,
+        locality
+    ).firstOrNull { !it.isNullOrBlank() }?.trim()
+
+    if (!preferredName.isNullOrBlank()) {
+        return preferredName
+    }
+
+    return buildList {
+        for (index in 0..maxAddressLineIndex) {
+            getAddressLine(index)?.takeIf { it.isNotBlank() }?.let(::add)
+        }
+    }.joinToString(", ").takeIf { it.isNotBlank() }
+}
 
 private suspend fun <T> com.google.android.gms.tasks.Task<T>.awaitResult(): T =
     suspendCancellableCoroutine { continuation ->

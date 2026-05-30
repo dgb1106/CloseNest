@@ -4,7 +4,12 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.BitmapFactory
+import android.graphics.drawable.Drawable
 import android.location.Location
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +54,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -63,14 +70,17 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.closenest.R
 import com.example.closenest.features.homepage.model.AppointmentItem
+import com.example.closenest.features.homepage.model.MemoryItem
 import com.example.closenest.features.homepage.repository.AppointmentRepositoryProvider
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.closenest.features.homepage.repository.MemoryRepositoryProvider
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.MapsInitializer
+import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -78,7 +88,12 @@ import com.google.android.gms.tasks.Task
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -87,14 +102,36 @@ import kotlin.coroutines.resumeWithException
 private const val DefaultMapZoom = 2f
 private const val FocusedMapZoom = 14f
 
+private const val PinWidthDp = 12
+private const val PinHeightDp = 26
+
+private fun vectorToPinBitmapDescriptor(
+    context: Context,
+    drawableRes: Int,
+    density: Float
+): BitmapDescriptor {
+    val drawable: Drawable = ContextCompat.getDrawable(context, drawableRes)!!
+    val w = (PinWidthDp * density).toInt()
+    val h = (PinHeightDp * density).toInt()
+    drawable.setBounds(0, 0, w, h)
+    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    drawable.draw(canvas)
+    return BitmapDescriptorFactory.fromBitmap(bitmap)
+}
+
 @Composable
 fun HomeMapScreen(
     modifier: Modifier = Modifier
 ) {
     val appointmentRepository = remember { AppointmentRepositoryProvider.repository }
+    val memoryRepository = remember { MemoryRepositoryProvider.repository }
     var upcomingCount by remember { mutableStateOf<Int?>(null) }
     var appointmentList by remember { mutableStateOf<List<AppointmentItem>>(emptyList()) }
     var showAppointmentsDialog by rememberSaveable { mutableStateOf(false) }
+    var memories by remember { mutableStateOf<List<MemoryItem>>(emptyList()) }
+    var selectedMemory by remember { mutableStateOf<MemoryItem?>(null) }
+    var selectedAppointment by remember { mutableStateOf<AppointmentItem?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -107,6 +144,10 @@ fun HomeMapScreen(
                     }.getOrDefault(emptyList())
                     appointmentList = latestAppointments
                     upcomingCount = latestAppointments.size
+
+                    memories = runCatching {
+                        memoryRepository.getMemories()
+                    }.getOrDefault(emptyList())
                 }
             }
         }
@@ -191,6 +232,10 @@ fun HomeMapScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         MapCard(
+            memories = memories,
+            appointments = appointmentList,
+            onMemorySelected = { selectedMemory = it },
+            onAppointmentSelected = { selectedAppointment = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
@@ -201,6 +246,30 @@ fun HomeMapScreen(
         AppointmentsDialog(
             appointments = appointmentList,
             onDismiss = { showAppointmentsDialog = false }
+        )
+    }
+
+    selectedMemory?.let { memory ->
+        DetailDialog(
+            title = "Kỷ niệm",
+            itemTitle = memory.title,
+            subtitle = "Với ${memory.contactName}",
+            location = memory.location,
+            note = memory.note,
+            photoUri = memory.photoUri,
+            onDismiss = { selectedMemory = null }
+        )
+    }
+
+    selectedAppointment?.let { appointment ->
+        DetailDialog(
+            title = "Cuộc hẹn",
+            itemTitle = appointment.name,
+            subtitle = formatAppointmentDate(appointment.appointmentDateMillis),
+            location = appointment.location,
+            note = null,
+            photoUri = null,
+            onDismiss = { selectedAppointment = null }
         )
     }
 }
@@ -353,6 +422,10 @@ private fun AppointmentCard(appointment: AppointmentItem) {
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 private fun MapCard(
+    memories: List<MemoryItem>,
+    appointments: List<AppointmentItem>,
+    onMemorySelected: (MemoryItem) -> Unit,
+    onAppointmentSelected: (AppointmentItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -361,17 +434,37 @@ private fun MapCard(
         modifier = modifier.fillMaxWidth()
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            MapBackground()
+            MapBackground(
+                memories = memories,
+                appointments = appointments,
+                onMemorySelected = onMemorySelected,
+                onAppointmentSelected = onAppointmentSelected
+            )
         }
     }
 }
 
 @SuppressLint("MissingPermission")
 @Composable
-private fun MapBackground() {
+private fun MapBackground(
+    memories: List<MemoryItem> = emptyList(),
+    appointments: List<AppointmentItem> = emptyList(),
+    onMemorySelected: (MemoryItem) -> Unit = {},
+    onAppointmentSelected: (AppointmentItem) -> Unit = {}
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
+    val density = context.resources.displayMetrics.density
+
+    val memoryPin = remember {
+        MapsInitializer.initialize(context)
+        vectorToPinBitmapDescriptor(context, R.drawable.red_pin, density)
+    }
+    val appointmentPin = remember {
+        MapsInitializer.initialize(context)
+        vectorToPinBitmapDescriptor(context, R.drawable.blue_pin, density)
+    }
 
     var hasLocationPermission by remember { mutableStateOf(context.hasLocationPermission()) }
     var hasCenteredOnUser by rememberSaveable { mutableStateOf(false) }
@@ -380,6 +473,11 @@ private fun MapBackground() {
     val defaultCenter = LatLng(39.5, -98.0)
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(defaultCenter, DefaultMapZoom)
+    }
+
+    val nowMillis = remember { System.currentTimeMillis() }
+    val activeAppointments = remember(appointments) {
+        appointments.filter { it.appointmentDateMillis >= nowMillis }
     }
 
     DisposableEffect(lifecycleOwner, context) {
@@ -426,7 +524,40 @@ private fun MapBackground() {
                 zoomControlsEnabled = false,
                 myLocationButtonEnabled = false
             )
-        )
+        ) {
+            memories.forEach { memory ->
+                val lat = memory.locationLatitude ?: return@forEach
+                val lng = memory.locationLongitude ?: return@forEach
+                Marker(
+                    state = MarkerState(position = LatLng(lat, lng)),
+                    title = memory.title,
+                    snippet = memory.contactName,
+                    icon = memoryPin,
+                    onClick = {
+                        onMemorySelected(memory)
+                        true
+                    }
+                )
+            }
+
+            activeAppointments.forEach { appointment ->
+                Marker(
+                    state = MarkerState(
+                        position = LatLng(
+                            appointment.locationLatitude,
+                            appointment.locationLongitude
+                        )
+                    ),
+                    title = appointment.name,
+                    snippet = appointment.location,
+                    icon = appointmentPin,
+                    onClick = {
+                        onAppointmentSelected(appointment)
+                        true
+                    }
+                )
+            }
+        }
 
         Card(
             modifier = Modifier
@@ -551,4 +682,132 @@ private val appointmentDateFormatter = SimpleDateFormat("EEEE, dd 'tháng' MM, y
 
 private fun formatAppointmentDate(dateMillis: Long): String {
     return appointmentDateFormatter.format(Date(dateMillis))
+}
+
+@Composable
+private fun DetailDialog(
+    title: String,
+    itemTitle: String,
+    subtitle: String,
+    location: String?,
+    note: String?,
+    photoUri: String?,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(horizontal = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Đóng",
+                            tint = Color(0xFF757575)
+                        )
+                    }
+                }
+
+                photoUri?.takeIf { it.isNotBlank() }?.let { uri ->
+                    val bitmap = remember(uri) {
+                        runCatching {
+                            val parsed = Uri.parse(uri)
+                            context.contentResolver.openInputStream(parsed)?.use { stream ->
+                                BitmapFactory.decodeStream(stream)
+                            }
+                        }.getOrNull()
+                    }
+                    if (bitmap != null) {
+                        androidx.compose.foundation.Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Ảnh",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(14.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = itemTitle,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                DetailRow(label = "Với", value = subtitle)
+
+                location?.takeIf { it.isNotBlank() }?.let { loc ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Place,
+                            contentDescription = null,
+                            tint = Color(0xFF9E9E9E),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = loc,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF616161)
+                        )
+                    }
+                }
+
+                note?.takeIf { it.isNotBlank() }?.let { noteText ->
+                    DetailRow(label = "Mô tả", value = noteText)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color(0xFF9E9E9E)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
 }
