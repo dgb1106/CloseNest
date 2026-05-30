@@ -14,6 +14,7 @@ val localProperties = Properties().apply {
 }
 
 val googleMapsApiKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
+val googleWebClientId = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
 val mapboxAccessToken = localProperties.getProperty("MAPBOX_ACCESS_TOKEN", "")
 
 android {
@@ -43,12 +44,14 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
             buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
             resValue("string", "mapbox_access_token", mapboxAccessToken)
         }
         debug {
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
             buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
             resValue("string", "mapbox_access_token", mapboxAccessToken)
@@ -94,4 +97,14 @@ dependencies {
     implementation("com.google.firebase:firebase-storage")
     implementation(libs.google.maps.compose)
     implementation(libs.google.play.services.location)
+    
+    // Google Authentication
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
+    
+    // Credential Manager (Recommended by Google 2024)
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    
+    // Google Identity for ID Token
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 }

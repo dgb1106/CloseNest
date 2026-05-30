@@ -329,5 +329,8 @@
     <string name="auth_register_failed">Tạo tài khoản thất bại</string>
     <string name="auth_login_failed">Đăng nhập thất bại</string>
     <string name="auth_session_expired">Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.</string>
+    <string name="auth_google_login_failed">Đăng nhập với Google thất bại</string>
+    <string name="auth_google_error_canceled">Bạn đã hủy đăng nhập bằng Google</string>
+    <string name="auth_google_error_network">Lỗi kết nối khi đăng nhập bằng Google</string>
 
 </resources>

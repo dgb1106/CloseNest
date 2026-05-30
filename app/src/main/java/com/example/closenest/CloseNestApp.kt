@@ -85,7 +85,7 @@ fun CloseNestApp() {
                         isLoading = authUiState.isLoading,
                         onLogin = authViewModel::onLogin,
                         onNavigateToRegister = registerViewModel::navigateToRegister,
-                        onGoogleLoginClick = authViewModel::onGoogleLoginClick
+                        onGoogleLoginClick = authViewModel::loginWithGoogle
                     )
                 }
                 AuthRoute.Register -> {
