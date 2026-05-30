@@ -14,6 +14,7 @@ val localProperties = Properties().apply {
 }
 
 val googleMapsApiKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
+val googleWebClientId = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
 
 android {
     namespace = "com.example.closenest"
@@ -42,10 +43,12 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
         }
         debug {
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
         }
     }
