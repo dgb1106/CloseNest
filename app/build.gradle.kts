@@ -18,6 +18,8 @@ val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY", "")
 
 fun String.toBuildConfigString(): String =
     "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
+val googleWebClientId = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
+val mapboxAccessToken = localProperties.getProperty("MAPBOX_ACCESS_TOKEN", "")
 
 android {
     namespace = "com.example.closenest"
@@ -47,12 +49,20 @@ android {
             )
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", googleMapsApiKey.toBuildConfigString())
             buildConfigField("String", "GEMINI_API_KEY", geminiApiKey.toBuildConfigString())
+            buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+            buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
+            resValue("string", "mapbox_access_token", mapboxAccessToken)
         }
         debug {
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", googleMapsApiKey.toBuildConfigString())
             buildConfigField("String", "GEMINI_API_KEY", geminiApiKey.toBuildConfigString())
+            buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+            buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
+            resValue("string", "mapbox_access_token", mapboxAccessToken)
         }
     }
     compileOptions {
@@ -94,7 +104,6 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")
     implementation(libs.google.maps.compose)
-    implementation(libs.google.places)
     implementation(libs.google.play.services.location)
     
     // Google Authentication
