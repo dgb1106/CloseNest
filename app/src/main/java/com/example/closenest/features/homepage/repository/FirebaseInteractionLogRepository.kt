@@ -33,6 +33,7 @@ class FirebaseInteractionLogRepository(
                 FieldUserId to userId,
                 FieldContactId to request.contactId,
                 FieldContactName to request.contactName,
+                FieldTitle to request.title,
                 FieldType to request.type,
                 FieldNote to request.note,
                 FieldPhotoUri to request.photoUri,
@@ -103,6 +104,7 @@ private const val FieldId = "id"
 private const val FieldUserId = "userId"
 private const val FieldContactId = "contactId"
 private const val FieldContactName = "contactName"
+private const val FieldTitle = "title"
 private const val FieldType = "type"
 private const val FieldNote = "note"
 private const val FieldPhotoUri = "photoUri"

@@ -15,6 +15,7 @@ val localProperties = Properties().apply {
 
 val googleMapsApiKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
 val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY", "")
+val geminiApiScoreKey = localProperties.getProperty("GEMINI_API_SCORE_KEY", "")
 
 fun String.toBuildConfigString(): String =
     "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
@@ -49,7 +50,7 @@ android {
             )
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", googleMapsApiKey.toBuildConfigString())
             buildConfigField("String", "GEMINI_API_KEY", geminiApiKey.toBuildConfigString())
-            buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            buildConfigField("String", "GEMINI_API_SCORE_KEY", geminiApiScoreKey.toBuildConfigString())
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
             buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
@@ -58,7 +59,7 @@ android {
         debug {
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", googleMapsApiKey.toBuildConfigString())
             buildConfigField("String", "GEMINI_API_KEY", geminiApiKey.toBuildConfigString())
-            buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
+            buildConfigField("String", "GEMINI_API_SCORE_KEY", geminiApiScoreKey.toBuildConfigString())
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
             buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
             resValue("string", "google_maps_key", googleMapsApiKey)

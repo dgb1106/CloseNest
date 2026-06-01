@@ -1,5 +1,6 @@
 package com.example.closenest.features.notifications.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,8 @@ import com.example.closenest.features.notifications.model.NotificationStatus
 import com.example.closenest.features.notifications.model.NotificationSummary
 import com.example.closenest.features.notifications.repository.NotificationRepository
 import com.example.closenest.features.notifications.repository.NotificationRepositoryProvider
+import com.example.closenest.features.recommendations.repository.RecommendationRepository
+import com.example.closenest.features.recommendations.repository.RecommendationRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +21,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 data class NotificationsUiState(
     val isLoading: Boolean = true,
@@ -30,11 +34,16 @@ data class NotificationsUiState(
 )
 
 class NotificationsViewModel(
-    private val repository: NotificationRepository
+    private val repository: NotificationRepository,
+    private val recommendationRepository: RecommendationRepository
 ) : ViewModel() {
     private val filters = MutableStateFlow(NotificationFilters())
     
     private val selectedNotification = MutableStateFlow<NotificationItem?>(null)
+
+    init {
+        refreshAiRecommendations()
+    }
 
     // Combined UI state: repository notifications + local filter state + summary stats
     val uiState: StateFlow<NotificationsUiState> = combine(
@@ -96,6 +105,18 @@ class NotificationsViewModel(
         filters.value = NotificationFilters()
     }
 
+    private fun refreshAiRecommendations() {
+        viewModelScope.launch {
+            runCatching {
+                withTimeout(RecommendationRefreshTimeoutMillis) {
+                    recommendationRepository.refreshRelationshipRecommendations(maxRecommendations = 3)
+                }
+            }.onFailure { throwable ->
+                Log.e(NotificationsLogTag, "Failed to refresh AI recommendations.", throwable)
+            }
+        }
+    }
+
     private fun applyFilters(
         notifications: List<NotificationItem>,
         filters: NotificationFilters
@@ -118,13 +139,18 @@ class NotificationsViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 NotificationsViewModel(
-                    repository = NotificationRepositoryProvider.repository
+                    repository = NotificationRepositoryProvider.repository,
+                    recommendationRepository = RecommendationRepositoryProvider.repository
                 )
             }
         }
+
+        private const val RecommendationRefreshTimeoutMillis = 150_000L
     }
 }
 
 private data class NotificationFilters(
     val filterType: NotificationFilterType = NotificationFilterType.ALL
 )
+
+private const val NotificationsLogTag = "CloseNestNotifications"
