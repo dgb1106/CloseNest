@@ -6,11 +6,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.location.Location
-import android.net.Uri
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,7 +45,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -57,7 +53,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
@@ -88,7 +83,6 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.Task
-import com.google.firebase.storage.FirebaseStorage
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
@@ -98,16 +92,16 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 private const val DefaultMapZoom = 2f
 private const val FocusedMapZoom = 14f
-private const val HomeMapTag = "HomeMapScreen"
 
 private const val PinWidthDp = 12
 private const val PinHeightDp = 26
@@ -703,29 +697,17 @@ private fun DetailDialog(
 ) {
     val context = LocalContext.current
     val hasPhoto = !photoUri.isNullOrBlank()
-
-    val photoResult by produceState<PhotoLoadResult>(
-        initialValue = if (hasPhoto) PhotoLoadResult.Loading else PhotoLoadResult.NoPhoto,
-        key1 = photoUri
-    ) {
-        val uri = photoUri?.takeIf { it.isNotBlank() } ?: run {
-            value = PhotoLoadResult.NoPhoto
-            return@produceState
-        }
-        val bitmap = withContext(Dispatchers.IO) {
-            runCatching { loadBitmapFromUri(context, uri) }
-                .onFailure { throwable ->
-                    Log.e(HomeMapTag, "Failed to load memory photo. uri=$uri", throwable)
-                }
-                .getOrNull()
-                .also { loaded ->
-                    if (loaded == null) {
-                        Log.w(HomeMapTag, "Memory photo decoded to null. uri=$uri")
-                    }
-                }
-        }
-        value = if (bitmap != null) PhotoLoadResult.Success(bitmap) else PhotoLoadResult.Failed
-    }
+    val painter = rememberAsyncImagePainter(
+        model = ImageRequest.Builder(context)
+            .data(photoUri)
+            .crossfade(true)
+            .size(720)
+            .build()
+    )
+    val isPhotoLoading = hasPhoto && (
+        painter.state is AsyncImagePainter.State.Loading ||
+            painter.state is AsyncImagePainter.State.Empty
+    )
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -764,7 +746,7 @@ private fun DetailDialog(
                     }
                 }
 
-                if (hasPhoto && photoResult is PhotoLoadResult.Loading) {
+                if (isPhotoLoading) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -774,10 +756,9 @@ private fun DetailDialog(
                         CircularProgressIndicator()
                     }
                 } else {
-                    val loadedBitmap = (photoResult as? PhotoLoadResult.Success)?.bitmap
-                    if (loadedBitmap != null) {
+                    if (hasPhoto && painter.state is AsyncImagePainter.State.Success) {
                         androidx.compose.foundation.Image(
-                            bitmap = loadedBitmap.asImageBitmap(),
+                            painter = painter,
                             contentDescription = "?nh",
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -824,54 +805,6 @@ private fun DetailDialog(
             }
         }
     }
-}
-
-private sealed interface PhotoLoadResult {
-    data object NoPhoto : PhotoLoadResult
-    data object Loading : PhotoLoadResult
-    data object Failed : PhotoLoadResult
-    data class Success(val bitmap: Bitmap) : PhotoLoadResult
-}
-
-private suspend fun loadBitmapFromUri(context: Context, uri: String): Bitmap? {
-    val normalizedUri = uri.trim()
-    val parsed = Uri.parse(normalizedUri)
-    return when (parsed.scheme?.lowercase(Locale.US)) {
-        "http", "https" -> {
-            // Prefer Firebase SDK for Firebase Storage download URLs.
-            runCatching {
-                val bytes = FirebaseStorage.getInstance()
-                    .getReferenceFromUrl(normalizedUri)
-                    .getBytes(10L * 1024L * 1024L)
-                    .await()
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            }.getOrElse {
-                java.net.URL(normalizedUri).openStream().use(BitmapFactory::decodeStream)
-            }
-        }
-        "gs" -> {
-            val bytes = FirebaseStorage.getInstance()
-                .getReferenceFromUrl(normalizedUri)
-                .getBytes(10L * 1024L * 1024L)
-                .await()
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        }
-        "content" -> context.contentResolver.openInputStream(parsed)?.use(BitmapFactory::decodeStream)
-        "file" -> parsed.path?.let(BitmapFactory::decodeFile)
-        else -> {
-            // Some records may store raw Firebase Storage path: memories/<uid>/<file>.jpg
-            runCatching {
-                val bytes = FirebaseStorage.getInstance()
-                    .reference
-                    .child(normalizedUri)
-                    .getBytes(10L * 1024L * 1024L)
-                    .await()
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            }.getOrNull() ?: BitmapFactory.decodeFile(normalizedUri)
-        }
-    } ?: runCatching {
-        java.io.FileInputStream(normalizedUri).use(BitmapFactory::decodeStream)
-    }.getOrNull()
 }
 
 @Composable

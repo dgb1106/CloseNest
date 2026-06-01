@@ -97,6 +97,7 @@ dependencies {
     implementation("com.google.firebase:firebase-storage")
     implementation(libs.google.maps.compose)
     implementation(libs.google.play.services.location)
+    implementation("io.coil-kt:coil-compose:2.7.0")
     
     // Google Authentication
     implementation("com.google.android.gms:play-services-auth:21.3.0")
