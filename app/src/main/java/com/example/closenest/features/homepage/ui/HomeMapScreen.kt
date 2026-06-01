@@ -10,6 +10,7 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.location.Location
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +48,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -85,6 +88,7 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.Task
+import com.google.firebase.storage.FirebaseStorage
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
@@ -94,13 +98,16 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 private const val DefaultMapZoom = 2f
 private const val FocusedMapZoom = 14f
+private const val HomeMapTag = "HomeMapScreen"
 
 private const val PinWidthDp = 12
 private const val PinHeightDp = 26
@@ -254,6 +261,7 @@ fun HomeMapScreen(
             title = "Kỷ niệm",
             itemTitle = memory.title,
             subtitle = "Với ${memory.contactName}",
+            subtitleLabel = "V?i",
             location = memory.location,
             note = memory.note,
             photoUri = memory.photoUri,
@@ -266,6 +274,7 @@ fun HomeMapScreen(
             title = "Cuộc hẹn",
             itemTitle = appointment.name,
             subtitle = formatAppointmentDate(appointment.appointmentDateMillis),
+            subtitleLabel = "Ng?y",
             location = appointment.location,
             note = null,
             photoUri = null,
@@ -475,10 +484,7 @@ private fun MapBackground(
         position = CameraPosition.fromLatLngZoom(defaultCenter, DefaultMapZoom)
     }
 
-    val nowMillis = remember { System.currentTimeMillis() }
-    val activeAppointments = remember(appointments) {
-        appointments.filter { it.appointmentDateMillis >= nowMillis }
-    }
+    val activeAppointments = appointments
 
     DisposableEffect(lifecycleOwner, context) {
         val observer = LifecycleEventObserver { _, event ->
@@ -689,12 +695,37 @@ private fun DetailDialog(
     title: String,
     itemTitle: String,
     subtitle: String,
+    subtitleLabel: String,
     location: String?,
     note: String?,
     photoUri: String?,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val hasPhoto = !photoUri.isNullOrBlank()
+
+    val photoResult by produceState<PhotoLoadResult>(
+        initialValue = if (hasPhoto) PhotoLoadResult.Loading else PhotoLoadResult.NoPhoto,
+        key1 = photoUri
+    ) {
+        val uri = photoUri?.takeIf { it.isNotBlank() } ?: run {
+            value = PhotoLoadResult.NoPhoto
+            return@produceState
+        }
+        val bitmap = withContext(Dispatchers.IO) {
+            runCatching { loadBitmapFromUri(context, uri) }
+                .onFailure { throwable ->
+                    Log.e(HomeMapTag, "Failed to load memory photo. uri=$uri", throwable)
+                }
+                .getOrNull()
+                .also { loaded ->
+                    if (loaded == null) {
+                        Log.w(HomeMapTag, "Memory photo decoded to null. uri=$uri")
+                    }
+                }
+        }
+        value = if (bitmap != null) PhotoLoadResult.Success(bitmap) else PhotoLoadResult.Failed
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -727,25 +758,27 @@ private fun DetailDialog(
                     IconButton(onClick = onDismiss) {
                         Icon(
                             imageVector = Icons.Outlined.Close,
-                            contentDescription = "Đóng",
+                            contentDescription = "??ng",
                             tint = Color(0xFF757575)
                         )
                     }
                 }
 
-                photoUri?.takeIf { it.isNotBlank() }?.let { uri ->
-                    val bitmap = remember(uri) {
-                        runCatching {
-                            val parsed = Uri.parse(uri)
-                            context.contentResolver.openInputStream(parsed)?.use { stream ->
-                                BitmapFactory.decodeStream(stream)
-                            }
-                        }.getOrNull()
+                if (hasPhoto && photoResult is PhotoLoadResult.Loading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(220.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
                     }
-                    if (bitmap != null) {
+                } else {
+                    val loadedBitmap = (photoResult as? PhotoLoadResult.Success)?.bitmap
+                    if (loadedBitmap != null) {
                         androidx.compose.foundation.Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "Ảnh",
+                            bitmap = loadedBitmap.asImageBitmap(),
+                            contentDescription = "?nh",
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(180.dp)
@@ -753,44 +786,92 @@ private fun DetailDialog(
                             contentScale = ContentScale.Crop
                         )
                     }
-                }
 
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = itemTitle,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                DetailRow(label = "Với", value = subtitle)
-
-                location?.takeIf { it.isNotBlank() }?.let { loc ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Place,
-                            contentDescription = null,
-                            tint = Color(0xFF9E9E9E),
-                            modifier = Modifier.size(18.dp)
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            text = loc,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF616161)
+                            text = itemTitle,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                }
 
-                note?.takeIf { it.isNotBlank() }?.let { noteText ->
-                    DetailRow(label = "Mô tả", value = noteText)
+                    DetailRow(label = subtitleLabel, value = subtitle)
+
+                    location?.takeIf { it.isNotBlank() }?.let { loc ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Place,
+                                contentDescription = null,
+                                tint = Color(0xFF9E9E9E),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = loc,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFF616161)
+                            )
+                        }
+                    }
+
+                    note?.takeIf { it.isNotBlank() }?.let { noteText ->
+                        DetailRow(label = "M? t?", value = noteText)
+                    }
                 }
             }
         }
     }
+}
+
+private sealed interface PhotoLoadResult {
+    data object NoPhoto : PhotoLoadResult
+    data object Loading : PhotoLoadResult
+    data object Failed : PhotoLoadResult
+    data class Success(val bitmap: Bitmap) : PhotoLoadResult
+}
+
+private suspend fun loadBitmapFromUri(context: Context, uri: String): Bitmap? {
+    val normalizedUri = uri.trim()
+    val parsed = Uri.parse(normalizedUri)
+    return when (parsed.scheme?.lowercase(Locale.US)) {
+        "http", "https" -> {
+            // Prefer Firebase SDK for Firebase Storage download URLs.
+            runCatching {
+                val bytes = FirebaseStorage.getInstance()
+                    .getReferenceFromUrl(normalizedUri)
+                    .getBytes(10L * 1024L * 1024L)
+                    .await()
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }.getOrElse {
+                java.net.URL(normalizedUri).openStream().use(BitmapFactory::decodeStream)
+            }
+        }
+        "gs" -> {
+            val bytes = FirebaseStorage.getInstance()
+                .getReferenceFromUrl(normalizedUri)
+                .getBytes(10L * 1024L * 1024L)
+                .await()
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }
+        "content" -> context.contentResolver.openInputStream(parsed)?.use(BitmapFactory::decodeStream)
+        "file" -> parsed.path?.let(BitmapFactory::decodeFile)
+        else -> {
+            // Some records may store raw Firebase Storage path: memories/<uid>/<file>.jpg
+            runCatching {
+                val bytes = FirebaseStorage.getInstance()
+                    .reference
+                    .child(normalizedUri)
+                    .getBytes(10L * 1024L * 1024L)
+                    .await()
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }.getOrNull() ?: BitmapFactory.decodeFile(normalizedUri)
+        }
+    } ?: runCatching {
+        java.io.FileInputStream(normalizedUri).use(BitmapFactory::decodeStream)
+    }.getOrNull()
 }
 
 @Composable

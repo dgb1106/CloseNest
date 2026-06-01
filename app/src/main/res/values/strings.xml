@@ -8,16 +8,16 @@
     <string name="tab_notifications">Thông báo</string>
     <string name="tab_profile">Hồ sơ</string>
 
-    <string name="relationships_title">Danh bạ của bạn</string>
+    <string name="relationships_title">Danh bạ của bạn (%1$d)</string>
     <string name="relationships_subtitle">Lưu lại những người quan trọng cùng thông tin liên hệ cần thiết.</string>
     <string name="relationship_add_person">Thêm người mới</string>
     <string name="relationship_summary_title">Tổng quan danh bạ</string>
-    <string name="relationship_search_label">Tìm theo tên, thư điện tử hoặc số điện thoại</string>
+    <string name="relationship_search_label">Tìm theo tên, email hoặc số điện thoại</string>
     <string name="relationship_card_meta">%1$s · %2$s</string>
     <string name="relationships_empty_title">Chưa có ai trong danh bạ thân quen</string>
     <string name="relationships_empty_body">Bạn có thể bắt đầu thật tối giản: chỉ cần tên và nhóm quan hệ là đủ để lưu lại.</string>
     <string name="relationships_empty_filtered_title">Không thấy kết quả phù hợp</string>
-    <string name="relationships_empty_filtered_body">Thử bỏ bộ lọc hoặc tìm bằng thư điện tử, số điện thoại để thấy đủ hơn.</string>
+    <string name="relationships_empty_filtered_body">Thử bỏ bộ lọc hoặc tìm bằng email, số điện thoại để thấy đủ hơn.</string>
     <string name="relationships_reset_filters">Xóa bộ lọc</string>
     <string name="relationships_sync_error">Không thể đồng bộ danh bạ từ máy chủ. Bạn thử lại sau nhé.</string>
     <string name="relationship_detail_title">Chi tiết liên hệ</string>
