@@ -14,7 +14,9 @@ import com.example.closenest.features.notifications.repository.NotificationRepos
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -36,20 +38,41 @@ class NotificationsViewModel(
     
     private val selectedNotification = MutableStateFlow<NotificationItem?>(null)
 
+    private val notificationResults = repository.observeNotifications()
+        .map { notifications ->
+            NotificationRepositoryResult(notifications = notifications)
+        }
+        .catch { throwable ->
+            emit(
+                NotificationRepositoryResult(
+                    errorMessage = throwable.localizedMessage
+                        ?: "Không thể đồng bộ thông báo từ máy chủ. Bạn thử lại sau nhé."
+                )
+            )
+        }
+
     // Combined UI state: repository notifications + local filter state + summary stats
     val uiState: StateFlow<NotificationsUiState> = combine(
-        repository.observeNotifications(),
-        repository.observeNotificationSummary(),
+        notificationResults,
         filters,
         selectedNotification
-    ) { notifications, summary, currentFilters, selected ->
-        val sortedNotifications = notifications.sortedByDescending { it.createdAtMillis }
+    ) { repositoryResult, currentFilters, selected ->
+        if (repositoryResult.errorMessage != null) {
+            return@combine NotificationsUiState(
+                isLoading = false,
+                selectedFilter = currentFilters.filterType,
+                errorMessage = repositoryResult.errorMessage,
+                selectedNotification = selected
+            )
+        }
+
+        val sortedNotifications = repositoryResult.notifications.sortedByDescending { it.createdAtMillis }
         val filteredNotifications = applyFilters(sortedNotifications, currentFilters)
 
         NotificationsUiState(
             isLoading = false,
             notifications = sortedNotifications,
-            summary = summary,
+            summary = sortedNotifications.toSummary(),
             selectedFilter = currentFilters.filterType,
             filteredNotifications = filteredNotifications,
             errorMessage = null,
@@ -128,3 +151,22 @@ class NotificationsViewModel(
 private data class NotificationFilters(
     val filterType: NotificationFilterType = NotificationFilterType.ALL
 )
+
+private data class NotificationRepositoryResult(
+    val notifications: List<NotificationItem> = emptyList(),
+    val errorMessage: String? = null
+)
+
+private fun List<NotificationItem>.toSummary(): NotificationSummary {
+    val now = System.currentTimeMillis()
+    val todayStart = now - (now % (24 * 60 * 60 * 1000))
+
+    return NotificationSummary(
+        totalCount = size,
+        unreadCount = count { it.status == NotificationStatus.ACTIVE },
+        todayCount = count {
+            it.createdAtMillis >= todayStart &&
+                it.status == NotificationStatus.ACTIVE
+        }
+    )
+}
