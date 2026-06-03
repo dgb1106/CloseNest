@@ -20,6 +20,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -35,7 +37,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,7 +68,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -240,7 +240,8 @@ fun MemoryRoute(
     MemoryScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
-        onContactSelected = viewModel::onMemoryContactSelected,
+        onContactToggled = viewModel::onMemoryContactToggled,
+        onContactQueryChanged = viewModel::onMemoryContactQueryChanged,
         onTitleChanged = viewModel::onMemoryTitleChanged,
         onTypeSelected = viewModel::onMemoryTypeSelected,
         onNoteChanged = viewModel::onMemoryNoteChanged,
@@ -310,7 +311,8 @@ fun AppointmentRoute(
     AppointmentScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
-        onNameChanged = viewModel::onAppointmentNameChanged,
+        onContactToggled = viewModel::onAppointmentContactToggled,
+        onContactQueryChanged = viewModel::onAppointmentContactQueryChanged,
         onLocationChanged = viewModel::onAppointmentLocationChanged,
         onLocationSelected = viewModel::onAppointmentLocationSelected,
         onDateSelected = viewModel::onAppointmentDateSelected,
@@ -412,7 +414,8 @@ fun AddHubScreen(
 fun AppointmentScreen(
     uiState: AddHubUiState,
     onNavigateBack: () -> Unit,
-    onNameChanged: (String) -> Unit,
+    onContactToggled: (String) -> Unit,
+    onContactQueryChanged: (String) -> Unit,
     onLocationChanged: (String) -> Unit,
     onLocationSelected: (String, Double, Double) -> Unit,
     onDateSelected: (Long) -> Unit,
@@ -423,7 +426,7 @@ fun AppointmentScreen(
 ) {
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
-    val appointmentNameEntered = uiState.appointmentName.isNotBlank()
+    val appointmentContactsSelected = uiState.selectedAppointmentContactIds.isNotEmpty()
     val appointmentLocationSelected = uiState.appointmentLocationLatitude != null &&
         uiState.appointmentLocationLongitude != null
 
@@ -450,7 +453,7 @@ fun AppointmentScreen(
                 savingLabelRes = R.string.add_appointment_saving,
                 saveLabelRes = R.string.add_appointment_done,
                 enabled = !uiState.isSavingAppointment &&
-                    uiState.appointmentName.isNotBlank() &&
+                    appointmentContactsSelected &&
                     uiState.appointmentLocation.isNotBlank() &&
                     appointmentLocationSelected &&
                     uiState.appointmentDateMillis != null &&
@@ -473,71 +476,75 @@ fun AppointmentScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle(text = stringResource(R.string.add_appointment_name_label))
-                    AppointmentNameField(
-                        value = uiState.appointmentName,
+                    AppointmentSelectedContactsSummary(
+                        contacts = uiState.contacts.filter { it.id in uiState.selectedAppointmentContactIds },
+                        onContactToggled = onContactToggled
+                    )
+                    AppointmentContactPicker(
+                        query = uiState.appointmentContactQuery,
                         contacts = uiState.contacts,
-                        onValueChange = onNameChanged
+                        selectedContactIds = uiState.selectedAppointmentContactIds,
+                        onQueryChanged = onContactQueryChanged,
+                        onContactToggled = onContactToggled
                     )
                 }
             }
 
-            if (appointmentNameEntered) {
-                item {
-                    LocationSection(
-                        location = uiState.appointmentLocation,
-                        onLocationChanged = onLocationChanged,
-                        onLocationSelected = onLocationSelected,
-                        context = LocalContext.current
-                    )
-                }
+            item {
+                LocationSection(
+                    location = uiState.appointmentLocation,
+                    onLocationChanged = onLocationChanged,
+                    onLocationSelected = onLocationSelected,
+                    context = LocalContext.current
+                )
+            }
 
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SectionTitle(text = stringResource(R.string.add_appointment_date_label))
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionTitle(text = stringResource(R.string.add_appointment_date_label))
+                    FilledTonalButton(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 14.dp)
+                    ) {
+                        Text(
+                            text = uiState.appointmentDateMillis?.let { dateMillis ->
+                                formatAppointmentDate(dateMillis)
+                            } ?: stringResource(R.string.add_appointment_pick_date)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SectionTitle(text = stringResource(R.string.add_appointment_all_day))
+                        Switch(
+                            checked = uiState.isAppointmentAllDay,
+                            onCheckedChange = onAllDayToggled
+                        )
+                    }
+
+                    if (!uiState.isAppointmentAllDay) {
+                        SectionTitle(text = stringResource(R.string.add_appointment_time_label))
                         FilledTonalButton(
-                            onClick = { showDatePicker = true },
+                            onClick = { showTimePicker = true },
                             modifier = Modifier.fillMaxWidth(),
                             contentPadding = PaddingValues(vertical = 14.dp)
                         ) {
                             Text(
-                                text = uiState.appointmentDateMillis?.let { dateMillis ->
-                                    formatAppointmentDate(dateMillis)
-                                } ?: stringResource(R.string.add_appointment_pick_date)
+                                text = if (uiState.appointmentTimeHour != null &&
+                                    uiState.appointmentTimeMinute != null
+                                ) {
+                                    formatAppointmentTime(
+                                        hour = uiState.appointmentTimeHour,
+                                        minute = uiState.appointmentTimeMinute
+                                    )
+                                } else {
+                                    stringResource(R.string.add_appointment_pick_time)
+                                }
                             )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            SectionTitle(text = stringResource(R.string.add_appointment_all_day))
-                            Switch(
-                                checked = uiState.isAppointmentAllDay,
-                                onCheckedChange = onAllDayToggled
-                            )
-                        }
-
-                        if (!uiState.isAppointmentAllDay) {
-                            SectionTitle(text = stringResource(R.string.add_appointment_time_label))
-                            FilledTonalButton(
-                                onClick = { showTimePicker = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(vertical = 14.dp)
-                            ) {
-                                Text(
-                                    text = if (uiState.appointmentTimeHour != null &&
-                                        uiState.appointmentTimeMinute != null
-                                    ) {
-                                        formatAppointmentTime(
-                                            hour = uiState.appointmentTimeHour,
-                                            minute = uiState.appointmentTimeMinute
-                                        )
-                                    } else {
-                                        stringResource(R.string.add_appointment_pick_time)
-                                    }
-                                )
-                            }
                         }
                     }
                 }
@@ -566,69 +573,6 @@ fun AppointmentScreen(
             },
             onDismiss = { showTimePicker = false }
         )
-    }
-}
-
-@Composable
-private fun AppointmentNameField(
-    value: String,
-    contacts: List<ReflectionContactListItem>,
-    onValueChange: (String) -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf(false) }
-    val query = value.trim()
-    val suggestions = remember(query, contacts) {
-        if (query.isEmpty()) {
-            emptyList()
-        } else {
-            contacts
-                .filter { contact -> contact.name.contains(query, ignoreCase = true) }
-                .take(5)
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { newValue ->
-                onValueChange(newValue)
-                expanded = newValue.isNotBlank()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    isFocused = focusState.isFocused
-                    expanded = focusState.isFocused && suggestions.isNotEmpty()
-                },
-            singleLine = true,
-            shape = RoundedCornerShape(18.dp),
-            placeholder = {
-                Text(text = stringResource(R.string.add_appointment_name_label))
-            }
-        )
-
-        DropdownMenu(
-            expanded = expanded && isFocused && suggestions.isNotEmpty(),
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            suggestions.forEach { contact ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = contact.name,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    onClick = {
-                        onValueChange(contact.name)
-                        expanded = false
-                    }
-                )
-            }
-        }
     }
 }
 
@@ -822,11 +766,197 @@ private fun AppointmentDatePickerDialog(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AppointmentSelectedContactsSummary(
+    contacts: List<ReflectionContactListItem>,
+    onContactToggled: (String) -> Unit
+) {
+    if (contacts.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.add_appointment_selected_count, contacts.size),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            contacts.forEach { contact ->
+                MultiSelectChip(
+                    label = contact.name,
+                    selected = true,
+                    onClick = { onContactToggled(contact.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppointmentContactPicker(
+    query: String,
+    contacts: List<ReflectionContactListItem>,
+    selectedContactIds: Set<String>,
+    onQueryChanged: (String) -> Unit,
+    onContactToggled: (String) -> Unit
+) {
+    val normalizedQuery = query.trim()
+    val visibleContacts = remember(normalizedQuery, contacts) {
+        if (normalizedQuery.isBlank()) {
+            contacts
+        } else {
+            val matchingContacts = contacts.filter {
+                it.name.contains(normalizedQuery, ignoreCase = true)
+            }
+            val remainingContacts = contacts.filterNot { contact ->
+                contact.name.contains(normalizedQuery, ignoreCase = true)
+            }
+            matchingContacts + remainingContacts
+        }
+    }
+
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChanged,
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        shape = RoundedCornerShape(18.dp),
+        placeholder = {
+            Text(text = stringResource(R.string.add_appointment_search_hint))
+        }
+    )
+
+    when {
+        contacts.isEmpty() -> {
+            Text(
+                text = stringResource(R.string.add_interaction_empty_contacts),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+
+        else -> {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (normalizedQuery.isNotBlank() && visibleContacts.none {
+                        it.name.contains(normalizedQuery, ignoreCase = true)
+                    }) {
+                    Text(
+                        text = stringResource(R.string.relationships_empty_filtered_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                SectionTitle(text = stringResource(R.string.add_appointment_all_contacts))
+                visibleContacts.forEach { contact ->
+                    ContactCheckboxRow(
+                        contact = contact,
+                        checked = contact.id in selectedContactIds,
+                        onContactToggled = onContactToggled
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MemorySelectedContactsSummary(
+    contacts: List<ReflectionContactListItem>,
+    onContactToggled: (String) -> Unit
+) {
+    if (contacts.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.add_interaction_selected_count, contacts.size),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            contacts.forEach { contact ->
+                MultiSelectChip(
+                    label = contact.name,
+                    selected = true,
+                    onClick = { onContactToggled(contact.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MemoryContactPicker(
+    query: String,
+    contacts: List<ReflectionContactListItem>,
+    selectedContactIds: Set<String>,
+    onQueryChanged: (String) -> Unit,
+    onContactToggled: (String) -> Unit
+) {
+    val normalizedQuery = query.trim()
+    val visibleContacts = remember(normalizedQuery, contacts) {
+        if (normalizedQuery.isBlank()) {
+            contacts
+        } else {
+            val matchingContacts = contacts.filter {
+                it.name.contains(normalizedQuery, ignoreCase = true)
+            }
+            val remainingContacts = contacts.filterNot { contact ->
+                contact.name.contains(normalizedQuery, ignoreCase = true)
+            }
+            matchingContacts + remainingContacts
+        }
+    }
+
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChanged,
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        shape = RoundedCornerShape(18.dp),
+        placeholder = {
+            Text(text = stringResource(R.string.add_interaction_search_hint))
+        }
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (normalizedQuery.isNotBlank() && visibleContacts.none {
+                it.name.contains(normalizedQuery, ignoreCase = true)
+            }) {
+            Text(
+                text = stringResource(R.string.relationships_empty_filtered_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        SectionTitle(text = stringResource(R.string.add_interaction_all_contacts))
+        visibleContacts.forEach { contact ->
+            ContactCheckboxRow(
+                contact = contact,
+                checked = contact.id in selectedContactIds,
+                onContactToggled = onContactToggled
+            )
+        }
+    }
+}
+
 @Composable
 fun MemoryScreen(
     uiState: AddHubUiState,
     onNavigateBack: () -> Unit,
-    onContactSelected: (String) -> Unit,
+    onContactToggled: (String) -> Unit,
+    onContactQueryChanged: (String) -> Unit,
     onTitleChanged: (String) -> Unit,
     onTypeSelected: (MemoryType) -> Unit,
     onNoteChanged: (String) -> Unit,
@@ -902,17 +1032,20 @@ fun MemoryScreen(
 
                 else -> {
                     item {
-                        SectionTitle(text = stringResource(R.string.add_interaction_contact_title))
-                    }
-                    items(
-                        items = uiState.contacts,
-                        key = { contact -> contact.id }
-                    ) { contact ->
-                        ContactRadioRow(
-                            contact = contact,
-                            selected = contact.id == uiState.selectedMemoryContactId,
-                            onContactSelected = onContactSelected
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SectionTitle(text = stringResource(R.string.add_interaction_contact_title))
+                            MemorySelectedContactsSummary(
+                                contacts = uiState.contacts.filter { it.id in uiState.selectedMemoryContactIds },
+                                onContactToggled = onContactToggled
+                            )
+                            MemoryContactPicker(
+                                query = uiState.memoryContactQuery,
+                                contacts = uiState.contacts,
+                                selectedContactIds = uiState.selectedMemoryContactIds,
+                                onQueryChanged = onContactQueryChanged,
+                                onContactToggled = onContactToggled
+                            )
+                        }
                     }
                 }
             }
@@ -1525,45 +1658,6 @@ private fun ContactCheckboxRow(
             Checkbox(
                 checked = checked,
                 onCheckedChange = null
-            )
-        }
-    }
-}
-
-@Composable
-private fun ContactRadioRow(
-    contact: ReflectionContactListItem,
-    selected: Boolean,
-    onContactSelected: (String) -> Unit
-) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .selectable(
-                    selected = selected,
-                    role = Role.RadioButton,
-                    onClick = { onContactSelected(contact.id) }
-                )
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = contact.name,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            RadioButton(
-                selected = selected,
-                onClick = null
             )
         }
     }

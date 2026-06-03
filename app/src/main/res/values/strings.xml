@@ -132,7 +132,10 @@
     <string name="add_interaction_screen_title">Lưu kỷ niệm</string>
     <string name="add_interaction_contact_title">Bạn đã có kỷ niệm với ai?</string>
     <string name="add_interaction_empty_contacts">Danh bạ đang trống. Hãy thêm người mới trước khi lưu kỷ niệm.</string>
-    <string name="add_interaction_contact_required">Hãy chọn một người để lưu kỷ niệm.</string>
+    <string name="add_interaction_contact_required">Hãy chọn ít nhất một người để lưu kỷ niệm.</string>
+    <string name="add_interaction_selected_count">Đã chọn %1$d người</string>
+    <string name="add_interaction_search_hint">Tìm theo tên người có kỷ niệm</string>
+    <string name="add_interaction_all_contacts">Danh sách bạn</string>
     <string name="add_interaction_type_question">Kỷ niệm này thuộc loại nào?</string>
     <string name="add_interaction_note_label">Ghi chú ngắn</string>
     <string name="add_interaction_note_hint">Ví dụ: hẹn cà phê cuối tuần, hỗ trợ làm bài hoặc gặp ở câu lạc bộ.</string>
@@ -160,10 +163,15 @@
     <string name="add_interaction_type_other">Khác</string>
 
     <string name="add_appointment_title">Tạo cuộc hẹn mới</string>
-    <string name="add_appointment_body">Nhập tên người hẹn trước, rồi thêm địa điểm và chọn ngày tháng năm.</string>
+    <string name="add_appointment_body">Chọn một hoặc nhiều người hẹn, rồi thêm địa điểm và chọn ngày tháng năm.</string>
     <string name="add_appointment_open">Tạo cuộc hẹn</string>
     <string name="add_appointment_screen_title">Tạo cuộc hẹn mới</string>
-    <string name="add_appointment_name_label">Tên người hẹn</string>
+    <string name="add_appointment_name_label">Người hẹn</string>
+    <string name="add_appointment_pick_manual">Chọn thủ công</string>
+    <string name="add_appointment_pick_search">Tìm rồi chọn</string>
+    <string name="add_appointment_selected_count">Đã chọn %1$d người</string>
+    <string name="add_appointment_search_hint">Tìm theo tên người hẹn</string>
+    <string name="add_appointment_all_contacts">Danh sách bạn</string>
     <string name="add_appointment_location_label">Địa điểm hẹn</string>
     <string name="add_appointment_location_hint">Gõ rồi chọn địa điểm từ danh sách gợi ý.</string>
     <string name="add_appointment_date_label">Ngày hẹn</string>
@@ -176,7 +184,7 @@
     <string name="add_appointment_done">Lưu cuộc hẹn</string>
     <string name="add_appointment_saving">Đang lưu cuộc hẹn</string>
     <string name="add_appointment_saved">Đã tạo cuộc hẹn mới.</string>
-    <string name="add_appointment_name_required">Hãy nhập tên người hẹn.</string>
+    <string name="add_appointment_name_required">Hãy chọn ít nhất một người hẹn.</string>
     <string name="add_appointment_location_required">Hãy nhập địa điểm hẹn.</string>
     <string name="add_appointment_location_select_required">Hãy chọn địa điểm từ danh sách gợi ý.</string>
     <string name="add_appointment_date_required">Hãy chọn ngày hẹn.</string>
