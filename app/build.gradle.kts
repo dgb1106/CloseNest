@@ -14,6 +14,10 @@ val localProperties = Properties().apply {
 }
 
 val googleMapsApiKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
+val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY", "")
+
+fun String.toBuildConfigString(): String =
+    "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 val googleWebClientId = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
 val mapboxAccessToken = localProperties.getProperty("MAPBOX_ACCESS_TOKEN", "")
 
@@ -43,6 +47,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "GOOGLE_MAPS_API_KEY", googleMapsApiKey.toBuildConfigString())
+            buildConfigField("String", "GEMINI_API_KEY", geminiApiKey.toBuildConfigString())
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
             buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
@@ -50,6 +56,8 @@ android {
             resValue("string", "mapbox_access_token", mapboxAccessToken)
         }
         debug {
+            buildConfigField("String", "GOOGLE_MAPS_API_KEY", googleMapsApiKey.toBuildConfigString())
+            buildConfigField("String", "GEMINI_API_KEY", geminiApiKey.toBuildConfigString())
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
             buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")

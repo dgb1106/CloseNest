@@ -175,7 +175,3 @@ class InMemoryNotificationRepository : NotificationRepository {
     private val Int.hoursInMillis: Long
         get() = this * 60L * 60L * 1_000L
 }
-
-object NotificationRepositoryProvider {
-    val repository: NotificationRepository by lazy { InMemoryNotificationRepository() }
-}
