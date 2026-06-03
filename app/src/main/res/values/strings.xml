@@ -227,6 +227,21 @@
     <string name="add_appointment_permission_error">Máy chủ chưa cho phép lưu cuộc hẹn. Bạn kiểm tra quyền ghi dữ liệu rồi thử lại nhé.</string>
     <string name="add_appointment_save_timeout">Máy chủ phản hồi quá lâu. Bạn kiểm tra mạng rồi thử lại nhé.</string>
     <string name="add_appointment_save_error">Không thể lưu cuộc hẹn lúc này. Bạn thử lại sau nhé.</string>
+    <string name="appointment_navigate">Chỉ đường</string>
+    <string name="appointment_contact">Liên hệ</string>
+    <string name="appointment_cancel">Hủy cuộc hẹn</string>
+    <string name="appointment_cancel_confirm_title">Xác nhận hủy cuộc hẹn</string>
+    <string name="appointment_cancel_confirm_body">Bạn chắc chắn muốn hủy cuộc hẹn \"%1$s\" không?</string>
+    <string name="appointment_cancel_confirm_action">Hủy cuộc hẹn</string>
+    <string name="appointment_cancel_success">Đã hủy cuộc hẹn.</string>
+    <string name="appointment_cancel_error">Không thể hủy cuộc hẹn lúc này. Bạn thử lại sau nhé.</string>
+    <string name="appointment_contact_sheet_title">Liên hệ người hẹn</string>
+    <string name="appointment_contact_call">Gọi điện</string>
+    <string name="appointment_contact_email">Gửi email</string>
+    <string name="appointment_contact_no_phone">%1$s chưa có số điện thoại trong danh bạ.</string>
+    <string name="appointment_contact_no_email">%1$s chưa có địa chỉ email trong danh bạ.</string>
+    <string name="appointment_contact_select_person">Chọn người muốn liên hệ</string>
+
     <string name="add_appointment_note_label">Nội dung cuộc hẹn</string>
     <string name="add_appointment_note_hint">Thêm ghi chú cho cuộc hẹn (không bắt buộc)</string>
     <string name="action_clear_text">Xóa nội dung vừa nhập</string>
