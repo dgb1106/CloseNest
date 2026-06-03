@@ -34,7 +34,8 @@ class FirebaseAppointmentRepository(
                 FieldLocationLongitude to request.locationLongitude,
                 FieldAppointmentDateMillis to request.appointmentDateMillis,
                 FieldDateKey to dateFormatter.format(Date(request.appointmentDateMillis)),
-                FieldCreatedAtMillis to request.createdAtMillis
+                FieldCreatedAtMillis to request.createdAtMillis,
+                FieldNote to request.note
             )
         ).awaitCompletion()
     }
@@ -72,6 +73,7 @@ class FirebaseAppointmentRepository(
             val appointmentDateMillis = doc.getLong(FieldAppointmentDateMillis) ?: return@mapNotNull null
             val dateKey = doc.getString(FieldDateKey) ?: return@mapNotNull null
             val createdAtMillis = doc.getLong(FieldCreatedAtMillis) ?: return@mapNotNull null
+            val note = doc.getString(FieldNote)
             AppointmentItem(
                 id = id,
                 name = name,
@@ -82,6 +84,7 @@ class FirebaseAppointmentRepository(
                 locationLongitude = locationLongitude,
                 appointmentDateMillis = appointmentDateMillis,
                 dateKey = dateKey,
+                note = note,
                 createdAtMillis = createdAtMillis
             )
         }
@@ -155,4 +158,5 @@ private const val FieldLocationLatitude = "locationLatitude"
 private const val FieldLocationLongitude = "locationLongitude"
 private const val FieldAppointmentDateMillis = "appointmentDateMillis"
 private const val FieldDateKey = "dateKey"
+private const val FieldNote = "note"
 private const val FieldCreatedAtMillis = "createdAtMillis"
