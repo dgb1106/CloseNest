@@ -27,6 +27,8 @@ class FirebaseAppointmentRepository(
                 FieldId to document.id,
                 FieldUserId to userId,
                 FieldName to request.name,
+                FieldParticipantContactIds to request.participantContactIds,
+                FieldParticipantContactNames to request.participantContactNames,
                 FieldLocation to request.location,
                 FieldLocationLatitude to request.locationLatitude,
                 FieldLocationLongitude to request.locationLongitude,
@@ -62,6 +64,8 @@ class FirebaseAppointmentRepository(
         return snapshot.documents.mapNotNull { doc ->
             val id = doc.getString(FieldId) ?: return@mapNotNull null
             val name = doc.getString(FieldName) ?: return@mapNotNull null
+            val participantContactIds = doc.get(FieldParticipantContactIds) as? List<*>
+            val participantContactNames = doc.get(FieldParticipantContactNames) as? List<*>
             val location = doc.getString(FieldLocation) ?: return@mapNotNull null
             val locationLatitude = doc.getDouble(FieldLocationLatitude) ?: return@mapNotNull null
             val locationLongitude = doc.getDouble(FieldLocationLongitude) ?: return@mapNotNull null
@@ -71,6 +75,8 @@ class FirebaseAppointmentRepository(
             AppointmentItem(
                 id = id,
                 name = name,
+                participantContactIds = participantContactIds?.filterIsInstance<String>().orEmpty(),
+                participantContactNames = participantContactNames?.filterIsInstance<String>().orEmpty(),
                 location = location,
                 locationLatitude = locationLatitude,
                 locationLongitude = locationLongitude,
@@ -142,6 +148,8 @@ private const val AppointmentsCollection = "appointments"
 private const val FieldId = "id"
 private const val FieldUserId = "userId"
 private const val FieldName = "name"
+private const val FieldParticipantContactIds = "participantContactIds"
+private const val FieldParticipantContactNames = "participantContactNames"
 private const val FieldLocation = "location"
 private const val FieldLocationLatitude = "locationLatitude"
 private const val FieldLocationLongitude = "locationLongitude"

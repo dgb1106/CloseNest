@@ -143,11 +143,10 @@ fun RelationshipsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            HeaderSection(onAddRelationship = onAddRelationship)
-        }
-
-        item {
-            SummaryCard(totalRelationships = uiState.totalRelationships)
+            HeaderSection(
+                totalRelationships = uiState.totalRelationships,
+                onAddRelationship = onAddRelationship
+            )
         }
 
         item {
@@ -396,6 +395,7 @@ private fun RelationshipDetailScreen(
 
 @Composable
 private fun HeaderSection(
+    totalRelationships: Int,
     onAddRelationship: () -> Unit
 ) {
     Column(
@@ -403,7 +403,7 @@ private fun HeaderSection(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = stringResource(R.string.relationships_title),
+            text = stringResource(R.string.relationships_title, totalRelationships),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground
         )
@@ -425,37 +425,6 @@ private fun HeaderSection(
             )
             Spacer(modifier = Modifier.size(8.dp))
             Text(text = stringResource(R.string.relationship_add_person))
-        }
-    }
-}
-
-@Composable
-private fun SummaryCard(
-    totalRelationships: Int
-) {
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.relationship_summary_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                text = pluralStringResource(
-                    id = R.plurals.relationship_summary_people,
-                    count = totalRelationships,
-                    totalRelationships
-                ),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
         }
     }
 }

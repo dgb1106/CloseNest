@@ -1,6 +1,7 @@
 package com.example.closenest.features.homepage.repository
 
 import com.example.closenest.core.network.FirebaseConnectionException
+import com.example.closenest.features.homepage.model.MemoryItem
 import com.example.closenest.features.homepage.model.NewMemoryRequest
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
@@ -23,6 +24,43 @@ class FirebaseMemoryRepository(
     private val firestore: FirebaseFirestore,
     private val storage: FirebaseStorage
 ) : MemoryRepository {
+
+    override suspend fun getMemories(): List<MemoryItem> {
+        val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
+        ensureFirestoreReachable()
+        val snapshot = memoriesCollection(userId)
+            .orderBy(FieldCreatedAtMillis)
+            .get()
+            .awaitResult()
+        return snapshot.documents.mapNotNull { doc ->
+            val id = doc.getString(FieldId) ?: return@mapNotNull null
+            val contactId = doc.getString(FieldContactId) ?: return@mapNotNull null
+            val contactName = doc.getString(FieldContactName) ?: return@mapNotNull null
+            val title = doc.getString(FieldTitle) ?: return@mapNotNull null
+            val type = doc.getString(FieldType) ?: return@mapNotNull null
+            val note = doc.getString(FieldNote)
+            val photoUri = doc.getString(FieldPhotoUri)
+            val location = doc.getString(FieldLocation)
+            val locationLatitude = doc.getDouble(FieldLocationLatitude)
+            val locationLongitude = doc.getDouble(FieldLocationLongitude)
+            val dateKey = doc.getString(FieldDateKey) ?: return@mapNotNull null
+            val createdAtMillis = doc.getLong(FieldCreatedAtMillis) ?: return@mapNotNull null
+            MemoryItem(
+                id = id,
+                contactId = contactId,
+                contactName = contactName,
+                title = title,
+                type = type,
+                note = note,
+                photoUri = photoUri,
+                location = location,
+                locationLatitude = locationLatitude,
+                locationLongitude = locationLongitude,
+                dateKey = dateKey,
+                createdAtMillis = createdAtMillis
+            )
+        }
+    }
 
     override suspend fun addMemory(request: NewMemoryRequest) {
         val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
@@ -109,6 +147,19 @@ private suspend fun Task<*>.awaitCompletion() {
             if (continuation.isActive) {
                 continuation.resumeWithException(exception)
             }
+        }
+    }
+}
+
+private suspend fun <T> Task<T>.awaitResult(): T = suspendCancellableCoroutine { continuation ->
+    addOnSuccessListener { result ->
+        if (continuation.isActive) {
+            continuation.resume(result)
+        }
+    }
+    addOnFailureListener { exception ->
+        if (continuation.isActive) {
+            continuation.resumeWithException(exception)
         }
     }
 }
