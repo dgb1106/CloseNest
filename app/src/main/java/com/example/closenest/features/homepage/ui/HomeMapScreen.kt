@@ -29,6 +29,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Place
@@ -417,6 +418,25 @@ private fun AppointmentCard(appointment: AppointmentItem) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF616161)
                 )
+            }
+
+            if (!appointment.note.isNullOrBlank()) {
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.Notes,
+                        contentDescription = null,
+                        tint = Color(0xFF9E9E9E),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = appointment.note,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF616161)
+                    )
+                }
             }
         }
     }

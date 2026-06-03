@@ -1,4 +1,4 @@
-<resources>
+﻿<resources>
     <string name="app_name">CloseNest</string>
     <string name="common_saved_title">Đã lưu</string>
 
@@ -227,6 +227,9 @@
     <string name="add_appointment_permission_error">Máy chủ chưa cho phép lưu cuộc hẹn. Bạn kiểm tra quyền ghi dữ liệu rồi thử lại nhé.</string>
     <string name="add_appointment_save_timeout">Máy chủ phản hồi quá lâu. Bạn kiểm tra mạng rồi thử lại nhé.</string>
     <string name="add_appointment_save_error">Không thể lưu cuộc hẹn lúc này. Bạn thử lại sau nhé.</string>
+    <string name="add_appointment_note_label">Nội dung cuộc hẹn</string>
+    <string name="add_appointment_note_hint">Thêm ghi chú cho cuộc hẹn (không bắt buộc)</string>
+    <string name="action_clear_text">Xóa nội dung vừa nhập</string>
 
     <string name="notifications_placeholder_title">Thông báo dịu nhẹ</string>
     <string name="notifications_placeholder_body">Phần thông báo sẽ được hoàn thiện ở các phiên bản sau.</string>

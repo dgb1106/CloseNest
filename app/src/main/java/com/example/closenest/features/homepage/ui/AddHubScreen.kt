@@ -46,6 +46,7 @@ import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Place
@@ -318,6 +319,7 @@ fun AppointmentRoute(
         onDateSelected = viewModel::onAppointmentDateSelected,
         onAllDayToggled = viewModel::onAppointmentAllDayToggled,
         onTimeSelected = viewModel::onAppointmentTimeSelected,
+        onNoteChanged = viewModel::onAppointmentNoteChanged,
         onSave = viewModel::saveAppointment,
         modifier = modifier
     )
@@ -421,6 +423,7 @@ fun AppointmentScreen(
     onDateSelected: (Long) -> Unit,
     onAllDayToggled: (Boolean) -> Unit,
     onTimeSelected: (Int, Int) -> Unit,
+    onNoteChanged: (String) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -547,6 +550,21 @@ fun AppointmentScreen(
                             )
                         }
                     }
+                }
+            }
+
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SectionTitle(text = stringResource(R.string.add_appointment_note_label))
+                    OutlinedTextField(
+                        value = uiState.appointmentNote,
+                        onValueChange = onNoteChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        placeholder = {
+                            Text(text = stringResource(R.string.add_appointment_note_hint))
+                        }
+                    )
                 }
             }
         }
@@ -1313,6 +1331,24 @@ private fun LocationSection(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp
                         )
+                    }
+                    if (query.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                query = ""
+                                onLocationChanged("")
+                                suggestions = emptyList()
+                                showDropdown = false
+                                stopAutoSearchUntilUserTypes = true
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = stringResource(R.string.action_clear_text),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
 

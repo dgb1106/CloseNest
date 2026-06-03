@@ -8,6 +8,7 @@ data class NewAppointmentRequest(
     val locationLatitude: Double,
     val locationLongitude: Double,
     val appointmentDateMillis: Long,
+    val note: String? = null,
     val createdAtMillis: Long
 )
 
@@ -21,5 +22,6 @@ data class AppointmentItem(
     val locationLongitude: Double,
     val appointmentDateMillis: Long,
     val dateKey: String,
+    val note: String? = null,
     val createdAtMillis: Long
 )

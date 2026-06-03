@@ -64,6 +64,7 @@ data class AddHubUiState(
     val isAppointmentAllDay: Boolean = false,
     val appointmentTimeHour: Int? = null,
     val appointmentTimeMinute: Int? = null,
+    val appointmentNote: String = "",
     val isSavingAppointment: Boolean = false,
     @param:StringRes val contactsErrorMessageRes: Int? = null,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
@@ -211,6 +212,7 @@ class AddHubViewModel(
             isAppointmentAllDay = draft.isAppointmentAllDay,
             appointmentTimeHour = draft.appointmentTimeHour,
             appointmentTimeMinute = draft.appointmentTimeMinute,
+            appointmentNote = draft.appointmentNote,
             isSavingAppointment = draft.isSavingAppointment,
             contactsErrorMessageRes = result.errorMessageRes,
             reflectionErrorMessageRes = draft.reflectionErrorMessageRes,
@@ -597,6 +599,16 @@ class AddHubViewModel(
         }
     }
 
+    fun onAppointmentNoteChanged(note: String) {
+        addHubDraft.update { current ->
+            current.copy(
+                appointmentNote = note,
+                appointmentErrorMessageRes = null,
+                appointmentSavedMessageRes = null
+            )
+        }
+    }
+
     fun onAppointmentTimeSelected(hour: Int, minute: Int) {
         addHubDraft.update { current ->
             current.copy(
@@ -674,6 +686,7 @@ class AddHubViewModel(
                             locationLatitude = selectedLocationLatitude,
                             locationLongitude = selectedLocationLongitude,
                             appointmentDateMillis = appointmentDateMillis,
+                            note = currentState.appointmentNote.trim().takeIf { it.isNotEmpty() },
                             createdAtMillis = System.currentTimeMillis()
                         )
                     )
@@ -690,6 +703,7 @@ class AddHubViewModel(
                         isAppointmentAllDay = false,
                         appointmentTimeHour = null,
                         appointmentTimeMinute = null,
+                        appointmentNote = "",
                         isSavingAppointment = false,
                         appointmentErrorMessageRes = null,
                         appointmentSavedMessageRes = R.string.add_appointment_saved
@@ -758,6 +772,7 @@ private data class AddHubDraft(
     val isAppointmentAllDay: Boolean = false,
     val appointmentTimeHour: Int? = null,
     val appointmentTimeMinute: Int? = null,
+    val appointmentNote: String = "",
     val isSavingAppointment: Boolean = false,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
     @param:StringRes val reflectionSavedMessageRes: Int? = null,
