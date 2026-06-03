@@ -3,13 +3,16 @@ package com.example.closenest.features.homepage.repository
 import com.example.closenest.core.network.FirebaseConnectionException
 import com.example.closenest.features.homepage.model.NewReflectionRequest
 import com.google.android.gms.tasks.Task
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
@@ -23,23 +26,91 @@ class FirebaseReflectionRepository(
 
     override suspend fun addReflection(request: NewReflectionRequest) {
         val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
-        val document = reflectionsCollection(userId).document()
+        val todayKey = dateFormatter.format(Date(request.createdAtMillis))
 
         ensureFirestoreReachable()
 
-        document.set(
-            mapOf(
-                FieldId to document.id,
-                FieldUserId to userId,
-                FieldInteractedContactIds to request.interactedContacts.map { contact -> contact.id },
-                FieldInteractedContactNames to request.interactedContacts.map { contact -> contact.name },
-                FieldMood to request.mood,
-                FieldFeelings to request.feelings,
-                FieldSources to request.sources,
-                FieldDateKey to dateFormatter.format(Date(request.createdAtMillis)),
-                FieldCreatedAtMillis to request.createdAtMillis
-            )
-        ).awaitCompletion()
+        val existingSnapshot = reflectionsCollection(userId)
+            .whereEqualTo(FieldDateKey, todayKey)
+            .limit(1)
+            .get()
+            .awaitResult()
+
+        val reflectionData = mapOf(
+            FieldUserId to userId,
+            FieldInteractedContactIds to request.interactedContacts.map { contact -> contact.id },
+            FieldInteractedContactNames to request.interactedContacts.map { contact -> contact.name },
+            FieldMood to request.mood,
+            FieldFeelings to request.feelings,
+            FieldSources to request.sources,
+            FieldDateKey to todayKey,
+            FieldCreatedAtMillis to request.createdAtMillis
+        )
+
+        if (existingSnapshot != null && !existingSnapshot.isEmpty) {
+            val existingDoc = existingSnapshot.documents[0]
+            existingDoc.reference.update(reflectionData).awaitCompletion()
+        } else {
+            val document = reflectionsCollection(userId).document()
+            val dataWithId = reflectionData + mapOf(FieldId to document.id)
+            document.set(dataWithId).awaitCompletion()
+        }
+
+        updateStreakOnReflection(userId)
+    }
+
+    private suspend fun updateStreakOnReflection(userId: String) {
+        try {
+            val userDoc = firestore.collection(UsersCollection)
+                .document(userId)
+                .get()
+                .awaitResult()
+
+            if (userDoc == null || !userDoc.exists()) return
+
+            val lastCheckedIn = userDoc.getTimestamp("lastCheckedIn")
+            val currentStreak = userDoc.getLong("streakCount")?.toInt() ?: 0
+            val newStreak = computeStreak(lastCheckedIn, currentStreak)
+
+            firestore.collection(UsersCollection)
+                .document(userId)
+                .update(
+                    mapOf(
+                        "lastCheckedIn" to Timestamp.now(),
+                        "streakCount" to newStreak
+                    )
+                )
+                .awaitCompletion()
+        } catch (_: Exception) {
+            // non-critical
+        }
+    }
+
+    private fun computeStreak(lastCheckedIn: Timestamp?, currentStreak: Int): Int {
+        if (lastCheckedIn == null) return 1
+
+        val utc7 = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+        val nowCal = Calendar.getInstance(utc7)
+        val lastCal = Calendar.getInstance(utc7).apply {
+            timeInMillis = lastCheckedIn.seconds * 1000
+        }
+
+        val nowDay = nowCal.get(Calendar.DAY_OF_YEAR)
+        val nowYear = nowCal.get(Calendar.YEAR)
+        val lastDay = lastCal.get(Calendar.DAY_OF_YEAR)
+        val lastYear = lastCal.get(Calendar.YEAR)
+
+        return when {
+            nowYear == lastYear && nowDay == lastDay -> currentStreak
+            nowYear == lastYear && nowDay - lastDay == 1 -> currentStreak + 1
+            nowYear != lastYear && nowDay == 1 && lastDay == daysInYear(lastYear) -> currentStreak + 1
+            else -> 1
+        }
+    }
+
+    private fun daysInYear(year: Int): Int {
+        val cal = Calendar.getInstance().apply { set(Calendar.YEAR, year) }
+        return cal.getActualMaximum(Calendar.DAY_OF_YEAR)
     }
 
     private fun reflectionsCollection(userId: String) =
@@ -68,6 +139,19 @@ private suspend fun Task<*>.awaitCompletion() {
             if (continuation.isActive) {
                 continuation.resumeWithException(exception)
             }
+        }
+    }
+}
+
+private suspend fun <T> Task<T>.awaitResult(): T = suspendCancellableCoroutine { continuation ->
+    addOnSuccessListener { result ->
+        if (continuation.isActive) {
+            continuation.resume(result)
+        }
+    }
+    addOnFailureListener { exception ->
+        if (continuation.isActive) {
+            continuation.resumeWithException(exception)
         }
     }
 }

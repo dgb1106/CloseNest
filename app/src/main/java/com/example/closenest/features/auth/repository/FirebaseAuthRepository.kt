@@ -10,18 +10,13 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import java.util.Calendar
-import java.util.TimeZone
 
 class FirebaseAuthRepository(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore
 ) : AuthRepository {
 
-    companion object {
-        private const val USERS_COLLECTION = "users"
-        private const val TIMEZONE_UTC7 = "Asia/Ho_Chi_Minh"
-    }
+    private val USERS_COLLECTION = "users"
 
     override val authState: Flow<Boolean> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
@@ -36,8 +31,6 @@ class FirebaseAuthRepository(
     override suspend fun login(email: String, password: String): Result<Unit> {
         return try {
             auth.signInWithEmailAndPassword(email, password).await()
-            val uid = auth.currentUser?.uid ?: return Result.failure(Exception("User not found after login"))
-            updateStreakOnLogin(uid)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -96,7 +89,6 @@ class FirebaseAuthRepository(
             val uid = auth.currentUser?.uid
                 ?: return Result.failure(Exception("User not found after Google login"))
 
-            updateStreakOnLogin(uid)
             createOrUpdateGoogleUser(uid)
 
             Result.success(Unit)
@@ -129,56 +121,6 @@ class FirebaseAuthRepository(
         } catch (_: Exception) {
             // User doc creation is non-critical for Google login; silently ignore failures
         }
-    }
-
-    private suspend fun updateStreakOnLogin(uid: String) {
-        try {
-            val docResult = getUserDocument(uid)
-            if (docResult.isFailure) return
-
-            val userDoc = docResult.getOrNull() ?: return
-            val lastCheckedIn = userDoc.lastCheckedIn
-            val newStreakCount = computeStreak(lastCheckedIn, userDoc.streakCount)
-
-            firestore.collection(USERS_COLLECTION)
-                .document(uid)
-                .update(
-                    mapOf(
-                        "lastCheckedIn" to Timestamp.now(),
-                        "streakCount" to newStreakCount
-                    )
-                )
-                .await()
-        } catch (_: Exception) {
-            // Streak update is non-critical; silently ignore failures
-        }
-    }
-
-    private fun computeStreak(lastCheckedIn: Timestamp?, currentStreak: Int): Int {
-        if (lastCheckedIn == null) return 1
-
-        val utc7 = TimeZone.getTimeZone(TIMEZONE_UTC7)
-        val nowCal = Calendar.getInstance(utc7)
-        val lastCal = Calendar.getInstance(utc7).apply {
-            timeInMillis = lastCheckedIn.seconds * 1000
-        }
-
-        val nowDay = nowCal.get(Calendar.DAY_OF_YEAR)
-        val nowYear = nowCal.get(Calendar.YEAR)
-        val lastDay = lastCal.get(Calendar.DAY_OF_YEAR)
-        val lastYear = lastCal.get(Calendar.YEAR)
-
-        return when {
-            nowYear == lastYear && nowDay == lastDay -> currentStreak
-            nowYear == lastYear && nowDay - lastDay == 1 -> currentStreak + 1
-            nowYear != lastYear && nowDay == 1 && lastDay == daysInYear(lastYear) -> currentStreak + 1
-            else -> 1
-        }
-    }
-
-    private fun daysInYear(year: Int): Int {
-        val cal = Calendar.getInstance().apply { set(Calendar.YEAR, year) }
-        return cal.getActualMaximum(Calendar.DAY_OF_YEAR)
     }
 
     override fun logout() {

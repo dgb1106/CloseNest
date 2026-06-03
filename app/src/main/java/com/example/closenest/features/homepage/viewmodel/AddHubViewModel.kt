@@ -82,13 +82,15 @@ data class ReflectionContactListItem(
 
 enum class ReflectionMood(
     val storageValue: String,
-    @param:StringRes val labelRes: Int
+    @param:StringRes val labelRes: Int,
+    val drawableRes: Int,
+    val sliderValue: Float
 ) {
-    VeryUnpleasant("Rất khó chịu", R.string.add_reflection_mood_very_unpleasant),
-    Unpleasant("Khó chịu", R.string.add_reflection_mood_unpleasant),
-    Neutral("Bình thường", R.string.add_reflection_mood_neutral),
-    Pleasant("Dễ chịu", R.string.add_reflection_mood_pleasant),
-    VeryPleasant("Rất dễ chịu", R.string.add_reflection_mood_very_pleasant)
+    VeryUnpleasant("Rất khó chịu", R.string.add_reflection_mood_very_unpleasant, R.drawable.mood_very_unpleasant, 0f),
+    Unpleasant("Khó chịu", R.string.add_reflection_mood_unpleasant, R.drawable.mood_unpleasant, 0.25f),
+    Neutral("Bình thường", R.string.add_reflection_mood_neutral, R.drawable.mood_neutral, 0.5f),
+    Pleasant("Dễ chịu", R.string.add_reflection_mood_pleasant, R.drawable.mood_pleasant, 0.75f),
+    VeryPleasant("Rất dễ chịu", R.string.add_reflection_mood_very_pleasant, R.drawable.mood_very_pleasant, 1f)
 }
 
 val ReflectionMoodOptions = listOf(
@@ -98,6 +100,14 @@ val ReflectionMoodOptions = listOf(
     ReflectionMood.Pleasant,
     ReflectionMood.VeryPleasant
 )
+
+fun sliderValueToMood(value: Float): ReflectionMood = when {
+    value < 0.125f -> ReflectionMood.VeryUnpleasant
+    value < 0.375f -> ReflectionMood.Unpleasant
+    value < 0.625f -> ReflectionMood.Neutral
+    value < 0.875f -> ReflectionMood.Pleasant
+    else -> ReflectionMood.VeryPleasant
+}
 
 enum class ReflectionFeeling(
     val storageValue: String,
