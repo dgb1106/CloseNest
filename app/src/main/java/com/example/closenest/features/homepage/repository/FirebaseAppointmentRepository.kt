@@ -90,6 +90,14 @@ class FirebaseAppointmentRepository(
         }
     }
 
+    override suspend fun deleteAppointment(appointmentId: String) {
+        val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
+        appointmentsCollection(userId)
+            .document(appointmentId)
+            .delete()
+            .awaitCompletion()
+    }
+
     private fun startOfDayMillis(todayMillis: Long): Long {
         return Calendar.getInstance().apply {
             timeInMillis = todayMillis

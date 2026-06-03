@@ -7,4 +7,5 @@ interface AppointmentRepository {
     suspend fun addAppointment(request: NewAppointmentRequest)
     suspend fun countUpcomingAppointments(todayMillis: Long = System.currentTimeMillis()): Int
     suspend fun getUpcomingAppointments(todayMillis: Long = System.currentTimeMillis()): List<AppointmentItem>
+    suspend fun deleteAppointment(appointmentId: String)
 }

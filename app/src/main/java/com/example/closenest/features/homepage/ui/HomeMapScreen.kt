@@ -3,11 +3,14 @@ package com.example.closenest.features.homepage.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.location.Location
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +19,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,17 +34,30 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Notes
+import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Directions
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -74,6 +91,8 @@ import com.example.closenest.features.homepage.model.AppointmentItem
 import com.example.closenest.features.homepage.model.MemoryItem
 import com.example.closenest.features.homepage.repository.AppointmentRepositoryProvider
 import com.example.closenest.features.homepage.repository.MemoryRepositoryProvider
+import com.example.closenest.features.relationships.model.RelationshipProfile
+import com.example.closenest.features.relationships.repository.RelationshipRepositoryProvider
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -93,6 +112,7 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import coil.compose.AsyncImagePainter
@@ -128,12 +148,15 @@ fun HomeMapScreen(
 ) {
     val appointmentRepository = remember { AppointmentRepositoryProvider.repository }
     val memoryRepository = remember { MemoryRepositoryProvider.repository }
+    val relationshipRepository = remember { RelationshipRepositoryProvider.repository }
     var upcomingCount by remember { mutableStateOf<Int?>(null) }
     var appointmentList by remember { mutableStateOf<List<AppointmentItem>>(emptyList()) }
     var showAppointmentsDialog by rememberSaveable { mutableStateOf(false) }
     var memories by remember { mutableStateOf<List<MemoryItem>>(emptyList()) }
+    var relationshipProfiles by remember { mutableStateOf<List<RelationshipProfile>>(emptyList()) }
     var selectedMemory by remember { mutableStateOf<MemoryItem?>(null) }
     var selectedAppointment by remember { mutableStateOf<AppointmentItem?>(null) }
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -149,6 +172,10 @@ fun HomeMapScreen(
 
                     memories = runCatching {
                         memoryRepository.getMemories()
+                    }.getOrDefault(emptyList())
+
+                    relationshipProfiles = runCatching {
+                        relationshipRepository.observeRelationships().first()
                     }.getOrDefault(emptyList())
                 }
             }
@@ -265,15 +292,38 @@ fun HomeMapScreen(
     }
 
     selectedAppointment?.let { appointment ->
-        DetailDialog(
-            title = "Cuộc hẹn",
-            itemTitle = appointment.name,
-            subtitle = formatAppointmentDate(appointment.appointmentDateMillis),
-            subtitleLabel = "Ng?y",
-            location = appointment.location,
-            note = null,
-            photoUri = null,
-            onDismiss = { selectedAppointment = null }
+        AppointmentDetailDialog(
+            appointment = appointment,
+            relationshipProfiles = relationshipProfiles,
+            onDismiss = { selectedAppointment = null },
+            onNavigate = { lat, lng ->
+                val uri = Uri.parse("google.navigation:q=$lat,$lng")
+                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                    setPackage("com.google.android.apps.maps")
+                }
+                if (intent.resolveActivity(context.packageManager) != null) {
+                    context.startActivity(intent)
+                } else {
+                    val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng")
+                    context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
+                }
+            },
+            onCancelAppointment = { appointmentId ->
+                coroutineScope.launch {
+                    runCatching {
+                        appointmentRepository.deleteAppointment(appointmentId)
+                    }.onSuccess {
+                        appointmentList = runCatching {
+                            appointmentRepository.getUpcomingAppointments()
+                        }.getOrDefault(emptyList())
+                        upcomingCount = appointmentList.size
+                        selectedAppointment = null
+                        Toast.makeText(context, context.getString(R.string.appointment_cancel_success), Toast.LENGTH_SHORT).show()
+                    }.onFailure {
+                        Toast.makeText(context, context.getString(R.string.appointment_cancel_error), Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         )
     }
 }
@@ -705,6 +755,370 @@ private fun formatAppointmentDate(dateMillis: Long): String {
 }
 
 @Composable
+private fun AppointmentDetailDialog(
+    appointment: AppointmentItem,
+    relationshipProfiles: List<RelationshipProfile>,
+    onDismiss: () -> Unit,
+    onNavigate: (lat: Double, lng: Double) -> Unit,
+    onCancelAppointment: (appointmentId: String) -> Unit
+) {
+    var contactAction by remember { mutableStateOf<ContactAction?>(null) }
+    var showCancelConfirm by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val participants = appointment.participantContactNames.zip(appointment.participantContactIds)
+
+    fun performContactAction(action: ContactAction, personIndex: Int) {
+        val (name, contactId) = participants[personIndex]
+        val profile = relationshipProfiles.find { it.id == contactId }
+        when (action) {
+            ContactAction.Call -> {
+                val phone = profile?.phoneNumber?.takeIf { it.isNotBlank() }
+                if (phone != null) {
+                    context.startActivity(Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:$phone") })
+                } else {
+                    Toast.makeText(context, context.getString(R.string.appointment_contact_no_phone, name), Toast.LENGTH_SHORT).show()
+                }
+            }
+            ContactAction.Email -> {
+                val email = profile?.email?.takeIf { it.isNotBlank() }
+                if (email != null) {
+                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:")
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
+                    }
+                    if (intent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(intent)
+                    } else {
+                        Toast.makeText(context, "Không tìm thấy ứng dụng email.", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(context, context.getString(R.string.appointment_contact_no_email, name), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(horizontal = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Bạn có hẹn với",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Đóng",
+                            tint = Color(0xFF757575)
+                        )
+                    }
+                }
+
+                if (participants.isNotEmpty()) {
+                    participants.forEach { (name, _) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.People,
+                                contentDescription = null,
+                                tint = Color(0xFF9E9E9E),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color(0xFF616161)
+                            )
+                        }
+                    }
+                }
+
+                DetailRow(label = "Ngày", value = formatAppointmentDate(appointment.appointmentDateMillis))
+
+                DetailRow(label = "Tại", value = appointment.location)
+
+                appointment.note?.takeIf { it.isNotBlank() }?.let { noteText ->
+                    DetailRow(label = "Nội dung", value = noteText)
+                }
+
+                HorizontalDivider(color = Color(0xFFE0E0E0))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            if (participants.size == 1) {
+                                performContactAction(ContactAction.Call, 0)
+                            } else {
+                                contactAction = ContactAction.Call
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                        contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Call,
+                            contentDescription = "Gọi điện",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            if (participants.size == 1) {
+                                performContactAction(ContactAction.Email, 0)
+                            } else {
+                                contactAction = ContactAction.Email
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                        contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Email,
+                            contentDescription = "Gửi email",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            onNavigate(appointment.locationLatitude, appointment.locationLongitude)
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Directions,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Chỉ đường", fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = { showCancelConfirm = true },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Cancel,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Xóa", fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+
+    contactAction?.let { action ->
+        ContactBottomSheet(
+            appointment = appointment,
+            relationshipProfiles = relationshipProfiles,
+            action = action,
+            onPersonSelected = { index ->
+                performContactAction(action, index)
+                contactAction = null
+            },
+            onDismiss = { contactAction = null }
+        )
+    }
+
+    if (showCancelConfirm) {
+        CancelConfirmDialog(
+            appointmentName = appointment.name,
+            onConfirm = {
+                showCancelConfirm = false
+                onCancelAppointment(appointment.id)
+            },
+            onDismiss = { showCancelConfirm = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ContactBottomSheet(
+    appointment: AppointmentItem,
+    relationshipProfiles: List<RelationshipProfile>,
+    action: ContactAction,
+    onPersonSelected: (index: Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState()
+    val participants = appointment.participantContactNames.zip(appointment.participantContactIds)
+    val label = when (action) {
+        ContactAction.Call -> "Gọi điện cho"
+        ContactAction.Email -> "Gửi email cho"
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        containerColor = Color.White
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            participants.forEachIndexed { index, (name, _) ->
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F6FA)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onPersonSelected(index) }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.People,
+                                contentDescription = null,
+                                tint = Color(0xFF757575),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Icon(
+                            imageVector = if (action == ContactAction.Call) Icons.Outlined.Call else Icons.Outlined.Email,
+                            contentDescription = null,
+                            tint = Color(0xFF757575),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private enum class ContactAction { Call, Email }
+
+@Composable
+private fun CancelConfirmDialog(
+    appointmentName: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .padding(horizontal = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Xác nhận hủy cuộc hẹn",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Text(
+                    text = "Bạn chắc chắn muốn hủy cuộc hẹn \"$appointmentName\" không?",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color(0xFF616161)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Giữ lại")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = onConfirm,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE53935)
+                        )
+                    ) {
+                        Text("Hủy cuộc hẹn")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun DetailDialog(
     title: String,
     itemTitle: String,
@@ -760,7 +1174,7 @@ private fun DetailDialog(
                     IconButton(onClick = onDismiss) {
                         Icon(
                             imageVector = Icons.Outlined.Close,
-                            contentDescription = "??ng",
+                            contentDescription = "Đóng",
                             tint = Color(0xFF757575)
                         )
                     }
@@ -779,7 +1193,7 @@ private fun DetailDialog(
                     if (hasPhoto && painter.state is AsyncImagePainter.State.Success) {
                         androidx.compose.foundation.Image(
                             painter = painter,
-                            contentDescription = "?nh",
+                            contentDescription = "Ảnh",
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(180.dp)
@@ -819,7 +1233,7 @@ private fun DetailDialog(
                     }
 
                     note?.takeIf { it.isNotBlank() }?.let { noteText ->
-                        DetailRow(label = "M? t?", value = noteText)
+                        DetailRow(label = "Mô tả", value = noteText)
                     }
                 }
             }
