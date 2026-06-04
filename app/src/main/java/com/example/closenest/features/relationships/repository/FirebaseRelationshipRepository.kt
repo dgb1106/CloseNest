@@ -116,6 +116,30 @@ class FirebaseRelationshipRepository(
             .awaitCompletion()
     }
 
+    override suspend fun updateRelationship(relationshipId: String, request: NewRelationshipRequest) {
+        val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
+        val now = System.currentTimeMillis()
+
+        ensureFirestoreReachable()
+
+        relationshipsCollection(userId)
+            .document(relationshipId)
+            .update(
+                mapOf(
+                    FieldName to request.name,
+                    FieldTag to request.tag.name,
+                    FieldBirthdayIso to request.birthdayIso,
+                    FieldPhoneNumber to request.phoneNumber,
+                    FieldEmail to request.email,
+                    FieldInterests to request.interests,
+                    FieldNotes to request.notes,
+                    FieldPriority to request.priority.name,
+                    FieldUpdatedAtMillis to now
+                )
+            )
+            .awaitCompletion()
+    }
+
     private fun relationshipsCollection(userId: String) =
         firestore.collection(UsersCollection)
             .document(userId)

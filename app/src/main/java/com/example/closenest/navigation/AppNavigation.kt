@@ -36,6 +36,9 @@ import com.example.closenest.features.relationships.ui.RelationshipDetailRoute
 import com.example.closenest.features.relationships.ui.RelationshipsRoute
 
 private const val AddRelationshipRouteName = "add_relationship"
+private const val EditRelationshipRouteName = "edit_relationship"
+private const val EditRelationshipIdArg = "editRelationshipId"
+private const val EditRelationshipRoutePattern = "$EditRelationshipRouteName/{$EditRelationshipIdArg}"
 private const val AddReflectionRouteName = "add_reflection"
 private const val AddMemoryRouteName = "add_memory"
 private const val AddAppointmentRouteName = "add_appointment"
@@ -53,7 +56,8 @@ fun AppNavigation(onLogout: () -> Unit) {
         currentRoute != AddReflectionRouteName &&
         currentRoute != AddMemoryRouteName &&
         currentRoute != AddAppointmentRouteName &&
-        currentRoute != RelationshipDetailRoutePattern
+        currentRoute != RelationshipDetailRoutePattern &&
+        currentRoute != EditRelationshipRoutePattern
     val navigateToAddRelationship = {
         navController.navigate(AddRelationshipRouteName) {
             launchSingleTop = true
@@ -76,6 +80,11 @@ fun AppNavigation(onLogout: () -> Unit) {
     }
     val navigateToRelationshipDetail: (String) -> Unit = { relationshipId ->
         navController.navigate("$RelationshipDetailRouteName/${Uri.encode(relationshipId)}") {
+            launchSingleTop = true
+        }
+    }
+    val navigateToEditRelationship: (String) -> Unit = { relationshipId ->
+        navController.navigate("$EditRelationshipRouteName/${Uri.encode(relationshipId)}") {
             launchSingleTop = true
         }
     }
@@ -155,6 +164,22 @@ fun AppNavigation(onLogout: () -> Unit) {
                         modifier = Modifier
                     )
                 }
+                composable(
+                    route = EditRelationshipRoutePattern,
+                    arguments = listOf(
+                        navArgument(EditRelationshipIdArg) {
+                            type = NavType.StringType
+                        }
+                    )
+                ) { backStackEntry ->
+                    AddRelationshipRoute(
+                        editRelationshipId = backStackEntry.arguments
+                            ?.getString(EditRelationshipIdArg)
+                            .orEmpty(),
+                        onNavigateBack = { navController.popBackStack() },
+                        modifier = Modifier
+                    )
+                }
                 composable(AddReflectionRouteName) { backStackEntry ->
                     val addBackStackEntry = remember(backStackEntry) {
                         navController.getBackStackEntry(MainTab.Add.route)
@@ -210,6 +235,7 @@ fun AppNavigation(onLogout: () -> Unit) {
                             ?.getString(RelationshipIdArgument)
                             .orEmpty(),
                         onNavigateBack = { navController.popBackStack() },
+                        onEditRelationship = navigateToEditRelationship,
                         modifier = Modifier
                     )
                 }

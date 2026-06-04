@@ -10,4 +10,6 @@ interface RelationshipRepository {
     suspend fun addRelationship(request: NewRelationshipRequest)
 
     suspend fun deleteRelationship(relationshipId: String)
+
+    suspend fun updateRelationship(relationshipId: String, request: NewRelationshipRequest)
 }

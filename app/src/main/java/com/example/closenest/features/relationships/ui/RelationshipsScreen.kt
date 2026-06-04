@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material.icons.outlined.Phone
@@ -104,6 +106,7 @@ fun RelationshipsRoute(
 fun RelationshipDetailRoute(
     relationshipId: String,
     onNavigateBack: () -> Unit,
+    onEditRelationship: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RelationshipsViewModel = viewModel(factory = RelationshipsViewModel.Factory)
 ) {
@@ -120,6 +123,7 @@ fun RelationshipDetailRoute(
         uiState = uiState,
         relationship = relationship,
         onNavigateBack = onNavigateBack,
+        onEditRelationship = { onEditRelationship(relationshipId) },
         onDeleteRelationship = { viewModel.deleteRelationship(relationshipId) },
         modifier = modifier
     )
@@ -235,6 +239,7 @@ private fun RelationshipDetailScreen(
     uiState: RelationshipsUiState,
     relationship: RelationshipListItem?,
     onNavigateBack: () -> Unit,
+    onEditRelationship: () -> Unit,
     onDeleteRelationship: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -341,15 +346,16 @@ private fun RelationshipDetailScreen(
                             DetailRow(
                                 label = stringResource(R.string.relationship_detail_notes_label),
                                 value = relationship.notes,
-                                icon = Icons.AutoMirrored.Outlined.Notes
+//                                icon = Icons.AutoMirrored.Outlined.Notes
                             )
                         }
                     }
 
                     item {
-                        DeleteRelationshipSection(
+                        ActionButtonsSection(
                             isDeleting = uiState.isDeletingRelationship,
                             errorMessageRes = uiState.deleteErrorMessageRes,
+                            onEditClick = onEditRelationship,
                             onDeleteClick = { showDeleteDialog = true }
                         )
                     }
@@ -608,34 +614,47 @@ private fun DetailSection(
 }
 
 @Composable
-private fun DeleteRelationshipSection(
+private fun ActionButtonsSection(
     isDeleting: Boolean,
     errorMessageRes: Int?,
+    onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        errorMessageRes?.let { messageRes ->
+            Text(
+                text = stringResource(messageRes),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            errorMessageRes?.let { messageRes ->
-                Text(
-                    text = stringResource(messageRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error
+            FilledTonalButton(
+                onClick = onEditClick,
+                enabled = !isDeleting,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(vertical = 14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Edit,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
                 )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(R.string.relationship_edit_action))
             }
 
             Button(
                 onClick = onDeleteClick,
                 enabled = !isDeleting,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
@@ -647,7 +666,7 @@ private fun DeleteRelationshipSection(
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.size(8.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource(
                         if (isDeleting) {
