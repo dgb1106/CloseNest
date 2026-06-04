@@ -12,3 +12,8 @@ data class ReflectionContactSnapshot(
     val id: String,
     val name: String
 )
+
+data class MoodDayEntry(
+    val dateKey: String,
+    val mood: String
+)

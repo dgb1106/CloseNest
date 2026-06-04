@@ -1,6 +1,7 @@
 package com.example.closenest.features.homepage.repository
 
 import com.example.closenest.core.network.FirebaseConnectionException
+import com.example.closenest.features.homepage.model.MoodDayEntry
 import com.example.closenest.features.homepage.model.NewReflectionRequest
 import com.google.android.gms.tasks.Task
 import com.google.firebase.Timestamp
@@ -57,6 +58,38 @@ class FirebaseReflectionRepository(
         }
 
         updateStreakOnReflection(userId)
+    }
+
+    override suspend fun getRecentMoods(days: Int): Result<List<MoodDayEntry>> {
+        return try {
+            val userId = auth.currentUser?.uid ?: return Result.failure(
+                IllegalStateException("No signed-in Firebase user.")
+            )
+
+            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+            }
+            val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"))
+            cal.add(Calendar.DAY_OF_YEAR, -days + 1)
+            val startDate = formatter.format(cal.time)
+            val endDate = formatter.format(Date())
+
+            val snapshot = reflectionsCollection(userId)
+                .whereGreaterThanOrEqualTo(FieldDateKey, startDate)
+                .whereLessThanOrEqualTo(FieldDateKey, endDate)
+                .get()
+                .awaitResult()
+
+            val entries = snapshot.documents.mapNotNull { doc ->
+                val dateKey = doc.getString(FieldDateKey) ?: return@mapNotNull null
+                val mood = doc.getString(FieldMood) ?: return@mapNotNull null
+                MoodDayEntry(dateKey = dateKey, mood = mood)
+            }
+
+            Result.success(entries)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     private suspend fun updateStreakOnReflection(userId: String) {
@@ -171,7 +204,9 @@ private suspend fun ensureFirestoreReachable() {
     }
 }
 
-private val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+private val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+    timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+}
 
 private const val UsersCollection = "users"
 private const val ReflectionsCollection = "reflections"

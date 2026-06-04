@@ -90,7 +90,12 @@ enum class ReflectionMood(
     Unpleasant("Khó chịu", R.string.add_reflection_mood_unpleasant, R.drawable.mood_unpleasant, 0.25f),
     Neutral("Bình thường", R.string.add_reflection_mood_neutral, R.drawable.mood_neutral, 0.5f),
     Pleasant("Dễ chịu", R.string.add_reflection_mood_pleasant, R.drawable.mood_pleasant, 0.75f),
-    VeryPleasant("Rất dễ chịu", R.string.add_reflection_mood_very_pleasant, R.drawable.mood_very_pleasant, 1f)
+    VeryPleasant("Rất dễ chịu", R.string.add_reflection_mood_very_pleasant, R.drawable.mood_very_pleasant, 1f);
+
+    companion object {
+        fun fromStorageValue(value: String): ReflectionMood? =
+            entries.find { it.storageValue == value }
+    }
 }
 
 val ReflectionMoodOptions = listOf(

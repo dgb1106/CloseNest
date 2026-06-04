@@ -269,6 +269,7 @@
     <!-- Profile Sections -->
     <string name="profile_relationships_section">Danh bạ của bạn</string>
     <string name="profile_streak_label">chuỗi!</string>
+    <string name="profile_mood_heatmap_title">Bản đồ cảm xúc</string>
 
     <!-- Profile Logout Confirmation -->
     <string name="profile_logout_confirm_title">Xác nhận đăng xuất</string>

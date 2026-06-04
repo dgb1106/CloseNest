@@ -8,6 +8,7 @@ import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.closenest.R
+import com.example.closenest.features.homepage.model.MoodDayEntry
 import com.google.firebase.Timestamp
 
 data class UserProfile(
@@ -86,5 +87,6 @@ data class ProfileUiState(
     val accountEditEmail: String = "",
     val accountEditPhone: String = "",
     val accountEditBirthdayIso: String = "",
-    val accountEditGender: String = ""
+    val accountEditGender: String = "",
+    val moodMap: List<MoodDayEntry> = emptyList()
 )

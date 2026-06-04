@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.closenest.features.homepage.repository.ReflectionRepositoryProvider
 import com.example.closenest.features.profile.model.ProfileUiState
 import com.example.closenest.features.profile.repository.ProfileRepository
 import com.example.closenest.features.profile.repository.ProfileRepositoryProvider
@@ -23,6 +24,8 @@ class ProfileViewModel(
     private val _showLogoutDialog = MutableStateFlow(false)
     val showLogoutDialog: StateFlow<Boolean> = _showLogoutDialog
 
+    private val _moodMap = MutableStateFlow(emptyList<com.example.closenest.features.homepage.model.MoodDayEntry>())
+
     // Account detail state management (editable fields)
     private data class AccountEditState(
         val showAccountDetail: Boolean = false,
@@ -40,8 +43,9 @@ class ProfileViewModel(
     // Combine repository profile state with account edit state
     val uiState: StateFlow<ProfileUiState> = combine(
         repository.observeProfileUiState(),
-        _accountEditState
-    ) { profileState, accountEditState ->
+        _accountEditState,
+        _moodMap
+    ) { profileState, accountEditState, moodMap ->
         profileState.copy(
             showAccountDetail = accountEditState.showAccountDetail,
             isEditingAccount = accountEditState.isEditingAccount,
@@ -50,13 +54,27 @@ class ProfileViewModel(
             accountEditEmail = accountEditState.email,
             accountEditPhone = accountEditState.phone,
             accountEditBirthdayIso = accountEditState.birthdayIso,
-            accountEditGender = accountEditState.gender
+            accountEditGender = accountEditState.gender,
+            moodMap = moodMap
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = ProfileUiState(isLoading = true)
     )
+
+    init {
+        loadMoodMap()
+    }
+
+    private fun loadMoodMap() {
+        viewModelScope.launch {
+            val result = ReflectionRepositoryProvider.repository.getRecentMoods(60)
+            result.onSuccess { entries ->
+                _moodMap.value = entries
+            }
+        }
+    }
 
     fun onMenuItemClicked(itemId: String) {
         when (itemId) {
