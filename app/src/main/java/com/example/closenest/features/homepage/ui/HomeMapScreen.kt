@@ -149,9 +149,9 @@ fun HomeMapScreen(
     val appointmentRepository = remember { AppointmentRepositoryProvider.repository }
     val memoryRepository = remember { MemoryRepositoryProvider.repository }
     val relationshipRepository = remember { RelationshipRepositoryProvider.repository }
-    var upcomingCount by remember { mutableStateOf<Int?>(null) }
     var appointmentList by remember { mutableStateOf<List<AppointmentItem>>(emptyList()) }
     var showAppointmentsDialog by rememberSaveable { mutableStateOf(false) }
+    var expandedAppointments by rememberSaveable { mutableStateOf(false) }
     var memories by remember { mutableStateOf<List<MemoryItem>>(emptyList()) }
     var relationshipProfiles by remember { mutableStateOf<List<RelationshipProfile>>(emptyList()) }
     var selectedMemory by remember { mutableStateOf<MemoryItem?>(null) }
@@ -168,7 +168,6 @@ fun HomeMapScreen(
                         appointmentRepository.getUpcomingAppointments()
                     }.getOrDefault(emptyList())
                     appointmentList = latestAppointments
-                    upcomingCount = latestAppointments.size
 
                     memories = runCatching {
                         memoryRepository.getMemories()
@@ -205,6 +204,7 @@ fun HomeMapScreen(
         }
         Spacer(modifier = Modifier.height(14.dp))
 
+        // Collapsed header
         Card(
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(
@@ -212,7 +212,7 @@ fun HomeMapScreen(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showAppointmentsDialog = true }
+                .clickable { expandedAppointments = !expandedAppointments }
         ) {
             Row(
                 modifier = Modifier
@@ -222,24 +222,25 @@ fun HomeMapScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val label = buildAnnotatedString {
-                    withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
-                        append("Bạn đang có ")
-                    }
-                    when (val count = upcomingCount) {
-                        null -> withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
-                            append("...")
+                    if (appointmentList.isEmpty()) {
+                        withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
+                            append("Bạn chưa có cuộc hẹn nào")
                         }
-                        else -> withStyle(
+                    } else {
+                        withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
+                            append("Bạn đang có ")
+                        }
+                        withStyle(
                             SpanStyle(
                                 color = Color(0xFF8B5E34),
                                 fontWeight = FontWeight.ExtraBold
                             )
                         ) {
-                            append(count.toString())
+                            append("${appointmentList.size}")
                         }
-                    }
-                    withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
-                        append(" cuộc hẹn")
+                        withStyle(SpanStyle(color = Color(0xFF9E9E9E))) {
+                            append(" cuộc hẹn")
+                        }
                     }
                 }
                 Text(
@@ -249,12 +250,70 @@ fun HomeMapScreen(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "▼",
+                    text = if (expandedAppointments) "▲" else "▼",
                     style = MaterialTheme.typography.titleLarge,
                     fontSize = 14.sp,
                     color = Color(0xFF9E9E9E),
                     modifier = Modifier.padding(start = 8.dp)
                 )
+            }
+        }
+
+        // Expanded detail cards
+        if (expandedAppointments && appointmentList.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 12.dp)
+                ) {
+                    appointmentList.forEachIndexed { index, appointment ->
+                        AppointmentDetailRow(
+                            appointment = appointment,
+                            relationshipProfiles = relationshipProfiles,
+                            onNavigate = { lat, lng ->
+                                val uri = Uri.parse("google.navigation:q=$lat,$lng")
+                                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                                    setPackage("com.google.android.apps.maps")
+                                }
+                                if (intent.resolveActivity(context.packageManager) != null) {
+                                    context.startActivity(intent)
+                                } else {
+                                    val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng")
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
+                                }
+                            },
+                            onCancelAppointment = { appointmentId ->
+                                coroutineScope.launch {
+                                    runCatching {
+                                        appointmentRepository.deleteAppointment(appointmentId)
+                                    }.onSuccess {
+                                        appointmentList = runCatching {
+                                            appointmentRepository.getUpcomingAppointments()
+                                        }.getOrDefault(emptyList())
+                                        if (appointmentList.isEmpty()) {
+                                            expandedAppointments = false
+                                        }
+                                        Toast.makeText(context, context.getString(R.string.appointment_cancel_success), Toast.LENGTH_SHORT).show()
+                                    }.onFailure {
+                                        Toast.makeText(context, context.getString(R.string.appointment_cancel_error), Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        )
+                        if (index < appointmentList.lastIndex) {
+                            HorizontalDivider(
+                                color = Color(0xFFE0E0E0),
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -316,7 +375,6 @@ fun HomeMapScreen(
                         appointmentList = runCatching {
                             appointmentRepository.getUpcomingAppointments()
                         }.getOrDefault(emptyList())
-                        upcomingCount = appointmentList.size
                         selectedAppointment = null
                         Toast.makeText(context, context.getString(R.string.appointment_cancel_success), Toast.LENGTH_SHORT).show()
                     }.onFailure {
@@ -445,9 +503,17 @@ private fun AppointmentCard(appointment: AppointmentItem) {
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    val dt1 = formatAppointmentDateTime(appointment.appointmentDateMillis)
                     Text(
-                        text = formatAppointmentDate(appointment.appointmentDateMillis),
+                        text = dt1.timeLine,
                         style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF757575)
+                    )
+                    Text(
+                        text = dt1.dateLine,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
                         color = Color(0xFF757575)
                     )
                 }
@@ -489,6 +555,262 @@ private fun AppointmentCard(appointment: AppointmentItem) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AppointmentDetailRow(
+    appointment: AppointmentItem,
+    relationshipProfiles: List<RelationshipProfile>,
+    onNavigate: (lat: Double, lng: Double) -> Unit,
+    onCancelAppointment: (appointmentId: String) -> Unit
+) {
+    var contactAction by remember { mutableStateOf<ContactAction?>(null) }
+    var showCancelConfirm by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val participants = appointment.participantContactNames.zip(appointment.participantContactIds)
+
+    fun performContactAction(action: ContactAction, personIndex: Int) {
+        val (name, contactId) = participants[personIndex]
+        val profile = relationshipProfiles.find { it.id == contactId }
+        when (action) {
+            ContactAction.Call -> {
+                val phone = profile?.phoneNumber?.takeIf { it.isNotBlank() }
+                if (phone != null) {
+                    context.startActivity(Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:$phone") })
+                } else {
+                    Toast.makeText(context, context.getString(R.string.appointment_contact_no_phone, name), Toast.LENGTH_SHORT).show()
+                }
+            }
+            ContactAction.Email -> {
+                val email = profile?.email?.takeIf { it.isNotBlank() }
+                if (email != null) {
+                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:")
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
+                    }
+                    if (intent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(intent)
+                    } else {
+                        Toast.makeText(context, "Không tìm thấy ứng dụng email.", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(context, context.getString(R.string.appointment_contact_no_email, name), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // Header: icon + date
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE8E1D9)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Event,
+                    contentDescription = null,
+                    tint = Color(0xFF5D4E37)
+                )
+            }
+            val dt2 = formatAppointmentDateTime(appointment.appointmentDateMillis)
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    text = dt2.timeLine,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = dt2.dateLine,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        // Participants
+        if (participants.isNotEmpty()) {
+            participants.forEach { (name, _) ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.People,
+                        contentDescription = null,
+                        tint = Color(0xFF9E9E9E),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF616161)
+                    )
+                }
+            }
+        }
+
+        // Location
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Place,
+                contentDescription = null,
+                tint = Color(0xFF9E9E9E),
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = appointment.location,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF616161)
+            )
+        }
+
+        // Note
+        appointment.note?.takeIf { it.isNotBlank() }?.let { noteText ->
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.Notes,
+                    contentDescription = null,
+                    tint = Color(0xFF9E9E9E),
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = noteText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF616161)
+                )
+            }
+        }
+
+        // Action buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(
+                onClick = {
+                    if (participants.size == 1) {
+                        performContactAction(ContactAction.Call, 0)
+                    } else {
+                        contactAction = ContactAction.Call
+                    }
+                },
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Call,
+                    contentDescription = "Gọi điện",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Button(
+                onClick = {
+                    if (participants.size == 1) {
+                        performContactAction(ContactAction.Email, 0)
+                    } else {
+                        contactAction = ContactAction.Email
+                    }
+                },
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Email,
+                    contentDescription = "Gửi email",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Button(
+                onClick = {
+                    onNavigate(appointment.locationLatitude, appointment.locationLongitude)
+                },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Directions,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Text("Chỉ đường", fontSize = 12.sp)
+            }
+
+            Button(
+                onClick = { showCancelConfirm = true },
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = Color.White
+                ),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Cancel,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Text("Xóa", fontSize = 12.sp)
+            }
+        }
+    }
+
+    // Contact bottom sheet
+    contactAction?.let { action ->
+        ContactBottomSheet(
+            appointment = appointment,
+            relationshipProfiles = relationshipProfiles,
+            action = action,
+            onPersonSelected = { index ->
+                performContactAction(action, index)
+                contactAction = null
+            },
+            onDismiss = { contactAction = null }
+        )
+    }
+
+    // Cancel confirmation
+    if (showCancelConfirm) {
+        CancelConfirmDialog(
+            appointmentName = appointment.name,
+            onConfirm = {
+                showCancelConfirm = false
+                onCancelAppointment(appointment.id)
+            },
+            onDismiss = { showCancelConfirm = false }
+        )
     }
 }
 
@@ -749,9 +1071,21 @@ private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { conti
 }
 
 private val appointmentDateFormatter = SimpleDateFormat("EEEE, dd 'tháng' MM, yyyy", Locale("vi"))
+private val appointmentTimeFormatter = SimpleDateFormat("HH:mm", Locale("vi"))
 
-private fun formatAppointmentDate(dateMillis: Long): String {
-    return appointmentDateFormatter.format(Date(dateMillis))
+private data class AppointmentDateTime(val timeLine: String, val dateLine: String)
+
+private fun formatAppointmentDateTime(dateMillis: Long): AppointmentDateTime {
+    val date = Date(dateMillis)
+    val calendar = java.util.Calendar.getInstance().apply { time = date }
+    val isAllDay = calendar.get(java.util.Calendar.HOUR_OF_DAY) == 0 &&
+            calendar.get(java.util.Calendar.MINUTE) == 0
+    val datePart = appointmentDateFormatter.format(date)
+    return if (isAllDay) {
+        AppointmentDateTime("Cả ngày", datePart)
+    } else {
+        AppointmentDateTime(appointmentTimeFormatter.format(date), datePart)
+    }
 }
 
 @Composable
@@ -857,7 +1191,32 @@ private fun AppointmentDetailDialog(
                     }
                 }
 
-                DetailRow(label = "Ngày", value = formatAppointmentDate(appointment.appointmentDateMillis))
+                val dt3 = formatAppointmentDateTime(appointment.appointmentDateMillis)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Event,
+                        contentDescription = null,
+                        tint = Color(0xFF9E9E9E),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(
+                            text = dt3.timeLine,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = dt3.dateLine,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
 
                 DetailRow(label = "Tại", value = appointment.location)
 

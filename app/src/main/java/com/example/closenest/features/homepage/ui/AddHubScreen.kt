@@ -13,6 +13,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -70,6 +71,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -95,6 +98,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -117,6 +121,7 @@ import com.example.closenest.features.homepage.viewmodel.ReflectionFeelingOption
 import com.example.closenest.features.homepage.viewmodel.ReflectionMood
 import com.example.closenest.features.homepage.viewmodel.ReflectionMoodOptions
 import com.example.closenest.features.homepage.viewmodel.ReflectionSource
+import com.example.closenest.features.homepage.viewmodel.sliderValueToMood
 import com.example.closenest.features.homepage.viewmodel.ReflectionSourceOptions
 import com.example.closenest.core.network.PlacesApiClient
 import com.google.android.gms.location.LocationServices
@@ -1706,14 +1711,38 @@ private fun MoodSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle(text = stringResource(R.string.add_reflection_mood_question))
-        ChipRows(options = ReflectionMoodOptions) { mood, chipModifier ->
-            SelectChip(
-                label = stringResource(mood.labelRes),
-                selected = selectedMood == mood,
-                onClick = { onMoodSelected(mood) },
-                modifier = chipModifier
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Image(
+                painter = painterResource(selectedMood.drawableRes),
+                contentDescription = stringResource(selectedMood.labelRes),
+                modifier = Modifier
+                    .size(120.dp)
+                    .padding(bottom = 4.dp)
+            )
+
+            Text(
+                text = stringResource(selectedMood.labelRes),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
+
+        Slider(
+            value = selectedMood.sliderValue,
+            onValueChange = { onMoodSelected(sliderValueToMood(it)) },
+            steps = 3,
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        )
     }
 }
 

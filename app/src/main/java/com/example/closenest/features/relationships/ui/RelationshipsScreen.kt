@@ -2,6 +2,8 @@
 
 package com.example.closenest.features.relationships.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -65,6 +67,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -236,6 +239,7 @@ private fun RelationshipDetailScreen(
     modifier: Modifier = Modifier
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         modifier = modifier,
@@ -294,12 +298,18 @@ private fun RelationshipDetailScreen(
                             DetailRow(
                                 label = stringResource(R.string.relationship_detail_phone_label),
                                 value = relationship.phoneNumber,
-                                icon = Icons.Outlined.Phone
+                                icon = Icons.Outlined.Phone,
+                                onAction = relationship.phoneNumber?.takeIf { it.isNotBlank() }?.let {
+                                    { context.startActivity(Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:$it") }) }
+                                }
                             )
                             DetailRow(
                                 label = stringResource(R.string.relationship_detail_email_label),
                                 value = relationship.email,
-                                icon = Icons.Outlined.Email
+                                icon = Icons.Outlined.Email,
+                                onAction = relationship.email?.takeIf { it.isNotBlank() }?.let {
+                                    { context.startActivity(Intent(Intent.ACTION_SENDTO).apply { data = Uri.parse("mailto:"); putExtra(Intent.EXTRA_EMAIL, arrayOf(it)) }) }
+                                }
                             )
                             DetailRow(
                                 label = stringResource(R.string.relationship_detail_birthday_label),
@@ -656,7 +666,8 @@ private fun DeleteRelationshipSection(
 private fun DetailRow(
     label: String,
     value: String?,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onAction: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -671,7 +682,10 @@ private fun DetailRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelLarge,
@@ -683,6 +697,19 @@ private fun DetailRow(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
+        }
+        if (onAction != null) {
+            IconButton(
+                onClick = onAction,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = icon ?: Icons.Outlined.Phone,
+                    contentDescription = label,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }

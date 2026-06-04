@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -65,7 +66,13 @@ import com.example.closenest.features.profile.model.RelationshipQuickPreview
 import com.example.closenest.features.profile.model.UserProfile
 import com.example.closenest.features.profile.viewmodel.ProfileViewModel
 import com.example.closenest.core.ui.theme.AppTheme
+import com.example.closenest.features.homepage.model.MoodDayEntry
+import com.example.closenest.features.homepage.viewmodel.ReflectionMood
 import com.google.firebase.Timestamp
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun ProfileRoute(
@@ -147,6 +154,13 @@ fun ProfileScreen(
         }
 
         item {
+            MoodHeatmap(
+                moodEntries = uiState.moodMap,
+                createdAt = uiState.user?.createdAt
+            )
+        }
+
+        item {
             ProfileMenuSection(
                 onMenuItemClicked = onMenuItemClicked
             )
@@ -222,7 +236,7 @@ fun ProfileHeaderSection(
             Text(
                 text = user?.email ?: "",
                 style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.outlineVariant,
+                color = colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -230,7 +244,7 @@ fun ProfileHeaderSection(
                 Text(
                     text = user?.phoneNumber ?: "",
                     style = MaterialTheme.typography.labelSmall,
-                    color = colorScheme.outlineVariant,
+                    color = colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -300,6 +314,108 @@ fun StreakBadgeSection(
             color = colorScheme.primary
         )
 
+    }
+}
+
+@Composable
+fun MoodHeatmap(
+    moodEntries: List<MoodDayEntry>,
+    createdAt: Timestamp?,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val cols = 15
+    val rows = 4
+    val totalCells = cols * rows
+
+    val tz = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+    val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+        timeZone = tz
+    }
+
+    fun Calendar.startOfDay(): Calendar {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        return this
+    }
+
+    val today = Calendar.getInstance(tz).startOfDay()
+    val windowStart = (today.clone() as Calendar).apply {
+        add(Calendar.DAY_OF_YEAR, -totalCells + 1)
+    }
+    val startCal = createdAt?.toDate()?.let { date ->
+        Calendar.getInstance(tz).apply {
+            time = date
+            startOfDay()
+        }
+    } ?: today
+    if (startCal.after(windowStart)) {
+        windowStart.timeInMillis = startCal.timeInMillis
+    }
+
+    val dayKeys = List(totalCells) { i ->
+        val cloned = windowStart.clone() as Calendar
+        cloned.add(Calendar.DAY_OF_YEAR, i)
+        if (!cloned.after(today)) dateFormatter.format(cloned.time) else null
+    }
+
+    val moodByDay = moodEntries.associateBy { it.dateKey }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = colorScheme.tertiaryContainer,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.profile_mood_heatmap_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = colorScheme.onBackground
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (r in 0 until rows) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        for (c in 0 until cols) {
+                            val idx = r * cols + c
+                            val dateKey = dayKeys[idx]
+                            val entry = if (dateKey != null) moodByDay[dateKey] else null
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(moodColor(entry?.mood, colorScheme))
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun moodColor(mood: String?, colorScheme: androidx.compose.material3.ColorScheme): Color {
+    if (mood == null) return colorScheme.secondary.copy(alpha = 0.3f)
+
+    val moodEnum = ReflectionMood.fromStorageValue(mood)
+    return when (moodEnum) {
+        ReflectionMood.VeryUnpleasant -> colorScheme.onSurface
+        ReflectionMood.Unpleasant -> colorScheme.onSurfaceVariant
+        ReflectionMood.Neutral -> colorScheme.primaryContainer
+        ReflectionMood.Pleasant -> colorScheme.primary.copy(alpha = 0.45f)
+        ReflectionMood.VeryPleasant -> colorScheme.primary
+        null -> colorScheme.secondary.copy(alpha = 0.12f)
     }
 }
 
