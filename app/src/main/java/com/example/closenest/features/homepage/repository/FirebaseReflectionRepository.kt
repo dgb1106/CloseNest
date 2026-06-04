@@ -94,56 +94,44 @@ class FirebaseReflectionRepository(
 
     private suspend fun updateStreakOnReflection(userId: String) {
         try {
-            val userDoc = firestore.collection(UsersCollection)
-                .document(userId)
+            val tz = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+            val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = tz }
+
+            val allReflections = reflectionsCollection(userId)
+                .orderBy(FieldDateKey, com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(100)
                 .get()
                 .awaitResult()
 
-            if (userDoc == null || !userDoc.exists()) return
+            val dateSet = allReflections.documents
+                .mapNotNull { it.getString(FieldDateKey) }
+                .toSet()
 
-            val lastCheckedIn = userDoc.getTimestamp("lastCheckedIn")
-            val currentStreak = userDoc.getLong("streakCount")?.toInt() ?: 0
-            val newStreak = computeStreak(lastCheckedIn, currentStreak)
+            var streak = 0
+            var cal = Calendar.getInstance(tz)
+            while (true) {
+                val key = fmt.format(cal.time)
+                if (dateSet.contains(key)) {
+                    streak++
+                    cal.add(Calendar.DAY_OF_YEAR, -1)
+                } else {
+                    break
+                }
+            }
+            if (streak == 0) streak = 1
 
             firestore.collection(UsersCollection)
                 .document(userId)
                 .update(
                     mapOf(
                         "lastCheckedIn" to Timestamp.now(),
-                        "streakCount" to newStreak
+                        "streakCount" to streak
                     )
                 )
                 .awaitCompletion()
         } catch (_: Exception) {
             // non-critical
         }
-    }
-
-    private fun computeStreak(lastCheckedIn: Timestamp?, currentStreak: Int): Int {
-        if (lastCheckedIn == null) return 1
-
-        val utc7 = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
-        val nowCal = Calendar.getInstance(utc7)
-        val lastCal = Calendar.getInstance(utc7).apply {
-            timeInMillis = lastCheckedIn.seconds * 1000
-        }
-
-        val nowDay = nowCal.get(Calendar.DAY_OF_YEAR)
-        val nowYear = nowCal.get(Calendar.YEAR)
-        val lastDay = lastCal.get(Calendar.DAY_OF_YEAR)
-        val lastYear = lastCal.get(Calendar.YEAR)
-
-        return when {
-            nowYear == lastYear && nowDay == lastDay -> currentStreak
-            nowYear == lastYear && nowDay - lastDay == 1 -> currentStreak + 1
-            nowYear != lastYear && nowDay == 1 && lastDay == daysInYear(lastYear) -> currentStreak + 1
-            else -> 1
-        }
-    }
-
-    private fun daysInYear(year: Int): Int {
-        val cal = Calendar.getInstance().apply { set(Calendar.YEAR, year) }
-        return cal.getActualMaximum(Calendar.DAY_OF_YEAR)
     }
 
     private fun reflectionsCollection(userId: String) =

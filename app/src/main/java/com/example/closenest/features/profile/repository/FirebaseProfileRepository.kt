@@ -6,10 +6,15 @@ import com.example.closenest.features.profile.model.UserProfile
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 
 class FirebaseProfileRepository(
     private val firestore: FirebaseFirestore,
@@ -67,12 +72,49 @@ class FirebaseProfileRepository(
                 if (snapshot != null && snapshot.exists()) {
                     val userDoc = snapshot.toUserDocument(currentUid)
                     val userProfile = userDoc.toUserProfile()
-                    trySend(ProfileUiState(
-                        isLoading = false,
-                        user = userProfile,
-                        recentRelationships = emptyList(),  // TODO: Load from relationships collection
-                        errorMessage = null
-                    ))
+
+                    // Recalculate streak from actual reflections
+                    firestore.collection(USERS_COLLECTION)
+                        .document(currentUid)
+                        .collection("reflections")
+                        .orderBy("dateKey", Query.Direction.DESCENDING)
+                        .limit(100)
+                        .get()
+                        .addOnSuccessListener { reflectionsSnapshot ->
+                            val tz = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+                            val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = tz }
+                            val dateSet = reflectionsSnapshot.documents
+                                .mapNotNull { it.getString("dateKey") }
+                                .toSet()
+
+                            var streak = 0
+                            var cal = Calendar.getInstance(tz)
+                            while (true) {
+                                val key = fmt.format(cal.time)
+                                if (dateSet.contains(key)) {
+                                    streak++
+                                    cal.add(Calendar.DAY_OF_YEAR, -1)
+                                } else {
+                                    break
+                                }
+                            }
+
+                            val correctedProfile = userProfile.copy(streakCount = streak)
+                            trySend(ProfileUiState(
+                                isLoading = false,
+                                user = correctedProfile,
+                                recentRelationships = emptyList(),
+                                errorMessage = null
+                            ))
+                        }
+                        .addOnFailureListener {
+                            trySend(ProfileUiState(
+                                isLoading = false,
+                                user = userProfile,
+                                recentRelationships = emptyList(),
+                                errorMessage = null
+                            ))
+                        }
                 } else {
                     trySend(ProfileUiState(
                         isLoading = false,
