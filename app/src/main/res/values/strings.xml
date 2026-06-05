@@ -68,6 +68,8 @@
     <string name="relationship_detail_interests_label">Sở thích</string>
     <string name="relationship_detail_notes_label">Ghi chú</string>
     <string name="relationship_detail_empty_value">Chưa có thông tin</string>
+    <string name="relationship_edit_action">Sửa thông tin</string>
+    <string name="relationship_edit_saving">Đang lưu thay đổi…</string>
     <string name="relationship_delete_action">Xoá người dùng</string>
     <string name="relationship_delete_saving">Đang xoá…</string>
     <string name="relationship_delete_confirm_title">Xác nhận xoá</string>

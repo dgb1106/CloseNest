@@ -410,7 +410,7 @@ private fun moodColor(mood: String?, colorScheme: androidx.compose.material3.Col
 
     val moodEnum = ReflectionMood.fromStorageValue(mood)
     return when (moodEnum) {
-        ReflectionMood.VeryUnpleasant -> colorScheme.onSurface
+        ReflectionMood.VeryUnpleasant -> colorScheme.onPrimaryContainer
         ReflectionMood.Unpleasant -> colorScheme.onSurfaceVariant
         ReflectionMood.Neutral -> colorScheme.primaryContainer
         ReflectionMood.Pleasant -> colorScheme.primary.copy(alpha = 0.45f)

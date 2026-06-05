@@ -58,8 +58,11 @@ import com.example.closenest.features.relationships.viewmodel.AddRelationshipVie
 @Composable
 fun AddRelationshipRoute(
     onNavigateBack: () -> Unit,
+    editRelationshipId: String? = null,
     modifier: Modifier = Modifier,
-    viewModel: AddRelationshipViewModel = viewModel(factory = AddRelationshipViewModel.Factory)
+    viewModel: AddRelationshipViewModel = viewModel(
+        factory = AddRelationshipViewModel.factory(editRelationshipId)
+    )
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -71,6 +74,7 @@ fun AddRelationshipRoute(
 
     AddRelationshipScreen(
         uiState = uiState,
+        isEditMode = viewModel.isEditMode,
         onNavigateBack = onNavigateBack,
         onNameChanged = viewModel::onNameChanged,
         onTagChanged = viewModel::onTagChanged,
@@ -89,6 +93,7 @@ fun AddRelationshipRoute(
 @Composable
 fun AddRelationshipScreen(
     uiState: AddRelationshipUiState,
+    isEditMode: Boolean = false,
     onNavigateBack: () -> Unit,
     onNameChanged: (String) -> Unit,
     onTagChanged: (RelationshipTag) -> Unit,
@@ -108,7 +113,13 @@ fun AddRelationshipScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = stringResource(R.string.add_relationship_title))
+                    Text(text = stringResource(
+                        if (isEditMode) {
+                            R.string.relationship_edit_action
+                        } else {
+                            R.string.add_relationship_title
+                        }
+                    ))
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -335,15 +346,11 @@ private fun MoreDetailsForm(
                 Text(text = stringResource(R.string.add_relationship_birthday_label))
             },
             supportingText = {
-                Text(
-                    text = stringResource(
-                        if (uiState.birthdayError) {
-                            R.string.add_relationship_birthday_error
-                        } else {
-                            R.string.add_relationship_birthday_hint
-                        }
+                if (uiState.birthdayError) {
+                    Text(
+                        text = stringResource(R.string.add_relationship_birthday_error)
                     )
-                )
+                }
             }
         )
 
@@ -470,6 +477,7 @@ private fun AddRelationshipScreenPreview() {
     AppTheme {
         AddRelationshipScreen(
             uiState = AddRelationshipUiState(showMoreDetails = true),
+            isEditMode = false,
             onNavigateBack = {},
             onNameChanged = {},
             onTagChanged = {},

@@ -65,6 +65,11 @@ class ProfileViewModel(
 
     init {
         loadMoodMap()
+        viewModelScope.launch {
+            repository.observeProfileUiState().collect {
+                loadMoodMap()
+            }
+        }
     }
 
     private fun loadMoodMap() {
