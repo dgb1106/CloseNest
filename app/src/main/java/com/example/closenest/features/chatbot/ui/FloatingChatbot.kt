@@ -32,6 +32,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -79,10 +80,15 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -920,6 +926,13 @@ private fun MessageBubble(message: ChatMessage) {
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val uriHandler = LocalUriHandler.current
+    val linkedText = remember(message.text, contentColor) {
+        buildLinkedMessageText(
+            text = message.text,
+            defaultColor = contentColor
+        )
+    }
 
     Box(
         modifier = Modifier.fillMaxWidth(),
@@ -936,10 +949,17 @@ private fun MessageBubble(message: ChatMessage) {
             color = bubbleColor,
             contentColor = contentColor
         ) {
-            Text(
-                text = message.text,
+            ClickableText(
+                text = linkedText,
                 modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp),
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium.copy(color = contentColor),
+                onClick = { offset ->
+                    linkedText
+                        .getStringAnnotations(tag = LinkAnnotationTag, start = offset, end = offset)
+                        .firstOrNull()
+                        ?.item
+                        ?.let(uriHandler::openUri)
+                }
             )
         }
     }
@@ -1053,5 +1073,39 @@ private fun ChatMode.icon(): ImageVector {
     }
 }
 
+private fun buildLinkedMessageText(
+    text: String,
+    defaultColor: Color
+) = buildAnnotatedString {
+    var currentIndex = 0
+    UrlRegex.findAll(text).forEach { match ->
+        val start = match.range.first
+        val endExclusive = match.range.last + 1
+        if (currentIndex < start) {
+            append(text.substring(currentIndex, start))
+        }
+        val url = match.value
+        pushStringAnnotation(tag = LinkAnnotationTag, annotation = url)
+        withStyle(
+            SpanStyle(
+                color = LinkColor,
+                textDecoration = TextDecoration.Underline
+            )
+        ) {
+            append(url)
+        }
+        pop()
+        currentIndex = endExclusive
+    }
+    if (currentIndex < text.length) {
+        withStyle(SpanStyle(color = defaultColor)) {
+            append(text.substring(currentIndex))
+        }
+    }
+}
+
 private const val IdleSnapDelayMillis = 1_200L
 private const val MaxHistoryItems = 12
+private const val LinkAnnotationTag = "chat_link"
+private val UrlRegex = Regex("""https?://[^\s]+""")
+private val LinkColor = Color(0xFF1A73E8)

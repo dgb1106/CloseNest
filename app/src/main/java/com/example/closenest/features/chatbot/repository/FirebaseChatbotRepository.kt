@@ -1,6 +1,5 @@
 package com.example.closenest.features.chatbot.repository
 
-import com.example.closenest.core.network.FirebaseConnectionException
 import com.example.closenest.features.chatbot.model.ChatMessage
 import com.example.closenest.features.chatbot.model.ChatMode
 import com.example.closenest.features.chatbot.model.ChatRole
@@ -12,16 +11,12 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
-import java.net.InetSocketAddress
-import java.net.Socket
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 
 class FirebaseChatbotRepository(
     private val auth: FirebaseAuth,
@@ -110,8 +105,6 @@ class FirebaseChatbotRepository(
         val document = sessionsCollection(userId).document()
         val title = mode.defaultTitle()
 
-        ensureFirestoreReachable()
-
         document.set(
             mapOf(
                 FieldId to document.id,
@@ -144,8 +137,6 @@ class FirebaseChatbotRepository(
         val messageDocument = messagesCollection(userId, sessionId).document()
         val sessionDocument = sessionsCollection(userId).document(sessionId)
 
-        ensureFirestoreReachable()
-
         firestore.batch()
             .set(
                 messageDocument,
@@ -175,8 +166,6 @@ class FirebaseChatbotRepository(
     override suspend fun deleteSessions(sessionIds: List<String>) {
         if (sessionIds.isEmpty()) return
         val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
-
-        ensureFirestoreReachable()
 
         sessionIds.distinct().forEach { sessionId ->
             deleteSession(userId = userId, sessionId = sessionId)
@@ -302,28 +291,9 @@ private suspend fun <T> Task<T>.awaitResult(): T {
     }
 }
 
-private suspend fun ensureFirestoreReachable() {
-    withContext(Dispatchers.IO) {
-        runCatching {
-            Socket().use { socket ->
-                socket.connect(
-                    InetSocketAddress(FirestoreHost, HttpsPort),
-                    ConnectionCheckTimeoutMillis
-                )
-            }
-        }.onFailure { throwable ->
-            throw FirebaseConnectionException(throwable)
-        }
-    }
-}
-
 private const val UsersCollection = "users"
 private const val ChatSessionsCollection = "chatSessions"
 private const val MessagesCollection = "messages"
-
-private const val FirestoreHost = "firestore.googleapis.com"
-private const val HttpsPort = 443
-private const val ConnectionCheckTimeoutMillis = 5_000
 
 private const val FieldId = "id"
 private const val FieldUserId = "userId"

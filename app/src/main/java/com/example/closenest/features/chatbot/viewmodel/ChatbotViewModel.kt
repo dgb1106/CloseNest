@@ -1,5 +1,6 @@
 package com.example.closenest.features.chatbot.viewmodel
 
+import android.app.Application
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
@@ -18,6 +19,11 @@ import com.example.closenest.features.chatbot.repository.ChatbotAiServiceProvide
 import com.example.closenest.features.chatbot.repository.ChatbotRepository
 import com.example.closenest.features.chatbot.repository.ChatbotRepositoryProvider
 import com.example.closenest.features.chatbot.repository.GeminiApiException
+import com.example.closenest.features.chatbot.repository.GiftCatalogService
+import com.example.closenest.features.chatbot.repository.GiftReply
+import com.example.closenest.features.relationships.model.RelationshipProfile
+import com.example.closenest.features.relationships.repository.RelationshipRepository
+import com.example.closenest.features.relationships.repository.RelationshipRepositoryProvider
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
@@ -57,7 +63,9 @@ data class ChatbotUiState(
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatbotViewModel(
     private val repository: ChatbotRepository,
-    private val aiService: ChatbotAiService
+    private val aiService: ChatbotAiService,
+    private val relationshipRepository: RelationshipRepository,
+    private val giftCatalogService: GiftCatalogService
 ) : ViewModel() {
     private val draft = MutableStateFlow(ChatbotDraft())
     private val selectedSession = MutableStateFlow<ChatSession?>(null)
@@ -84,6 +92,15 @@ class ChatbotViewModel(
                 }
         }
     }
+
+    private val relationshipResult = relationshipRepository.observeRelationships()
+        .map { relationships -> ChatRelationshipResult(relationships = relationships) }
+        .catch { emit(ChatRelationshipResult()) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ChatRelationshipResult()
+        )
 
     val uiState = combine(
         selectedSession,
@@ -129,6 +146,7 @@ class ChatbotViewModel(
         draft.update { current ->
             current.copy(
                 inputText = "",
+                giftFlow = GiftFlowState(),
                 isSelectingSessions = false,
                 selectedSessionIds = emptySet(),
                 errorMessage = null,
@@ -142,6 +160,7 @@ class ChatbotViewModel(
         draft.update { current ->
             current.copy(
                 inputText = "",
+                giftFlow = if (session.mode == ChatMode.GiftAdvice) current.giftFlow else GiftFlowState(),
                 isSelectingSessions = false,
                 selectedSessionIds = emptySet(),
                 errorMessage = null,
@@ -234,6 +253,7 @@ class ChatbotViewModel(
             draft.update { current ->
                 current.copy(
                     isCreatingSession = true,
+                    giftFlow = if (mode == ChatMode.GiftAdvice) GiftFlowState() else current.giftFlow,
                     isSelectingSessions = false,
                     selectedSessionIds = emptySet(),
                     errorMessage = null,
@@ -338,6 +358,12 @@ class ChatbotViewModel(
                 text = text
             )
         }
+
+        if (mode == ChatMode.GiftAdvice) {
+            handleGiftAdviceInSession(sessionId = sessionId, text = text)
+            return
+        }
+
         val reply = withTimeout(AiTimeoutMillis) {
             aiService.generateReply(
                 mode = mode,
@@ -354,6 +380,73 @@ class ChatbotViewModel(
         }
     }
 
+    private suspend fun handleGiftAdviceInSession(sessionId: String, text: String) {
+        val currentGiftFlow = draft.value.giftFlow
+        if (currentGiftFlow.selectedRecipient == null) {
+            when (val reply = giftCatalogService.buildGiftReply(text, relationshipResult.value.relationships)) {
+                is GiftReply.AskForRecipient -> {
+                    addAssistantMessage(sessionId, reply.message)
+                }
+                is GiftReply.RecipientNotFound -> {
+                    addAssistantMessage(sessionId, reply.message)
+                }
+                is GiftReply.RecipientConfirmed -> {
+                    draft.update { current ->
+                        current.copy(
+                            giftFlow = GiftFlowState(
+                                selectedRecipient = reply.recipient,
+                                isAwaitingRequirements = true
+                            )
+                        )
+                    }
+                    addAssistantMessage(sessionId, reply.message)
+                }
+                is GiftReply.RecipientFoundButNoProduct -> {
+                    addAssistantMessage(sessionId, reply.summary)
+                }
+                is GiftReply.Recommendations -> {
+                    addAssistantMessage(sessionId, reply.summary)
+                    reply.linkMessages.forEach { linkMessage ->
+                        addAssistantMessage(sessionId, linkMessage)
+                    }
+                }
+            }
+            return
+        }
+
+        when (
+            val reply = giftCatalogService.buildRecommendationsReply(
+                recipient = currentGiftFlow.selectedRecipient,
+                requirements = text
+            )
+        ) {
+            is GiftReply.RecipientFoundButNoProduct -> {
+                addAssistantMessage(sessionId, reply.summary)
+            }
+            is GiftReply.Recommendations -> {
+                draft.update { current -> current.copy(giftFlow = current.giftFlow.copy(isAwaitingRequirements = false)) }
+                addAssistantMessage(sessionId, reply.summary)
+                reply.linkMessages.forEach { linkMessage ->
+                    addAssistantMessage(sessionId, linkMessage)
+                }
+            }
+            is GiftReply.AskForRecipient,
+            is GiftReply.RecipientNotFound,
+            is GiftReply.RecipientConfirmed -> Unit
+        }
+    }
+
+    private suspend fun addAssistantMessage(sessionId: String, text: String) {
+        withTimeout(FirestoreTimeoutMillis) {
+            repository.addMessage(
+                sessionId = sessionId,
+                role = ChatRole.Assistant,
+                text = text,
+                model = GiftAdvisorModelName
+            )
+        }
+    }
+
     fun clearError() {
         draft.update { current ->
             current.copy(
@@ -366,20 +459,26 @@ class ChatbotViewModel(
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
+                val application = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]
+                    as Application
                 ChatbotViewModel(
                     repository = ChatbotRepositoryProvider.repository,
-                    aiService = ChatbotAiServiceProvider.service
+                    aiService = ChatbotAiServiceProvider.service,
+                    relationshipRepository = RelationshipRepositoryProvider.repository,
+                    giftCatalogService = GiftCatalogService(application.applicationContext)
                 )
             }
         }
 
         private const val FirestoreTimeoutMillis = 15_000L
         private const val AiTimeoutMillis = 45_000L
+        private const val GiftAdvisorModelName = "gift-catalog-demo"
     }
 }
 
 private data class ChatbotDraft(
     val inputText: String = "",
+    val giftFlow: GiftFlowState = GiftFlowState(),
     val isSelectingSessions: Boolean = false,
     val selectedSessionIds: Set<String> = emptySet(),
     val isDeletingSessions: Boolean = false,
@@ -387,6 +486,11 @@ private data class ChatbotDraft(
     val isSending: Boolean = false,
     val errorMessage: String? = null,
     @param:StringRes val errorMessageRes: Int? = null
+)
+
+private data class GiftFlowState(
+    val selectedRecipient: RelationshipProfile? = null,
+    val isAwaitingRequirements: Boolean = false
 )
 
 private data class ChatSessionsResult(
@@ -401,11 +505,15 @@ private data class ChatMessagesResult(
     @param:StringRes val errorMessageRes: Int? = null
 )
 
+private data class ChatRelationshipResult(
+    val relationships: List<RelationshipProfile> = emptyList()
+)
+
 private fun ChatMode.greeting(): String {
     return when (this) {
         ChatMode.General -> "Mình đây. Bạn cứ nhắn điều bạn đang muốn nói, mình sẽ theo mạch của bạn."
         ChatMode.Vent -> "Mình ở đây rồi. Bạn cứ nói hết những gì đang làm bạn bực hoặc mệt, mình sẽ nghe trước đã."
-        ChatMode.GiftAdvice -> "Mình giúp bạn chọn quà nhé. Bạn muốn tặng ai, vào dịp gì và khoảng ngân sách bao nhiêu?"
+        ChatMode.GiftAdvice -> "Mình giúp bạn chọn quà. Bạn muốn tặng cho ai? Hãy nhập tên đúng hoặc gần đúng của người đó trong danh bạ nhé."
     }
 }
 
