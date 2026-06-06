@@ -110,6 +110,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.closenest.R
+import com.example.closenest.core.notification.AppointmentReminderScheduler
 import com.example.closenest.core.ui.theme.AppTheme
 import com.example.closenest.features.homepage.viewmodel.AddHubUiState
 import com.example.closenest.features.homepage.viewmodel.AddHubViewModel
@@ -307,9 +308,14 @@ fun AppointmentRoute(
     viewModel: AddHubViewModel = viewModel(factory = AddHubViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
-    LaunchedEffect(uiState.appointmentSavedMessageRes) {
-        if (uiState.appointmentSavedMessageRes != null) {
+    LaunchedEffect(uiState.savedAppointment) {
+        uiState.savedAppointment?.let { appointment ->
+            AppointmentReminderScheduler.scheduleAppointmentReminders(
+                context = context,
+                appointment = appointment
+            )
             onNavigateBack()
         }
     }

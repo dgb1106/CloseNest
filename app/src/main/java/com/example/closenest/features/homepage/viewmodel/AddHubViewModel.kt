@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.closenest.R
 import com.example.closenest.core.network.FirebaseConnectionException
+import com.example.closenest.features.homepage.model.AppointmentItem
 import com.example.closenest.features.homepage.model.NewAppointmentRequest
 import com.example.closenest.features.homepage.model.NewMemoryRequest
 import com.example.closenest.features.homepage.model.NewReflectionRequest
@@ -66,6 +67,7 @@ data class AddHubUiState(
     val appointmentTimeMinute: Int? = null,
     val appointmentNote: String = "",
     val isSavingAppointment: Boolean = false,
+    val savedAppointment: AppointmentItem? = null,
     @param:StringRes val contactsErrorMessageRes: Int? = null,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
     @param:StringRes val reflectionSavedMessageRes: Int? = null,
@@ -229,6 +231,7 @@ class AddHubViewModel(
             appointmentTimeMinute = draft.appointmentTimeMinute,
             appointmentNote = draft.appointmentNote,
             isSavingAppointment = draft.isSavingAppointment,
+            savedAppointment = draft.savedAppointment,
             contactsErrorMessageRes = result.errorMessageRes,
             reflectionErrorMessageRes = draft.reflectionErrorMessageRes,
             reflectionSavedMessageRes = draft.reflectionSavedMessageRes,
@@ -685,6 +688,7 @@ class AddHubViewModel(
             addHubDraft.update { current ->
                 current.copy(
                     isSavingAppointment = true,
+                    savedAppointment = null,
                     appointmentErrorMessageRes = null,
                     appointmentSavedMessageRes = null
                 )
@@ -692,7 +696,7 @@ class AddHubViewModel(
 
             runCatching {
                 withTimeout(SaveTimeoutMillis) {
-                    appointmentRepository.addAppointment(
+                    val savedAppointment = appointmentRepository.addAppointment(
                         NewAppointmentRequest(
                             name = name,
                             participantContactIds = selectedContacts.map { it.id },
@@ -705,6 +709,7 @@ class AddHubViewModel(
                             createdAtMillis = System.currentTimeMillis()
                         )
                     )
+                    savedAppointment
                 }
             }.onSuccess {
                 addHubDraft.update { current ->
@@ -720,6 +725,7 @@ class AddHubViewModel(
                         appointmentTimeMinute = null,
                         appointmentNote = "",
                         isSavingAppointment = false,
+                        savedAppointment = it,
                         appointmentErrorMessageRes = null,
                         appointmentSavedMessageRes = R.string.add_appointment_saved
                     )
@@ -741,7 +747,8 @@ class AddHubViewModel(
             current.copy(
                 reflectionSavedMessageRes = null,
                 memorySavedMessageRes = null,
-                appointmentSavedMessageRes = null
+                appointmentSavedMessageRes = null,
+                savedAppointment = null
             )
         }
     }
@@ -789,6 +796,7 @@ private data class AddHubDraft(
     val appointmentTimeMinute: Int? = null,
     val appointmentNote: String = "",
     val isSavingAppointment: Boolean = false,
+    val savedAppointment: AppointmentItem? = null,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
     @param:StringRes val reflectionSavedMessageRes: Int? = null,
     @param:StringRes val memoryErrorMessageRes: Int? = null,

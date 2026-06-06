@@ -18,9 +18,10 @@ class FirebaseAppointmentRepository(
     private val firestore: FirebaseFirestore
 ) : AppointmentRepository {
 
-    override suspend fun addAppointment(request: NewAppointmentRequest) {
+    override suspend fun addAppointment(request: NewAppointmentRequest): AppointmentItem {
         val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
         val document = appointmentsCollection(userId).document()
+        val dateKey = dateFormatter.format(Date(request.appointmentDateMillis))
 
         document.set(
             mapOf(
@@ -33,11 +34,25 @@ class FirebaseAppointmentRepository(
                 FieldLocationLatitude to request.locationLatitude,
                 FieldLocationLongitude to request.locationLongitude,
                 FieldAppointmentDateMillis to request.appointmentDateMillis,
-                FieldDateKey to dateFormatter.format(Date(request.appointmentDateMillis)),
+                FieldDateKey to dateKey,
                 FieldCreatedAtMillis to request.createdAtMillis,
                 FieldNote to request.note
             )
         ).awaitCompletion()
+
+        return AppointmentItem(
+            id = document.id,
+            name = request.name,
+            participantContactIds = request.participantContactIds,
+            participantContactNames = request.participantContactNames,
+            location = request.location,
+            locationLatitude = request.locationLatitude,
+            locationLongitude = request.locationLongitude,
+            appointmentDateMillis = request.appointmentDateMillis,
+            dateKey = dateKey,
+            note = request.note,
+            createdAtMillis = request.createdAtMillis
+        )
     }
 
     override suspend fun countUpcomingAppointments(todayMillis: Long): Int {

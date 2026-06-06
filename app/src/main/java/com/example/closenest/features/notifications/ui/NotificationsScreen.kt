@@ -68,7 +68,7 @@ import java.util.concurrent.TimeUnit
 
 @Composable
 fun NotificationsRoute(
-    onNotificationAction: (String) -> Unit = {},
+    onNotificationAction: (NotificationItem) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: NotificationsViewModel = viewModel(factory = NotificationsViewModel.Factory)
 ) {
@@ -92,7 +92,7 @@ fun NotificationsScreen(
     onFilterSelected: (NotificationFilterType) -> Unit,
     onNotificationMarkAsRead: (String) -> Unit,
     onNotificationDismiss: (String) -> Unit,
-    onNotificationAction: (String) -> Unit,
+    onNotificationAction: (NotificationItem) -> Unit,
     onNotificationSelected: (NotificationItem) -> Unit,
     onNotificationDeselected: () -> Unit,
     modifier: Modifier = Modifier
@@ -180,7 +180,7 @@ fun NotificationsScreen(
                         notification = notification,
                         onMarkAsRead = { onNotificationMarkAsRead(notification.id) },
                         onDismiss = { onNotificationDismiss(notification.id) },
-                        onAction = { onNotificationAction(notification.id) },
+                        onAction = { onNotificationAction(notification) },
                         onCardClick = { onNotificationSelected(notification) }
                     )
                 }
@@ -194,7 +194,7 @@ fun NotificationsScreen(
                 notification = uiState.selectedNotification,
                 onMarkAsRead = { onNotificationMarkAsRead(uiState.selectedNotification.id) },
                 onDismiss = { onNotificationDismiss(uiState.selectedNotification.id) },
-                onAction = { onNotificationAction(uiState.selectedNotification.id) },
+                onAction = { onNotificationAction(uiState.selectedNotification) },
                 onClose = { onNotificationDeselected() }
             )
         }
@@ -483,6 +483,7 @@ private fun getNotificationColor(type: NotificationType) = when (type) {
     NotificationType.STREAK -> CloseNestAttention
     
     NotificationType.MEMORY_REMINDER,
+    NotificationType.APPOINTMENT_REMINDER,
     NotificationType.REFLECTION_REMINDER -> CloseNestWarm
     
     NotificationType.BIRTHDAY,

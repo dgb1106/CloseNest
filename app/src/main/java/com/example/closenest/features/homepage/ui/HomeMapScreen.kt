@@ -87,6 +87,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.closenest.R
+import com.example.closenest.core.notification.AppointmentReminderScheduler
 import com.example.closenest.features.homepage.model.AppointmentItem
 import com.example.closenest.features.homepage.model.MemoryItem
 import com.example.closenest.features.homepage.repository.AppointmentRepositoryProvider
@@ -144,6 +145,8 @@ private fun vectorToPinBitmapDescriptor(
 
 @Composable
 fun HomeMapScreen(
+    openAppointmentId: String? = null,
+    onAppointmentOpened: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val appointmentRepository = remember { AppointmentRepositoryProvider.repository }
@@ -159,6 +162,20 @@ fun HomeMapScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        appointmentList = runCatching {
+            appointmentRepository.getUpcomingAppointments()
+        }.getOrDefault(emptyList())
+
+        memories = runCatching {
+            memoryRepository.getMemories()
+        }.getOrDefault(emptyList())
+
+        relationshipProfiles = runCatching {
+            relationshipRepository.observeRelationships().first()
+        }.getOrDefault(emptyList())
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -181,6 +198,14 @@ fun HomeMapScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(openAppointmentId, appointmentList) {
+        val appointmentId = openAppointmentId ?: return@LaunchedEffect
+        val appointment = appointmentList.firstOrNull { it.id == appointmentId }
+            ?: return@LaunchedEffect
+        selectedAppointment = appointment
+        onAppointmentOpened()
     }
 
     Column(
@@ -293,6 +318,10 @@ fun HomeMapScreen(
                                     runCatching {
                                         appointmentRepository.deleteAppointment(appointmentId)
                                     }.onSuccess {
+                                        AppointmentReminderScheduler.cancelAppointmentReminders(
+                                            context = context,
+                                            appointmentId = appointmentId
+                                        )
                                         appointmentList = runCatching {
                                             appointmentRepository.getUpcomingAppointments()
                                         }.getOrDefault(emptyList())
@@ -372,6 +401,10 @@ fun HomeMapScreen(
                     runCatching {
                         appointmentRepository.deleteAppointment(appointmentId)
                     }.onSuccess {
+                        AppointmentReminderScheduler.cancelAppointmentReminders(
+                            context = context,
+                            appointmentId = appointmentId
+                        )
                         appointmentList = runCatching {
                             appointmentRepository.getUpcomingAppointments()
                         }.getOrDefault(emptyList())
