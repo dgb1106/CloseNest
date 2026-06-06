@@ -11,6 +11,11 @@ import android.graphics.drawable.Drawable
 import android.location.Location
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -260,87 +265,93 @@ fun HomeMapScreen(
         }
 
         // Expanded detail cards – horizontal swipeable pager
-        if (expandedAppointments && appointmentList.isNotEmpty()) {
+        AnimatedVisibility(
+            visible = expandedAppointments && appointmentList.isNotEmpty(),
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
             val appointmentPagerState = rememberPagerState(
                 initialPage = 0,
                 pageCount = { appointmentList.size }
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 12.dp)
+            Column {
+                Spacer(modifier = Modifier.height(10.dp))
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    HorizontalPager(
-                        state = appointmentPagerState,
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(200.dp)
-                    ) { page ->
-                        val appointment = appointmentList[page]
-                        AppointmentDetailRow(
-                            appointment = appointment,
-                            relationshipProfiles = relationshipProfiles,
-                            onNavigate = { lat, lng ->
-                                val uri = Uri.parse("google.navigation:q=$lat,$lng")
-                                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-                                    setPackage("com.google.android.apps.maps")
-                                }
-                                if (intent.resolveActivity(context.packageManager) != null) {
-                                    context.startActivity(intent)
-                                } else {
-                                    val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng")
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
-                                }
-                            },
-                            onCancelAppointment = { appointmentId ->
-                                coroutineScope.launch {
-                                    runCatching {
-                                        appointmentRepository.deleteAppointment(appointmentId)
-                                    }.onSuccess {
-                                        appointmentList = runCatching {
-                                            appointmentRepository.getUpcomingAppointments()
-                                        }.getOrDefault(emptyList())
-                                        if (appointmentList.isEmpty()) {
-                                            expandedAppointments = false
+                            .padding(top = 8.dp, bottom = 12.dp)
+                    ) {
+                        HorizontalPager(
+                            state = appointmentPagerState,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                        ) { page ->
+                            val appointment = appointmentList[page]
+                            AppointmentDetailRow(
+                                appointment = appointment,
+                                relationshipProfiles = relationshipProfiles,
+                                onNavigate = { lat, lng ->
+                                    val uri = Uri.parse("google.navigation:q=$lat,$lng")
+                                    val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                                        setPackage("com.google.android.apps.maps")
+                                    }
+                                    if (intent.resolveActivity(context.packageManager) != null) {
+                                        context.startActivity(intent)
+                                    } else {
+                                        val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng")
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
+                                    }
+                                },
+                                onCancelAppointment = { appointmentId ->
+                                    coroutineScope.launch {
+                                        runCatching {
+                                            appointmentRepository.deleteAppointment(appointmentId)
+                                        }.onSuccess {
+                                            appointmentList = runCatching {
+                                                appointmentRepository.getUpcomingAppointments()
+                                            }.getOrDefault(emptyList())
+                                            if (appointmentList.isEmpty()) {
+                                                expandedAppointments = false
+                                            }
+                                            Toast.makeText(context, context.getString(R.string.appointment_cancel_success), Toast.LENGTH_SHORT).show()
+                                        }.onFailure {
+                                            Toast.makeText(context, context.getString(R.string.appointment_cancel_error), Toast.LENGTH_SHORT).show()
                                         }
-                                        Toast.makeText(context, context.getString(R.string.appointment_cancel_success), Toast.LENGTH_SHORT).show()
-                                    }.onFailure {
-                                        Toast.makeText(context, context.getString(R.string.appointment_cancel_error), Toast.LENGTH_SHORT).show()
                                     }
                                 }
-                            }
-                        )
-                    }
-
-                    // Page indicator dots
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        repeat(appointmentList.size) { index ->
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 4.dp)
-                                    .size(if (appointmentPagerState.currentPage == index) 10.dp else 8.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (appointmentPagerState.currentPage == index) {
-                                            Color(0xFF616161)
-                                        } else {
-                                            Color(0xFFBDBDBD)
-                                        }
-                                    )
                             )
+                        }
+
+                        // Page indicator dots
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            repeat(appointmentList.size) { index ->
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp)
+                                        .size(if (appointmentPagerState.currentPage == index) 10.dp else 8.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (appointmentPagerState.currentPage == index) {
+                                                Color(0xFF616161)
+                                            } else {
+                                                Color(0xFFBDBDBD)
+                                            }
+                                        )
+                                )
+                            }
                         }
                     }
                 }
