@@ -259,8 +259,13 @@ fun HomeMapScreen(
             }
         }
 
-        // Expanded detail cards
+        // Expanded detail cards – horizontal swipeable pager
         if (expandedAppointments && appointmentList.isNotEmpty()) {
+            val appointmentPagerState = rememberPagerState(
+                initialPage = 0,
+                pageCount = { appointmentList.size }
+            )
+
             Spacer(modifier = Modifier.height(10.dp))
             Card(
                 shape = RoundedCornerShape(20.dp),
@@ -272,7 +277,13 @@ fun HomeMapScreen(
                         .fillMaxWidth()
                         .padding(top = 8.dp, bottom = 12.dp)
                 ) {
-                    appointmentList.forEachIndexed { index, appointment ->
+                    HorizontalPager(
+                        state = appointmentPagerState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                    ) { page ->
+                        val appointment = appointmentList[page]
                         AppointmentDetailRow(
                             appointment = appointment,
                             relationshipProfiles = relationshipProfiles,
@@ -306,10 +317,29 @@ fun HomeMapScreen(
                                 }
                             }
                         )
-                        if (index < appointmentList.lastIndex) {
-                            HorizontalDivider(
-                                color = Color(0xFFE0E0E0),
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                    }
+
+                    // Page indicator dots
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        repeat(appointmentList.size) { index ->
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp)
+                                    .size(if (appointmentPagerState.currentPage == index) 10.dp else 8.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (appointmentPagerState.currentPage == index) {
+                                            Color(0xFF616161)
+                                        } else {
+                                            Color(0xFFBDBDBD)
+                                        }
+                                    )
                             )
                         }
                     }
@@ -567,9 +597,19 @@ private fun AppointmentDetailRow(
 ) {
     var contactAction by remember { mutableStateOf<ContactAction?>(null) }
     var showCancelConfirm by remember { mutableStateOf(false) }
+    var showAllParticipants by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val participants = appointment.participantContactNames.zip(appointment.participantContactIds)
+    val displayParticipants: List<Pair<String, String>>
+    val extraCount: Int
+    if (participants.size > 2) {
+        displayParticipants = participants.take(1)
+        extraCount = participants.size - 1
+    } else {
+        displayParticipants = participants
+        extraCount = 0
+    }
 
     fun performContactAction(action: ContactAction, personIndex: Int) {
         val (name, contactId) = participants[personIndex]
@@ -644,8 +684,8 @@ private fun AppointmentDetailRow(
         }
 
         // Participants
-        if (participants.isNotEmpty()) {
-            participants.forEach { (name, _) ->
+        if (displayParticipants.isNotEmpty()) {
+            displayParticipants.forEach { (name, _) ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -660,6 +700,26 @@ private fun AppointmentDetailRow(
                         text = name,
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF616161)
+                    )
+                }
+            }
+            if (extraCount > 0) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.clickable { showAllParticipants = true }
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.People,
+                        contentDescription = null,
+                        tint = Color(0xFF9E9E9E),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "+$extraCount người khác",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF8B5E34)
                     )
                 }
             }
@@ -811,6 +871,78 @@ private fun AppointmentDetailRow(
             },
             onDismiss = { showCancelConfirm = false }
         )
+    }
+
+    // All participants dialog
+    if (showAllParticipants) {
+        AllParticipantsDialog(
+            participants = participants,
+            onDismiss = { showAllParticipants = false }
+        )
+    }
+}
+
+@Composable
+private fun AllParticipantsDialog(
+    participants: List<Pair<String, String>>,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .padding(horizontal = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Danh sách người tham gia",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Đóng",
+                            tint = Color(0xFF757575)
+                        )
+                    }
+                }
+                participants.forEach { (name, _) ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.People,
+                            contentDescription = null,
+                            tint = Color(0xFF757575),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color(0xFF616161)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
