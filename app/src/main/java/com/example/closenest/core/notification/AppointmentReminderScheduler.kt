@@ -7,6 +7,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.closenest.core.worker.AppointmentReminderWorker
 import com.example.closenest.features.homepage.model.AppointmentItem
+import com.google.firebase.auth.FirebaseAuth
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
@@ -28,6 +29,7 @@ object AppointmentReminderScheduler {
         val dayBeforeAtMillis = appointment.appointmentDateMillis - DayBeforeOffsetMillis
         val upcomingAtMillis = appointment.appointmentDateMillis - UpcomingOffsetMillis
         val isAllDay = appointment.appointmentDateMillis.isStartOfDay()
+        val userId = FirebaseAuth.getInstance().currentUser?.uid
 
         when {
             !isAllDay && upcomingAtMillis <= nowMillis -> {
@@ -36,7 +38,8 @@ object AppointmentReminderScheduler {
                     appointment = appointment,
                     kind = AppointmentReminderKind.UPCOMING,
                     triggerAtMillis = nowMillis,
-                    nowMillis = nowMillis
+                    nowMillis = nowMillis,
+                    userId = userId
                 )
             }
             dayBeforeAtMillis <= nowMillis -> {
@@ -45,7 +48,8 @@ object AppointmentReminderScheduler {
                     appointment = appointment,
                     kind = AppointmentReminderKind.DAY_BEFORE,
                     triggerAtMillis = nowMillis,
-                    nowMillis = nowMillis
+                    nowMillis = nowMillis,
+                    userId = userId
                 )
                 if (!isAllDay) {
                     enqueueReminder(
@@ -53,7 +57,8 @@ object AppointmentReminderScheduler {
                         appointment = appointment,
                         kind = AppointmentReminderKind.UPCOMING,
                         triggerAtMillis = upcomingAtMillis,
-                        nowMillis = nowMillis
+                        nowMillis = nowMillis,
+                        userId = userId
                     )
                 }
             }
@@ -63,7 +68,8 @@ object AppointmentReminderScheduler {
                     appointment = appointment,
                     kind = AppointmentReminderKind.DAY_BEFORE,
                     triggerAtMillis = dayBeforeAtMillis,
-                    nowMillis = nowMillis
+                    nowMillis = nowMillis,
+                    userId = userId
                 )
                 if (!isAllDay) {
                     enqueueReminder(
@@ -71,7 +77,8 @@ object AppointmentReminderScheduler {
                         appointment = appointment,
                         kind = AppointmentReminderKind.UPCOMING,
                         triggerAtMillis = upcomingAtMillis,
-                        nowMillis = nowMillis
+                        nowMillis = nowMillis,
+                        userId = userId
                     )
                 }
             }
@@ -90,7 +97,8 @@ object AppointmentReminderScheduler {
         appointment: AppointmentItem,
         kind: AppointmentReminderKind,
         triggerAtMillis: Long,
-        nowMillis: Long
+        nowMillis: Long,
+        userId: String?
     ) {
         val delayMillis = max(0L, triggerAtMillis - nowMillis)
         val workRequest = OneTimeWorkRequestBuilder<AppointmentReminderWorker>()
@@ -99,7 +107,9 @@ object AppointmentReminderScheduler {
                     AppointmentReminderWorker.InputAppointmentId to appointment.id,
                     AppointmentReminderWorker.InputName to appointment.name,
                     AppointmentReminderWorker.InputLocation to appointment.location,
+                    AppointmentReminderWorker.InputUserId to userId.orEmpty(),
                     AppointmentReminderWorker.InputAppointmentTimeMillis to appointment.appointmentDateMillis,
+                    AppointmentReminderWorker.InputScheduledAtMillis to triggerAtMillis,
                     AppointmentReminderWorker.InputReminderKind to kind.name
                 )
             )
@@ -123,4 +133,3 @@ object AppointmentReminderScheduler {
             calendar.get(Calendar.MINUTE) == 0
     }
 }
-

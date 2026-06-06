@@ -1,11 +1,14 @@
 package com.example.closenest.core.worker
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.closenest.R
 import com.example.closenest.core.notification.AppointmentReminderKind
+import com.example.closenest.core.notification.AppointmentReminderNotificationFactory
 import com.example.closenest.core.notification.CloseNestNotificationHelper
+import com.example.closenest.features.notifications.repository.NotificationRepositoryProvider
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -22,7 +25,9 @@ class AppointmentReminderWorker(
             ?: return Result.failure()
         val location = inputData.getString(InputLocation)?.takeIf { it.isNotBlank() }
             ?: return Result.failure()
+        val userId = inputData.getString(InputUserId)?.takeIf { it.isNotBlank() }
         val appointmentTimeMillis = inputData.getLong(InputAppointmentTimeMillis, 0L)
+        val scheduledAtMillis = inputData.getLong(InputScheduledAtMillis, System.currentTimeMillis())
         if (appointmentTimeMillis <= System.currentTimeMillis()) {
             return Result.success()
         }
@@ -59,6 +64,28 @@ class AppointmentReminderWorker(
             title = title,
             body = body
         )
+        val notification = AppointmentReminderNotificationFactory.create(
+            context = applicationContext,
+            appointmentId = appointmentId,
+            appointmentName = name,
+            title = title,
+            body = body,
+            appointmentTimeMillis = appointmentTimeMillis,
+            kind = kind,
+            scheduledAtMillis = scheduledAtMillis
+        )
+        runCatching {
+            NotificationRepositoryProvider.repository.upsertNotification(
+                notification = notification,
+                userId = userId
+            )
+        }.onFailure { throwable ->
+            Log.w(
+                WorkerLogTag,
+                "Could not write appointment reminder notification to Firestore.",
+                throwable
+            )
+        }
         return Result.success()
     }
 
@@ -66,10 +93,13 @@ class AppointmentReminderWorker(
         const val InputAppointmentId = "appointment_id"
         const val InputName = "name"
         const val InputLocation = "location"
+        const val InputUserId = "user_id"
         const val InputAppointmentTimeMillis = "appointment_time_millis"
+        const val InputScheduledAtMillis = "scheduled_at_millis"
         const val InputReminderKind = "reminder_kind"
     }
 }
 
-private val appointmentTimeFormatter = SimpleDateFormat("HH:mm dd/MM", Locale("vi"))
+private const val WorkerLogTag = "AppointmentReminder"
 
+private val appointmentTimeFormatter = SimpleDateFormat("HH:mm dd/MM", Locale("vi"))

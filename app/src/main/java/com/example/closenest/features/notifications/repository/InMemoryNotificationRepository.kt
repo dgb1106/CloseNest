@@ -1,7 +1,8 @@
 package com.example.closenest.features.notifications.repository
 
+import com.example.closenest.core.notification.AppointmentReminderKind
+import com.example.closenest.core.notification.appointmentReminderDedupeKey
 import com.example.closenest.features.notifications.model.NotificationActionType
-import com.example.closenest.features.notifications.model.NotificationFilterType
 import com.example.closenest.features.notifications.model.NotificationItem
 import com.example.closenest.features.notifications.model.NotificationStatus
 import com.example.closenest.features.notifications.model.NotificationSummary
@@ -34,6 +35,26 @@ class InMemoryNotificationRepository : NotificationRepository {
             )
         }
 
+    override suspend fun upsertNotification(notification: NotificationItem, userId: String?) {
+        val notificationId = notification.dedupeKey?.takeIf { it.isNotBlank() } ?: notification.id
+        notifications.update { current ->
+            val existing = current.firstOrNull { it.id == notificationId }
+            val notificationToSave = notification.copy(
+                id = notificationId,
+                status = existing?.status ?: notification.status,
+                createdAtMillis = existing?.createdAtMillis ?: notification.createdAtMillis,
+                completedAtMillis = existing?.completedAtMillis ?: notification.completedAtMillis
+            )
+            if (existing == null) {
+                current + notificationToSave
+            } else {
+                current.map { item ->
+                    if (item.id == notificationId) notificationToSave else item
+                }
+            }
+        }
+    }
+
     override suspend fun markAsRead(notificationId: String) {
         notifications.update { current ->
             current.map { notification ->
@@ -65,6 +86,15 @@ class InMemoryNotificationRepository : NotificationRepository {
     override suspend fun deleteNotification(notificationId: String) {
         notifications.update { current ->
             current.filter { it.id != notificationId }
+        }
+    }
+
+    override suspend fun deleteAppointmentReminderNotifications(appointmentId: String) {
+        val ids = AppointmentReminderKind.entries
+            .map { kind -> appointmentReminderDedupeKey(appointmentId, kind) }
+            .toSet()
+        notifications.update { current ->
+            current.filter { it.id !in ids }
         }
     }
 

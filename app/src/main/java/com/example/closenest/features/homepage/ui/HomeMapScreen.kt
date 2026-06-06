@@ -92,6 +92,7 @@ import com.example.closenest.features.homepage.model.AppointmentItem
 import com.example.closenest.features.homepage.model.MemoryItem
 import com.example.closenest.features.homepage.repository.AppointmentRepositoryProvider
 import com.example.closenest.features.homepage.repository.MemoryRepositoryProvider
+import com.example.closenest.features.notifications.repository.NotificationRepositoryProvider
 import com.example.closenest.features.relationships.model.RelationshipProfile
 import com.example.closenest.features.relationships.repository.RelationshipRepositoryProvider
 import com.google.android.gms.location.LocationServices
@@ -322,6 +323,10 @@ fun HomeMapScreen(
                                             context = context,
                                             appointmentId = appointmentId
                                         )
+                                        runCatching {
+                                            NotificationRepositoryProvider.repository
+                                                .deleteAppointmentReminderNotifications(appointmentId)
+                                        }
                                         appointmentList = runCatching {
                                             appointmentRepository.getUpcomingAppointments()
                                         }.getOrDefault(emptyList())
@@ -405,6 +410,10 @@ fun HomeMapScreen(
                             context = context,
                             appointmentId = appointmentId
                         )
+                        runCatching {
+                            NotificationRepositoryProvider.repository
+                                .deleteAppointmentReminderNotifications(appointmentId)
+                        }
                         appointmentList = runCatching {
                             appointmentRepository.getUpcomingAppointments()
                         }.getOrDefault(emptyList())

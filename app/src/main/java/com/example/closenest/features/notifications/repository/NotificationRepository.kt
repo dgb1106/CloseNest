@@ -2,7 +2,6 @@ package com.example.closenest.features.notifications.repository
 
 import com.example.closenest.features.notifications.model.NotificationItem
 import com.example.closenest.features.notifications.model.NotificationSummary
-import com.example.closenest.features.notifications.model.NotificationStatus
 import kotlinx.coroutines.flow.Flow
 
 interface NotificationRepository {
@@ -11,6 +10,8 @@ interface NotificationRepository {
 
     fun observeNotificationSummary(): Flow<NotificationSummary>
 
+    suspend fun upsertNotification(notification: NotificationItem, userId: String? = null)
+
     suspend fun markAsRead(notificationId: String)
 
     suspend fun dismissNotification(notificationId: String)
@@ -18,4 +19,6 @@ interface NotificationRepository {
     suspend fun getNotification(notificationId: String): NotificationItem?
 
     suspend fun deleteNotification(notificationId: String)
+
+    suspend fun deleteAppointmentReminderNotifications(appointmentId: String)
 }
