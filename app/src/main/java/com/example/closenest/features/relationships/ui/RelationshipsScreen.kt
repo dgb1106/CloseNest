@@ -50,6 +50,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -166,9 +167,13 @@ fun RelationshipsScreen(
                 leadingIcon = {
                     Icon(Icons.Outlined.Search, contentDescription = null)
                 },
-                label = {
+                placeholder = {
                     Text(stringResource(R.string.relationship_search_label))
-                }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.onPrimary,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.onPrimary
+                )
             )
         }
 
@@ -461,7 +466,7 @@ private fun FilterChip(
             )
         } else {
             androidx.compose.material3.AssistChipDefaults.assistChipColors(
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = MaterialTheme.colorScheme.onPrimary,
                 labelColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

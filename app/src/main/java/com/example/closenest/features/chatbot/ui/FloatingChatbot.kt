@@ -28,10 +28,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -45,13 +47,16 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ChipColors
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -79,21 +84,29 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.closenest.R
+import com.example.closenest.core.ui.theme.AppTheme
 import com.example.closenest.features.chatbot.model.ChatMessage
 import com.example.closenest.features.chatbot.model.ChatMode
 import com.example.closenest.features.chatbot.model.ChatRole
 import com.example.closenest.features.chatbot.model.ChatSession
 import com.example.closenest.features.chatbot.viewmodel.ChatbotUiState
 import com.example.closenest.features.chatbot.viewmodel.ChatbotViewModel
+import com.example.closenest.features.chatbot.viewmodel.QuickRecipient
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -116,6 +129,7 @@ fun FloatingChatbotOverlay(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.16f))
                     .clickable { isPanelOpen = false }
+                    .imePadding()
             )
             ChatbotPanel(
                 uiState = uiState,
@@ -129,11 +143,11 @@ fun FloatingChatbotOverlay(
                 onDeleteSelectedSessions = viewModel::deleteSelectedSessions,
                 onInputChanged = viewModel::onInputChanged,
                 onSend = viewModel::sendMessage,
+                onQuickSend = viewModel::sendQuickMessage,
                 onDismissError = viewModel::clearError,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(horizontal = 12.dp, vertical = 12.dp)
-                    .navigationBarsPadding()
             )
         } else {
             DraggableChatButton(
@@ -286,6 +300,7 @@ private fun ChatbotPanel(
     onDeleteSelectedSessions: () -> Unit,
     onInputChanged: (String) -> Unit,
     onSend: () -> Unit,
+    onQuickSend: (String) -> Unit,
     onDismissError: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -298,12 +313,10 @@ private fun ChatbotPanel(
         shape = RoundedCornerShape(24.dp),
         tonalElevation = 4.dp,
         shadowElevation = 10.dp,
-        color = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.onPrimary
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .imePadding()
+            modifier = Modifier.fillMaxSize()
         ) {
             ChatbotHeader(
                 mode = uiState.mode,
@@ -334,16 +347,22 @@ private fun ChatbotPanel(
                 onDeleteSelectedSessions = onDeleteSelectedSessions,
                 onInputChanged = onInputChanged,
                 onSend = onSend,
+                onQuickSend = onQuickSend,
                 modifier = Modifier.weight(1f)
             )
 
             if (uiState.mode != null) {
                 ChatbotInput(
+                    mode = uiState.mode,
                     value = uiState.inputText,
                     canSend = uiState.canSend,
                     isSending = uiState.isSending,
+                    recentRecipients = uiState.recentRecipients,
+                    showGiftRecipientQuickReplies = uiState.showGiftRecipientQuickReplies,
+                    showGiftRequirementQuickReplies = uiState.showGiftRequirementQuickReplies,
                     onValueChange = onInputChanged,
-                    onSend = onSend
+                    onSend = onSend,
+                    onQuickReplyClick = onQuickSend
                 )
             }
         }
@@ -390,14 +409,14 @@ private fun ChatbotHeader(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = mode?.let { stringResource(it.labelRes()) }
-                    ?: stringResource(R.string.chatbot_welcome),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+//            Text(
+//                text = mode?.let { stringResource(it.labelRes()) }
+//                    ?: stringResource(R.string.chatbot_welcome),
+//                style = MaterialTheme.typography.bodySmall,
+//                color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                maxLines = 1,
+//                overflow = TextOverflow.Ellipsis
+//            )
         }
 
         if (mode != null) {
@@ -463,6 +482,7 @@ private fun ChatbotMessages(
     onDeleteSelectedSessions: () -> Unit,
     onInputChanged: (String) -> Unit,
     onSend: () -> Unit,
+    onQuickSend: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -503,7 +523,8 @@ private fun ChatbotMessages(
                     onToggleSessionSelection = onToggleSessionSelection,
                     onDeleteSelectedSessions = onDeleteSelectedSessions,
                     onInputChanged = onInputChanged,
-                    onSend = onSend
+                    onSend = onSend,
+                    onQuickSend = onQuickSend
                 )
             }
         } else {
@@ -533,12 +554,13 @@ private fun ChatHome(
     onToggleSessionSelection: (String) -> Unit,
     onDeleteSelectedSessions: () -> Unit,
     onInputChanged: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    onQuickSend: (String) -> Unit
 ) {
     val isBusy = uiState.isSending || uiState.isCreatingSession || uiState.isDeletingSessions
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         WelcomeInput(
             value = uiState.inputText,
@@ -550,13 +572,13 @@ private fun ChatHome(
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             ModeChip(
                 label = stringResource(R.string.chatbot_mode_vent),
                 icon = Icons.Outlined.FavoriteBorder,
                 enabled = !isBusy,
-                onClick = { onSelectMode(ChatMode.Vent) }
+                onClick = { onSelectMode(ChatMode.Vent) },
             )
             ModeChip(
                 label = stringResource(R.string.chatbot_mode_gift),
@@ -623,8 +645,51 @@ private fun WelcomeInput(
                     onSend()
                 }
             }
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.onPrimary,
+            unfocusedContainerColor = MaterialTheme.colorScheme.onPrimary
         )
     )
+}
+
+@Composable
+private fun QuickRecipientsSection(
+    recipients: List<QuickRecipient>,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onRecipientClick: (QuickRecipient) -> Unit
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "Gần đây",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(end = 4.dp)
+        ) {
+            items(
+                items = recipients,
+                key = { recipient -> recipient.id }
+            ) { recipient ->
+                AssistChip(
+                    onClick = { onRecipientClick(recipient) },
+                    enabled = enabled,
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = Color.White,
+                        labelColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    label = { Text(text = recipient.name) }
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -650,7 +715,7 @@ private fun ChatHistorySection(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -902,7 +967,11 @@ private fun ModeChip(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-        }
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+
     )
 }
 
@@ -920,13 +989,20 @@ private fun MessageBubble(message: ChatMessage) {
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val uriHandler = LocalUriHandler.current
+    val linkedText = remember(message.text, contentColor) {
+        buildLinkedMessageText(
+            text = message.text,
+            defaultColor = contentColor
+        )
+    }
 
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = alignment
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth(0.82f),
+            modifier = Modifier.widthIn(max = 300.dp),
             shape = RoundedCornerShape(
                 topStart = 18.dp,
                 topEnd = 18.dp,
@@ -936,10 +1012,17 @@ private fun MessageBubble(message: ChatMessage) {
             color = bubbleColor,
             contentColor = contentColor
         ) {
-            Text(
-                text = message.text,
+            ClickableText(
+                text = linkedText,
                 modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp),
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium.copy(color = contentColor),
+                onClick = { offset ->
+                    linkedText
+                        .getStringAnnotations(tag = LinkAnnotationTag, start = offset, end = offset)
+                        .firstOrNull()
+                        ?.item
+                        ?.let(uriHandler::openUri)
+                }
             )
         }
     }
@@ -976,64 +1059,135 @@ private fun TypingBubble() {
 
 @Composable
 private fun ChatbotInput(
+    mode: ChatMode,
     value: String,
     canSend: Boolean,
     isSending: Boolean,
+    recentRecipients: List<QuickRecipient>,
+    showGiftRecipientQuickReplies: Boolean,
+    showGiftRequirementQuickReplies: Boolean,
     onValueChange: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    onQuickReplyClick: (String) -> Unit
 ) {
     Surface(
         tonalElevation = 2.dp,
-        color = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.onPrimary
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Bottom
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 56.dp)
-                    .onKeyEvent { event ->
-                        if (event.key == Key.Enter && event.type == KeyEventType.KeyUp && canSend) {
-                            onSend()
-                            true
-                        } else {
-                            false
-                        }
-                    },
-                enabled = !isSending,
-                label = { Text(text = stringResource(R.string.chatbot_input_label)) },
-                shape = RoundedCornerShape(18.dp),
-                minLines = 1,
-                maxLines = 4,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(
-                    onSend = {
-                        if (canSend) {
-                            onSend()
-                        }
+            if (mode == ChatMode.GiftAdvice && showGiftRecipientQuickReplies && recentRecipients.isNotEmpty()) {
+                QuickRecipientsSection(
+                    recipients = recentRecipients,
+                    enabled = !isSending,
+                    modifier = Modifier.padding(start = 12.dp, top = 10.dp, end = 12.dp),
+                    onRecipientClick = { recipient ->
+                        onQuickReplyClick(recipient.name)
                     }
                 )
-            )
-
-            IconButton(
-                onClick = onSend,
-                enabled = canSend,
-                modifier = Modifier.size(48.dp)
+            }
+            if (mode == ChatMode.GiftAdvice && showGiftRequirementQuickReplies) {
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, top = 10.dp, end = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(end = 4.dp)
+                ) {
+                    item {
+                        QuickReplyChip(
+                            label = "Không có yêu cầu",
+                            enabled = !isSending,
+                            onClick = { onQuickReplyClick("Không có yêu cầu đặc biệt.") }
+                        )
+                    }
+                    item {
+                        QuickReplyChip(
+                            label = "Sinh nhật",
+                            enabled = !isSending,
+                            onClick = { onQuickReplyClick("Tặng sinh nhật.") }
+                        )
+                    }
+                    item {
+                        QuickReplyChip(
+                            label = "Dưới 300k",
+                            enabled = !isSending,
+                            onClick = { onQuickReplyClick("Ngân sách dưới 300k.") }
+                        )
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.Send,
-                    contentDescription = stringResource(R.string.chatbot_send)
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 56.dp)
+                        .onKeyEvent { event ->
+                            if (event.key == Key.Enter && event.type == KeyEventType.KeyUp && canSend) {
+                                onSend()
+                                true
+                            } else {
+                                false
+                            }
+                        },
+                    enabled = !isSending,
+                    label = { Text(text = stringResource(R.string.chatbot_input_label)) },
+                    shape = RoundedCornerShape(18.dp),
+                    minLines = 1,
+                    maxLines = 4,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (canSend) {
+                                onSend()
+                            }
+                        }
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.onPrimary,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 )
+
+                IconButton(
+                    onClick = onSend,
+                    enabled = canSend,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.Send,
+                        contentDescription = stringResource(R.string.chatbot_send)
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun QuickReplyChip(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    AssistChip(
+        onClick = onClick,
+        enabled = enabled,
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = Color.White,
+            labelColor = MaterialTheme.colorScheme.onSurface
+        ),
+        label = { Text(text = label) }
+    )
 }
 
 @StringRes
@@ -1053,5 +1207,193 @@ private fun ChatMode.icon(): ImageVector {
     }
 }
 
+private fun buildLinkedMessageText(
+    text: String,
+    defaultColor: Color
+) = buildAnnotatedString {
+    var currentIndex = 0
+    UrlRegex.findAll(text).forEach { match ->
+        val start = match.range.first
+        val endExclusive = match.range.last + 1
+        if (currentIndex < start) {
+            append(text.substring(currentIndex, start))
+        }
+        val url = match.value
+        pushStringAnnotation(tag = LinkAnnotationTag, annotation = url)
+        withStyle(
+            SpanStyle(
+                color = LinkColor,
+                textDecoration = TextDecoration.Underline
+            )
+        ) {
+            append(url)
+        }
+        pop()
+        currentIndex = endExclusive
+    }
+    if (currentIndex < text.length) {
+        withStyle(SpanStyle(color = defaultColor)) {
+            append(text.substring(currentIndex))
+        }
+    }
+}
+
 private const val IdleSnapDelayMillis = 1_200L
 private const val MaxHistoryItems = 12
+private const val LinkAnnotationTag = "chat_link"
+private val UrlRegex = Regex("""https?://[^\s]+""")
+private val LinkColor = Color(0xFF1A73E8)
+
+@Preview(name = "Floating Chatbot Button", showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun FloatingChatbotButtonPreview() {
+    AppTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            DraggableChatButton(
+                containerWidthPx = 360f,
+                containerHeightPx = 720f,
+                onClick = {}
+            )
+        }
+    }
+}
+
+@Preview(name = "Floating Chatbot Home", showBackground = true, widthDp = 420, heightDp = 760)
+@Composable
+private fun FloatingChatbotHomePreview() {
+    AppTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            ChatbotPanel(
+                uiState = previewHomeUiState(),
+                onClose = {},
+                onNewConversation = {},
+                onSelectMode = {},
+                onSelectSession = {},
+                onStartSessionSelection = {},
+                onCancelSessionSelection = {},
+                onToggleSessionSelection = {},
+                onDeleteSelectedSessions = {},
+                onInputChanged = {},
+                onSend = {},
+                onQuickSend = {},
+                onDismissError = {},
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+            )
+        }
+    }
+}
+
+@Preview(name = "Floating Chatbot Conversation", showBackground = true, widthDp = 420, heightDp = 760)
+@Composable
+private fun FloatingChatbotConversationPreview() {
+    AppTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            ChatbotPanel(
+                uiState = previewConversationUiState(),
+                onClose = {},
+                onNewConversation = {},
+                onSelectMode = {},
+                onSelectSession = {},
+                onStartSessionSelection = {},
+                onCancelSessionSelection = {},
+                onToggleSessionSelection = {},
+                onDeleteSelectedSessions = {},
+                onInputChanged = {},
+                onSend = {},
+                onQuickSend = {},
+                onDismissError = {},
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+            )
+        }
+    }
+}
+
+private fun previewHomeUiState(): ChatbotUiState {
+    val now = System.currentTimeMillis()
+    return ChatbotUiState(
+        isLoading = false,
+        sessions = listOf(
+            ChatSession(
+                id = "session-1",
+                userId = "preview-user",
+                mode = ChatMode.Vent,
+                title = "Xả stress sau giờ làm",
+                createdAtMillis = now - 86_400_000L,
+                updatedAtMillis = now - 15 * 60_000L
+            ),
+            ChatSession(
+                id = "session-2",
+                userId = "preview-user",
+                mode = ChatMode.GiftAdvice,
+                title = "Tặng quà cho Linh",
+                createdAtMillis = now - 3 * 86_400_000L,
+                updatedAtMillis = now - 2 * 3_600_000L
+            )
+        ),
+        inputText = "Hôm nay mình hơi rối, muốn nói chuyện một chút."
+    )
+}
+
+private fun previewConversationUiState(): ChatbotUiState {
+    val now = System.currentTimeMillis()
+    return ChatbotUiState(
+        isLoading = false,
+        sessionId = "session-gift",
+        mode = ChatMode.GiftAdvice,
+        messages = listOf(
+            ChatMessage(
+                id = "message-1",
+                sessionId = "session-gift",
+                role = ChatRole.Assistant,
+                text = "Mình giúp bạn chọn quà. Bạn muốn tặng cho ai?",
+                createdAtMillis = now - 6 * 60_000L
+            ),
+            ChatMessage(
+                id = "message-2",
+                sessionId = "session-gift",
+                role = ChatRole.User,
+                text = "Mình muốn tặng cho Linh, ngân sách khoảng 500k.",
+                createdAtMillis = now - 5 * 60_000L
+            ),
+            ChatMessage(
+                id = "message-3",
+                sessionId = "session-gift",
+                role = ChatRole.Assistant,
+                text = "Bạn có thể tham khảo nến thơm hoặc set skincare mini. Link mẫu: https://example.com/gift-set",
+                createdAtMillis = now - 4 * 60_000L
+            )
+        ),
+        sessions = listOf(
+            ChatSession(
+                id = "session-gift",
+                userId = "preview-user",
+                mode = ChatMode.GiftAdvice,
+                title = "Tặng quà cho Linh",
+                createdAtMillis = now - 86_400_000L,
+                updatedAtMillis = now - 4 * 60_000L
+            )
+        ),
+        recentRecipients = listOf(
+            QuickRecipient(id = "recipient-1", name = "Linh"),
+            QuickRecipient(id = "recipient-2", name = "Minh"),
+            QuickRecipient(id = "recipient-3", name = "An")
+        ),
+        inputText = "Có món nào thiên về chăm sóc bản thân không?"
+    )
+}
