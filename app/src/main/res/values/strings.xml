@@ -322,6 +322,7 @@
     <string name="notification_type_streak">Chuỗi liên tiếp</string>
     <string name="notification_type_reflection_reminder">Nhắc nhở suy ngẫm</string>
     <string name="notification_type_encouragement">Cổ vũ</string>
+    <string name="notification_type_appointment_reminder">Nhắc cuộc hẹn</string>
 
     <!-- Notification Actions -->
     <string name="notification_action_dismiss">Tắt</string>
@@ -332,6 +333,15 @@
     <string name="notification_action_send_gift">Gửi quà</string>
     <string name="notification_action_log">Ghi lại</string>
     <string name="notification_action_reflect">Suy ngẫm</string>
+    <string name="notification_action_view_appointment">Xem cuộc hẹn</string>
+
+    <!-- Appointment Reminder Notifications -->
+    <string name="appointment_reminder_channel_name">Nhắc cuộc hẹn</string>
+    <string name="appointment_reminder_channel_description">Nhắc các cuộc hẹn do bạn tạo trong CloseNest.</string>
+    <string name="appointment_reminder_day_before_title">Ngày mai bạn có hẹn với %1$s</string>
+    <string name="appointment_reminder_day_before_body">Cuộc hẹn tại %1$s bắt đầu lúc %2$s.</string>
+    <string name="appointment_reminder_upcoming_title">Sắp đến giờ hẹn với %1$s</string>
+    <string name="appointment_reminder_upcoming_body">%1$s tại %2$s. Chúc bạn có khoảng thời gian dễ chịu.</string>
 
     <!-- Notification Detail Screen -->
     <string name="common_close">Đóng</string>

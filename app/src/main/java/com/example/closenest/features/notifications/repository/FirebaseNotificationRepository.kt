@@ -1,9 +1,12 @@
 package com.example.closenest.features.notifications.repository
 
+import com.example.closenest.core.notification.AppointmentReminderKind
+import com.example.closenest.core.notification.appointmentReminderDedupeKey
 import com.example.closenest.features.notifications.model.NotificationItem
 import com.example.closenest.features.notifications.model.NotificationStatus
 import com.example.closenest.features.notifications.model.NotificationSummary
 import com.example.closenest.features.notifications.model.toNotificationItem
+import com.example.closenest.features.notifications.model.toMap
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -102,6 +105,30 @@ class FirebaseNotificationRepository(
             )
         }
 
+    override suspend fun upsertNotification(notification: NotificationItem, userId: String?) {
+        val currentUid = userId ?: auth.currentUser?.uid
+            ?: error("No signed-in Firebase user for notification upsert.")
+        val documentId = notification.dedupeKey?.takeIf { it.isNotBlank() }
+            ?.toFirestoreDocumentId()
+            ?: notification.id.toFirestoreDocumentId()
+        val document = firestore
+            .collection(USERS_COLLECTION)
+            .document(currentUid)
+            .collection(NOTIFICATIONS_SUBCOLLECTION)
+            .document(documentId)
+
+        firestore.runTransaction { transaction ->
+            val existing = transaction.get(document)
+            if (existing.exists()) {
+                return@runTransaction
+            }
+            val notificationToSave = notification.copy(
+                id = documentId,
+            )
+            transaction.set(document, notificationToSave.toMapWithUserId(currentUid))
+        }.await()
+    }
+
     /**
      * Marks a notification as READ.
      * Updates the status field in Firestore.
@@ -149,6 +176,22 @@ class FirebaseNotificationRepository(
             .await()
     }
 
+    override suspend fun deleteAppointmentReminderNotifications(appointmentId: String) {
+        val currentUid = auth.currentUser?.uid ?: return
+        val notificationCollection = firestore
+            .collection(USERS_COLLECTION)
+            .document(currentUid)
+            .collection(NOTIFICATIONS_SUBCOLLECTION)
+
+        val batch = firestore.batch()
+        AppointmentReminderKind.entries.forEach { kind ->
+            val documentId = appointmentReminderDedupeKey(appointmentId, kind)
+                .toFirestoreDocumentId()
+            batch.delete(notificationCollection.document(documentId))
+        }
+        batch.commit().await()
+    }
+
     /**
      * Fetches a single notification by ID.
      * Returns null if notification not found or user not logged in.
@@ -166,6 +209,12 @@ class FirebaseNotificationRepository(
 
         return snapshot.toNotificationItem()
     }
+}
+
+private fun String.toFirestoreDocumentId(): String = replace("/", "_")
+
+private fun NotificationItem.toMapWithUserId(userId: String): Map<String, Any?> {
+    return toMap() + ("userId" to userId)
 }
 
 object NotificationRepositoryProvider {

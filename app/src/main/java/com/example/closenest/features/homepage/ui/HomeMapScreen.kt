@@ -94,10 +94,12 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.closenest.R
+import com.example.closenest.core.notification.AppointmentReminderScheduler
 import com.example.closenest.features.homepage.model.AppointmentItem
 import com.example.closenest.features.homepage.model.MemoryItem
 import com.example.closenest.features.homepage.repository.AppointmentRepositoryProvider
 import com.example.closenest.features.homepage.repository.MemoryRepositoryProvider
+import com.example.closenest.features.notifications.repository.NotificationRepositoryProvider
 import com.example.closenest.features.relationships.model.RelationshipProfile
 import com.example.closenest.features.relationships.repository.RelationshipRepositoryProvider
 import com.google.android.gms.location.LocationServices
@@ -151,6 +153,8 @@ private fun vectorToPinBitmapDescriptor(
 
 @Composable
 fun HomeMapScreen(
+    openAppointmentId: String? = null,
+    onAppointmentOpened: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val appointmentRepository = remember { AppointmentRepositoryProvider.repository }
@@ -166,6 +170,20 @@ fun HomeMapScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        appointmentList = runCatching {
+            appointmentRepository.getUpcomingAppointments()
+        }.getOrDefault(emptyList())
+
+        memories = runCatching {
+            memoryRepository.getMemories()
+        }.getOrDefault(emptyList())
+
+        relationshipProfiles = runCatching {
+            relationshipRepository.observeRelationships().first()
+        }.getOrDefault(emptyList())
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -188,6 +206,14 @@ fun HomeMapScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(openAppointmentId, appointmentList) {
+        val appointmentId = openAppointmentId ?: return@LaunchedEffect
+        val appointment = appointmentList.firstOrNull { it.id == appointmentId }
+            ?: return@LaunchedEffect
+        selectedAppointment = appointment
+        onAppointmentOpened()
     }
 
     Column(
@@ -307,7 +333,9 @@ fun HomeMapScreen(
                                     if (intent.resolveActivity(context.packageManager) != null) {
                                         context.startActivity(intent)
                                     } else {
-                                        val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng")
+                                        val webUri = Uri.parse(
+                                            "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng"
+                                        )
                                         context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
                                     }
                                 },
@@ -316,22 +344,40 @@ fun HomeMapScreen(
                                         runCatching {
                                             appointmentRepository.deleteAppointment(appointmentId)
                                         }.onSuccess {
+                                            AppointmentReminderScheduler.cancelAppointmentReminders(
+                                                context = context,
+                                                appointmentId = appointmentId
+                                            )
+                                            runCatching {
+                                                NotificationRepositoryProvider.repository
+                                                    .deleteAppointmentReminderNotifications(appointmentId)
+                                            }
+
                                             appointmentList = runCatching {
                                                 appointmentRepository.getUpcomingAppointments()
                                             }.getOrDefault(emptyList())
+
                                             if (appointmentList.isEmpty()) {
                                                 expandedAppointments = false
                                             }
-                                            Toast.makeText(context, context.getString(R.string.appointment_cancel_success), Toast.LENGTH_SHORT).show()
+
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.appointment_cancel_success),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }.onFailure {
-                                            Toast.makeText(context, context.getString(R.string.appointment_cancel_error), Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.appointment_cancel_error),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     }
                                 }
                             )
                         }
 
-                        // Page indicator dots
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -385,7 +431,7 @@ fun HomeMapScreen(
             title = "Kỷ niệm",
             itemTitle = memory.title,
             subtitle = "Với ${memory.contactName}",
-            subtitleLabel = "Với",
+            subtitleLabel = "V?i",
             location = memory.location,
             note = memory.note,
             photoUri = memory.photoUri,
@@ -415,6 +461,14 @@ fun HomeMapScreen(
                     runCatching {
                         appointmentRepository.deleteAppointment(appointmentId)
                     }.onSuccess {
+                        AppointmentReminderScheduler.cancelAppointmentReminders(
+                            context = context,
+                            appointmentId = appointmentId
+                        )
+                        runCatching {
+                            NotificationRepositoryProvider.repository
+                                .deleteAppointmentReminderNotifications(appointmentId)
+                        }
                         appointmentList = runCatching {
                             appointmentRepository.getUpcomingAppointments()
                         }.getOrDefault(emptyList())

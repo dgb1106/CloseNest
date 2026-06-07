@@ -45,7 +45,10 @@ import com.example.closenest.navigation.AppNavigation
 import kotlinx.coroutines.delay
 
 @Composable
-fun CloseNestApp() {
+fun CloseNestApp(
+    openAppointmentId: String? = null,
+    onAppointmentOpened: () -> Unit = {}
+) {
     val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
     val authUiState by authViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -125,7 +128,11 @@ fun CloseNestApp() {
         return
     }
 
-    AppNavigation(onLogout = authViewModel::onLogout)
+    AppNavigation(
+        onLogout = authViewModel::onLogout,
+        openAppointmentId = openAppointmentId,
+        onAppointmentOpened = onAppointmentOpened
+    )
 }
 
 @Composable

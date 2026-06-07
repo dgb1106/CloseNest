@@ -21,7 +21,12 @@ data class NotificationItem(
     val createdAtMillis: Long,
     val expiresAtMillis: Long?,
     val actionLabel: String?,
-    val actionType: NotificationActionType?
+    val actionType: NotificationActionType?,
+    val dedupeKey: String? = null,
+    val scheduledAtMillis: Long? = null,
+    val completedAtMillis: Long? = null,
+    val sourceEntityId: String? = null,
+    val sourceEntityType: String? = null
 )
 
 data class NotificationSummary(
@@ -43,7 +48,8 @@ enum class NotificationType(
     BIRTHDAY(R.string.notification_type_birthday, CloseNestConnected),
     STREAK(R.string.notification_type_streak, CloseNestAttention),
     REFLECTION_REMINDER(R.string.notification_type_reflection_reminder, CloseNestWarm),
-    ENCOURAGEMENT(R.string.notification_type_encouragement, CloseNestConnected)
+    ENCOURAGEMENT(R.string.notification_type_encouragement, CloseNestConnected),
+    APPOINTMENT_REMINDER(R.string.notification_type_appointment_reminder, CloseNestWarm)
 }
 
 enum class NotificationStatus {
@@ -59,6 +65,7 @@ enum class NotificationActionType {
     LOG_MEMORY,
     REFLECT,
     VIEW_PROFILE,
+    VIEW_APPOINTMENT,
     MARK_READ,
     DISMISS
 }
@@ -88,7 +95,12 @@ fun NotificationItem.toMap(): Map<String, Any?> = mapOf(
     "createdAtMillis" to createdAtMillis,
     "expiresAtMillis" to expiresAtMillis,
     "actionLabel" to actionLabel,
-    "actionType" to actionType?.name
+    "actionType" to actionType?.name,
+    "dedupeKey" to dedupeKey,
+    "scheduledAtMillis" to scheduledAtMillis,
+    "completedAtMillis" to completedAtMillis,
+    "sourceEntityId" to sourceEntityId,
+    "sourceEntityType" to sourceEntityType
 )
 
 /**
@@ -123,7 +135,12 @@ fun DocumentSnapshot.toNotificationItem(): NotificationItem? {
             createdAtMillis = createdAtMillis,
             expiresAtMillis = getMillis("expiresAtMillis"),
             actionLabel = getString("actionLabel"),
-            actionType = actionType
+            actionType = actionType,
+            dedupeKey = getString("dedupeKey"),
+            scheduledAtMillis = getMillis("scheduledAtMillis"),
+            completedAtMillis = getMillis("completedAtMillis"),
+            sourceEntityId = getString("sourceEntityId"),
+            sourceEntityType = getString("sourceEntityType")
         )
     } catch (e: Exception) {
         null
