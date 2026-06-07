@@ -29,6 +29,7 @@ class ProfileViewModel(
     // Account detail state management (editable fields)
     private data class AccountEditState(
         val showAccountDetail: Boolean = false,
+        val showLanguageDialog: Boolean = false,
         val isEditingAccount: Boolean = false,
         val firstName: String = "",
         val lastName: String = "",
@@ -48,6 +49,7 @@ class ProfileViewModel(
     ) { profileState, accountEditState, moodMap ->
         profileState.copy(
             showAccountDetail = accountEditState.showAccountDetail,
+            showLanguageDialog = accountEditState.showLanguageDialog,
             isEditingAccount = accountEditState.isEditingAccount,
             accountEditFirstName = accountEditState.firstName,
             accountEditLastName = accountEditState.lastName,
@@ -93,7 +95,7 @@ class ProfileViewModel(
                 // TODO: Navigate to settings
             }
             "language" -> {
-                // TODO: Navigate to language selection
+                _accountEditState.update { it.copy(showLanguageDialog = true) }
             }
             "ui_customization" -> {
                 // TODO: Navigate to UI customization
@@ -173,6 +175,10 @@ class ProfileViewModel(
 
     fun onBackFromAccountDetail() {
         _accountEditState.update { AccountEditState() }
+    }
+
+    fun onDismissLanguageDialog() {
+        _accountEditState.update { it.copy(showLanguageDialog = false) }
     }
 
     fun onConfirmLogout() {

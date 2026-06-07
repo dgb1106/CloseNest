@@ -268,6 +268,10 @@
     <string name="profile_menu_language">Ngôn ngữ</string>
     <string name="profile_menu_ui_customization">Tùy chỉnh giao diện</string>
     <string name="profile_menu_logout">Đăng xuất</string>
+    <string name="profile_language_current_value">Tiếng Việt</string>
+    <string name="profile_language_dialog_title">Ngôn ngữ hiện tại</string>
+    <string name="profile_language_dialog_message">Ứng dụng hiện đang hỗ trợ một lựa chọn duy nhất là Tiếng Việt.</string>
+    <string name="profile_language_dialog_dismiss">Đóng</string>
 
     <!-- Profile Sections -->
     <string name="profile_relationships_section">Danh bạ của bạn</string>
