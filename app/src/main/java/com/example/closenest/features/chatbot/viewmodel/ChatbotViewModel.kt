@@ -46,6 +46,9 @@ data class ChatbotUiState(
     val mode: ChatMode? = null,
     val messages: List<ChatMessage> = emptyList(),
     val sessions: List<ChatSession> = emptyList(),
+    val recentRecipients: List<QuickRecipient> = emptyList(),
+    val selectedRecipient: RelationshipProfile? = null,
+    val isAwaitingGiftRequirements: Boolean = false,
     val isSelectingSessions: Boolean = false,
     val selectedSessionIds: Set<String> = emptySet(),
     val isDeletingSessions: Boolean = false,
@@ -58,6 +61,12 @@ data class ChatbotUiState(
     val showModeOptions: Boolean = !isLoading && mode == null
     val canSend: Boolean = inputText.isNotBlank() && !isSending && !isCreatingSession &&
         !isLoading && !isDeletingSessions
+    val showGiftRecipientQuickReplies: Boolean =
+        mode == ChatMode.GiftAdvice && !showModeOptions && selectedRecipient == null &&
+            !isAwaitingGiftRequirements
+    val showGiftRequirementQuickReplies: Boolean =
+        mode == ChatMode.GiftAdvice && !showModeOptions && selectedRecipient != null &&
+            isAwaitingGiftRequirements
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -106,14 +115,21 @@ class ChatbotViewModel(
         selectedSession,
         sessionHistoryResult,
         messageResult,
+        relationshipResult,
         draft
-    ) { session, sessionsResult, messagesResult, currentDraft ->
+    ) { session, sessionsResult, messagesResult, relationshipsResult, currentDraft ->
         ChatbotUiState(
             isLoading = messagesResult.isLoading || (session == null && sessionsResult.isLoading),
             sessionId = session?.id,
             mode = session?.mode,
             messages = messagesResult.messages,
             sessions = sessionsResult.sessions,
+            recentRecipients = relationshipsResult.relationships
+                .sortedByDescending { it.updatedAtMillis }
+                .take(3)
+                .map { QuickRecipient(id = it.id, name = it.name) },
+            selectedRecipient = currentDraft.giftFlow.selectedRecipient,
+            isAwaitingGiftRequirements = currentDraft.giftFlow.isAwaitingRequirements,
             isSelectingSessions = currentDraft.isSelectingSessions,
             selectedSessionIds = currentDraft.selectedSessionIds,
             isDeletingSessions = currentDraft.isDeletingSessions,
@@ -139,6 +155,18 @@ class ChatbotViewModel(
                 errorMessageRes = null
             )
         }
+    }
+
+    fun sendQuickMessage(text: String) {
+        if (text.isBlank()) return
+        draft.update { current ->
+            current.copy(
+                inputText = text,
+                errorMessage = null,
+                errorMessageRes = null
+            )
+        }
+        sendMessage()
     }
 
     fun requestNewConversation() {
@@ -415,7 +443,7 @@ class ChatbotViewModel(
         }
 
         when (
-            val reply = giftCatalogService.buildRecommendationsReply(
+            val reply = buildGiftAdviceWithAi(
                 recipient = currentGiftFlow.selectedRecipient,
                 requirements = text
             )
@@ -434,6 +462,24 @@ class ChatbotViewModel(
             is GiftReply.RecipientNotFound,
             is GiftReply.RecipientConfirmed -> Unit
         }
+    }
+
+    private suspend fun buildGiftAdviceWithAi(
+        recipient: RelationshipProfile,
+        requirements: String
+    ): GiftReply {
+        val prompt = giftCatalogService.buildGiftSelectionPrompt(
+            recipient = recipient,
+            requirements = requirements
+        )
+        val aiReply = withTimeout(AiTimeoutMillis) {
+            aiService.generateReplyFromPrompt(prompt)
+        }
+        return giftCatalogService.buildRecommendationsReplyFromAi(
+            recipient = recipient,
+            requirements = requirements,
+            aiText = aiReply.text
+        )
     }
 
     private suspend fun addAssistantMessage(sessionId: String, text: String) {
@@ -491,6 +537,11 @@ private data class ChatbotDraft(
 private data class GiftFlowState(
     val selectedRecipient: RelationshipProfile? = null,
     val isAwaitingRequirements: Boolean = false
+)
+
+data class QuickRecipient(
+    val id: String,
+    val name: String
 )
 
 private data class ChatSessionsResult(

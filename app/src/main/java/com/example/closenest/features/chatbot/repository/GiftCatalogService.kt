@@ -11,9 +11,8 @@ class GiftCatalogService(
     private val context: Context,
     private val assetFileName: String = GiftCatalogAssetFileName
 ) {
-    private val products: List<GiftProduct> by lazy {
-        loadProducts()
-    }
+    private val products: List<GiftProduct> by lazy { loadProducts() }
+    private val productsById: Map<String, GiftProduct> by lazy { products.associateBy { it.id } }
 
     fun buildGiftReply(
         recipientQuery: String,
@@ -40,122 +39,199 @@ class GiftCatalogService(
     fun findRecipient(
         recipientQuery: String,
         relationships: List<RelationshipProfile>
-    ): RelationshipProfile? {
-        return relationships.findBestMatch(recipientQuery)
-    }
+    ): RelationshipProfile? = relationships.findBestMatch(recipientQuery)
 
-    fun buildRecommendationsReply(
+    fun buildGiftSelectionPrompt(
         recipient: RelationshipProfile,
         requirements: String?
+    ): String {
+        val requirementText = requirements?.trim().takeUnless { it.isNullOrBlank() }
+            ?: "Không có yêu cầu đặc biệt."
+        val catalogJson = JSONArray().apply {
+            products.forEach { product ->
+                put(
+                    JSONObject()
+                        .put("id", product.id)
+                        .put("name", product.name)
+                        .put("price", product.price)
+                        .put("category", product.category)
+                        .put("relationship", JSONArray(product.relationships.toList()))
+                        .put("occasion", JSONArray(product.occasions.toList()))
+                        .put("tags", JSONArray(product.tags.toList()))
+                        .put("short_reason", product.shortReason)
+                )
+            }
+        }.toString(2)
+
+        return """
+            Bạn là chatbot tư vấn quà tặng trong ứng dụng CloseNest.
+            Nhiệm vụ của bạn là chọn 1 hoặc 2 món quà từ danh sách có sẵn, rồi viết lời gợi ý thật tự nhiên bằng tiếng Việt.
+
+            Thông tin người nhận:
+            - Tên: ${recipient.name}
+            - Quan hệ: ${recipient.tag.toVietnameseLabel()}
+            - Mức độ thân thiết: ${recipient.priority.toVietnameseLabel()}
+            - Sở thích: ${recipient.interests.takeIf { it.isNotEmpty() }?.joinToString() ?: "Chưa có"}
+            - Ghi chú: ${recipient.notes?.takeIf { it.isNotBlank() } ?: "Chưa có"}
+
+            Yêu cầu thêm từ người dùng:
+            $requirementText
+
+            Danh sách quà hiện có:
+            $catalogJson
+
+            Yêu cầu bắt buộc:
+            - Chỉ được chọn từ danh sách quà ở trên.
+            - Không được tự tạo ra sản phẩm, giá hay id mới.
+            - Chọn 1 hoặc 2 món phù hợp nhất.
+            - Viết lời giải thích tự nhiên, không được lặp lại metadata theo kiểu liệt kê máy móc.
+            - Không nhắc đến "catalog", "dataset", "danh sách nội bộ", hay "hệ thống".
+            - Không chèn link mua hàng vào phần giải thích, vì link sẽ được gửi ở tin nhắn riêng.
+            - Nếu người dùng không có yêu cầu đặc biệt, hãy ưu tiên chọn quà hợp với mối quan hệ và phong cách người nhận.
+
+            Trả về đúng JSON theo schema sau:
+            {
+              "intro": "một đoạn mở đầu tự nhiên, ngắn gọn",
+              "items": [
+                {
+                  "id": "id_san_pham",
+                  "reason": "lý do chọn món này, tự nhiên"
+                }
+              ]
+            }
+        """.trimIndent()
+    }
+
+    fun buildRecommendationsReplyFromAi(
+        recipient: RelationshipProfile,
+        requirements: String?,
+        aiText: String
     ): GiftReply {
-        val recommendations = recommendProducts(
-            relationship = recipient,
-            requirements = parseRequirements(requirements)
-        )
-        if (recommendations.isEmpty()) {
-            return GiftReply.RecipientFoundButNoProduct(
+        val parsed = parseAiSelection(aiText)
+            ?: return fallbackReply(
                 recipient = recipient,
-                summary = "Mình đã xem lại thông tin của ${recipient.name}, nhưng hiện chưa chọn được món nào thật sự hợp với yêu cầu này. Bạn thử nới ngân sách hoặc thêm vài lựa chọn quà khác nhé."
+                requirements = requirements
+            )
+
+        val selectedProducts = parsed.items
+            .mapNotNull { item ->
+                productsById[item.id]?.let { product -> product to item.reason }
+            }
+            .distinctBy { it.first.id }
+            .take(MaxGiftRecommendations)
+
+        if (selectedProducts.isEmpty()) {
+            return fallbackReply(
+                recipient = recipient,
+                requirements = requirements
             )
         }
 
-        val summary = buildSummary(
-            relationship = recipient,
-            recommendations = recommendations,
-            requirements = requirements
-        )
-        val linkMessages = recommendations.map { product ->
+        val intro = parsed.intro
+            ?.takeIf { it.isNotBlank() }
+            ?: buildFallbackIntro(recipient, requirements)
+        val suggestionLines = selectedProducts.joinToString(separator = "\n") { (product, reason) ->
+            "Mình gợi ý ${product.name} (${product.price.toVndText()}) vì ${reason.trimEnd('.', ' ')}."
+        }
+        val linkMessages = selectedProducts.map { (product, _) ->
             "Link mua ${product.name}: ${product.shopeeUrl}"
         }
+
         return GiftReply.Recommendations(
             recipient = recipient,
-            summary = summary,
+            summary = "$intro\n$suggestionLines",
             linkMessages = linkMessages
         )
     }
 
-    private fun recommendProducts(
-        relationship: RelationshipProfile,
-        requirements: GiftRequirements
-    ): List<GiftProduct> {
-        val mappedRelationship = relationship.tag.toCatalogRelationship()
-        val preferenceTokens = (relationship.interests + relationship.notes.orEmpty())
-            .flatMap { text -> text.normalizedTokens() }
-            .toSet()
-
-        return products
-            .map { product ->
-                product to scoreProduct(
-                    product = product,
-                    relationship = relationship,
-                    mappedRelationship = mappedRelationship,
-                    preferenceTokens = preferenceTokens,
-                    requirements = requirements
-                )
-            }
-            .filter { (_, score) -> score > 0 }
-            .sortedWith(
-                compareByDescending<Pair<GiftProduct, Int>> { it.second }
-                    .thenBy { it.first.price }
-            )
-            .map { it.first }
+    private fun fallbackReply(
+        recipient: RelationshipProfile,
+        requirements: String?
+    ): GiftReply {
+        val fallbackProducts = products
+            .filter { recipient.tag.toCatalogRelationship() in it.relationships }
             .take(MaxGiftRecommendations)
+
+        if (fallbackProducts.isEmpty()) {
+            return GiftReply.RecipientFoundButNoProduct(
+                recipient = recipient,
+                summary = "Mình đã xem lại thông tin của ${recipient.name}, nhưng hiện chưa chọn được món nào thật sự hợp. Bạn thử bổ sung thêm vài lựa chọn quà khác nhé."
+            )
+        }
+
+        val intro = buildFallbackIntro(recipient, requirements)
+        val suggestionLines = fallbackProducts.joinToString(separator = "\n") { product ->
+            "Mình gợi ý ${product.name} (${product.price.toVndText()}) vì ${product.shortReason.trimEnd('.', ' ')}."
+        }
+        val linkMessages = fallbackProducts.map { product ->
+            "Link mua ${product.name}: ${product.shopeeUrl}"
+        }
+        return GiftReply.Recommendations(
+            recipient = recipient,
+            summary = "$intro\n$suggestionLines",
+            linkMessages = linkMessages
+        )
     }
 
-    private fun scoreProduct(
-        product: GiftProduct,
-        relationship: RelationshipProfile,
-        mappedRelationship: String,
-        preferenceTokens: Set<String>,
-        requirements: GiftRequirements
-    ): Int {
-        var score = 0
-        if (mappedRelationship in product.relationships) score += 6
-        score += when (relationship.priority) {
-            RelationshipPriority.High -> 2
-            RelationshipPriority.Medium -> 1
-            RelationshipPriority.Low -> 0
-        }
-        if (product.tags.any(preferenceTokens::contains)) score += 4
-        if (product.category in preferenceTokens) score += 3
-        if (product.shortReason.normalizedTokens().any(preferenceTokens::contains)) score += 2
-        if (mappedRelationship == CatalogRelationshipPartner && product.tags.any { it in RomanticTags }) {
-            score += 2
-        }
-        if (mappedRelationship == CatalogRelationshipParent && product.tags.any { it in ParentFriendlyTags }) {
-            score += 2
-        }
-        if (requirements.maxBudget != null) {
-            score += when {
-                product.price <= requirements.maxBudget -> 5
-                product.price <= requirements.maxBudget + 150_000 -> 1
-                else -> -8
-            }
-        }
-        if (requirements.occasionTokens.isNotEmpty() &&
-            product.occasions.any { it in requirements.occasionTokens }
-        ) {
-            score += 4
-        }
-        if (requirements.preferenceTokens.isNotEmpty()) {
-            if (product.tags.any { it in requirements.preferenceTokens }) score += 3
-            if (product.category in requirements.preferenceTokens) score += 2
-        }
-        return score
-    }
-
-    private fun buildSummary(
-        relationship: RelationshipProfile,
-        recommendations: List<GiftProduct>,
+    private fun buildFallbackIntro(
+        recipient: RelationshipProfile,
         requirements: String?
     ): String {
-        val intro = buildIntro(relationship, requirements)
+        val requirementPart = requirements?.trim()
+            ?.takeIf { it.isNotBlank() && !it.isGenericNoRequirement() }
+            ?.let { " Dựa trên yêu cầu \"$it\", mình ưu tiên những món dễ chốt và hợp hoàn cảnh hơn." }
+            .orEmpty()
+        val interestPart = recipient.interests
+            .takeIf { it.isNotEmpty() }
+            ?.let { " Mình có để ý là ${recipient.name} khá hợp với kiểu quà liên quan đến ${it.take(2).joinToString(" và ")}." }
+            .orEmpty()
+        return "Mình nghĩ theo hồ sơ của ${recipient.name}, mình nên chọn quà theo hướng vừa hợp người nhận vừa dễ tặng.$interestPart$requirementPart"
+    }
 
-        val suggestions = recommendations.joinToString(separator = "\n") { product ->
-            buildSuggestionLine(relationship, product)
+    private fun buildRecipientConfirmation(relationship: RelationshipProfile): String {
+        return buildString {
+            append("Có phải bạn muốn tặng cho ${relationship.name} không? ")
+            append(
+                when (relationship.priority) {
+                    RelationshipPriority.High -> "Nghe có vẻ đây là người khá thân với bạn. "
+                    RelationshipPriority.Medium -> "Mình đã thấy đúng người bạn muốn tặng rồi. "
+                    RelationshipPriority.Low -> "Mình đã tìm thấy người này trong danh bạ. "
+                }
+            )
+            append("Bạn có yêu cầu gì đặc biệt không, ví dụ tặng dịp gì, ngân sách bao nhiêu, hoặc muốn quà theo kiểu nào?")
         }
+    }
 
-        return "$intro\n$suggestions"
+    private fun parseAiSelection(aiText: String): ParsedGiftSelection? {
+        val jsonText = extractJsonObject(aiText) ?: return null
+        val root = runCatching { JSONObject(jsonText) }.getOrNull() ?: return null
+        val items = root.optJSONArray("items")
+            ?.let { array ->
+                buildList {
+                    for (index in 0 until array.length()) {
+                        val item = array.optJSONObject(index) ?: continue
+                        val id = item.optString("id").trim()
+                        val reason = item.optString("reason").trim()
+                        if (id.isNotEmpty() && reason.isNotEmpty()) {
+                            add(ParsedGiftItem(id = id, reason = reason))
+                        }
+                    }
+                }
+            }
+            .orEmpty()
+        if (items.isEmpty()) return null
+
+        return ParsedGiftSelection(
+            intro = root.optString("intro").trim().ifBlank { null },
+            items = items
+        )
+    }
+
+    private fun extractJsonObject(text: String): String? {
+        val startIndex = text.indexOf('{')
+        val endIndex = text.lastIndexOf('}')
+        if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex) return null
+        return text.substring(startIndex, endIndex + 1)
     }
 
     private fun loadProducts(): List<GiftProduct> {
@@ -167,84 +243,6 @@ class GiftCatalogService(
                 add(item.toGiftProduct())
             }
         }
-    }
-
-    private fun buildRecipientConfirmation(relationship: RelationshipProfile): String {
-        val tone = when (relationship.priority) {
-            RelationshipPriority.High -> "Nghe có vẻ đây là người khá thân với bạn."
-            RelationshipPriority.Medium -> "Mình đã thấy đúng người bạn muốn tặng rồi."
-            RelationshipPriority.Low -> "Mình đã tìm thấy người này trong danh bạ."
-        }
-        return buildString {
-            append("Có phải bạn muốn tặng cho ${relationship.name} không? ")
-            append(tone)
-            append("Bạn có yêu cầu gì đặc biệt không, ví dụ tặng dịp gì, ngân sách bao nhiêu, hoặc muốn món quà theo kiểu nào?")
-        }
-    }
-
-    private fun buildIntro(
-        relationship: RelationshipProfile,
-        requirements: String?
-    ): String {
-        val closeness = when (relationship.priority) {
-            RelationshipPriority.High -> "Bạn này khá thân với bạn"
-            RelationshipPriority.Medium -> "Nghe có vẻ đây là một người khá quan trọng với bạn"
-            RelationshipPriority.Low -> "Mình đã xem qua hồ sơ của ${relationship.name}"
-        }
-
-        val interestsPart = relationship.interests
-            .takeIf { it.isNotEmpty() }
-            ?.let { interests ->
-                " và có vẻ ${relationship.name} khá thích ${interests.take(2).joinToString(" và ")}"
-            }
-            .orEmpty()
-
-        val notesPart = relationship.notes
-            ?.takeIf { it.isNotBlank() }
-            ?.let { note ->
-                when {
-                    note.length <= 60 -> ", thêm nữa bạn còn ghi chú là $note"
-                    else -> ""
-                }
-            }
-            .orEmpty()
-
-        val requirementPart = requirements
-            ?.trim()
-            ?.takeIf { it.isNotBlank() && !it.isGenericNoRequirement() }
-            ?.let { " Dựa trên yêu cầu \"$it\", mình nghiêng về những món dễ chốt và hợp bối cảnh này hơn." }
-            .orEmpty()
-
-        return "$closeness$interestsPart$notesPart, nên mình chọn theo hướng vừa hợp tính cách vừa dễ tặng.$requirementPart"
-    }
-
-    private fun buildSuggestionLine(
-        relationship: RelationshipProfile,
-        product: GiftProduct
-    ): String {
-        val personalizedReason = when {
-            relationship.interests.isNotEmpty() && productMatchesInterest(product, relationship.interests) ->
-                "món này khá khớp với những gì ${relationship.name} thích"
-            relationship.tag == RelationshipTag.Partner ->
-                "món này tạo cảm giác tinh tế và đủ riêng tư để tặng người yêu"
-            relationship.tag == RelationshipTag.Family ->
-                "món này thiết thực, dễ dùng và hợp để tặng người thân trong gia đình"
-            relationship.tag == RelationshipTag.Coworker ->
-                "món này lịch sự, an toàn và hợp để tặng đồng nghiệp"
-            relationship.priority == RelationshipPriority.High ->
-                "món này đủ gần gũi để thể hiện bạn có để ý đến người nhận"
-            else ->
-                product.shortReason.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-        }
-
-        val bridge = when (product.category) {
-            "food", "coffee", "tea" -> "dễ tặng mà không quá rủi ro"
-            "health", "wellness" -> "vừa có cảm giác quan tâm vừa dùng được lâu"
-            "decor", "cute", "personalized" -> "nhìn vào là có cảm giác quà được chọn kỹ"
-            else -> "khá cân bằng giữa cảm xúc và tính thực tế"
-        }
-
-        return "Mình gợi ý ${product.name} (${product.price.toVndText()}) vì $personalizedReason, lại $bridge."
     }
 }
 
@@ -278,10 +276,14 @@ data class GiftProduct(
     val shopeeUrl: String
 )
 
-data class GiftRequirements(
-    val maxBudget: Int? = null,
-    val occasionTokens: Set<String> = emptySet(),
-    val preferenceTokens: Set<String> = emptySet()
+private data class ParsedGiftSelection(
+    val intro: String?,
+    val items: List<ParsedGiftItem>
+)
+
+private data class ParsedGiftItem(
+    val id: String,
+    val reason: String
 )
 
 private fun JSONObject.toGiftProduct(): GiftProduct {
@@ -306,56 +308,6 @@ private fun JSONObject.optStringArray(fieldName: String): List<String> {
             if (value.isNotEmpty()) add(value)
         }
     }
-}
-
-private fun productMatchesInterest(
-    product: GiftProduct,
-    interests: List<String>
-): Boolean {
-    val interestTokens = interests.flatMap { it.normalizedTokens() }.toSet()
-    return product.tags.any { it in interestTokens } ||
-        product.category in interestTokens ||
-        product.shortReason.normalizedTokens().any { it in interestTokens }
-}
-
-private fun parseRequirements(input: String?): GiftRequirements {
-    val text = input.orEmpty()
-    val normalized = text.normalizeForMatch()
-    val tokens = normalized.normalizedTokens().toSet()
-    val budget = extractBudget(text)
-    val occasionTokens = OccasionKeywordMap
-        .filter { (keyword, _) -> keyword in normalized }
-        .values
-        .toSet()
-
-    return GiftRequirements(
-        maxBudget = budget,
-        occasionTokens = occasionTokens,
-        preferenceTokens = tokens - StopRequirementTokens
-    )
-}
-
-private fun extractBudget(input: String): Int? {
-    val normalized = input.lowercase()
-    val match = BudgetRegex.find(normalized) ?: return null
-    val value = match.groupValues[1].toIntOrNull() ?: return null
-    val unit = match.groupValues[2]
-    return when {
-        unit.contains("tr") || unit.contains("triệu") -> value * 1_000_000
-        unit.contains("k") || unit.contains("ngh") || unit.contains("ngàn") -> value * 1_000
-        else -> value
-    }
-}
-
-private fun String.isGenericNoRequirement(): Boolean {
-    val normalized = normalizeForMatch()
-    return normalized in setOf(
-        "khong",
-        "khong co",
-        "khong co yeu cau",
-        "khong yeu cau gi",
-        "khong co gi dac biet"
-    )
 }
 
 private fun List<RelationshipProfile>.findBestMatch(query: String): RelationshipProfile? {
@@ -416,7 +368,6 @@ private fun RelationshipTag.toCatalogRelationship(): String {
         RelationshipTag.Friend,
         RelationshipTag.CloseFriend,
         RelationshipTag.Classmate,
-        RelationshipTag.Mentor,
         RelationshipTag.Other -> CatalogRelationshipFriend
     }
 }
@@ -428,7 +379,6 @@ private fun RelationshipTag.toVietnameseLabel(): String {
         RelationshipTag.CloseFriend -> "bạn thân"
         RelationshipTag.Classmate -> "bạn học"
         RelationshipTag.Coworker -> "đồng nghiệp"
-        RelationshipTag.Mentor -> "người hướng dẫn"
         RelationshipTag.Partner -> "người yêu"
         RelationshipTag.Other -> "khác"
     }
@@ -451,6 +401,17 @@ private fun String.normalizedTokens(): List<String> {
         .filter { it.isNotEmpty() }
 }
 
+private fun String.isGenericNoRequirement(): Boolean {
+    val normalized = normalizeForMatch()
+    return normalized in setOf(
+        "khong",
+        "khong co",
+        "khong co yeu cau",
+        "khong yeu cau gi",
+        "khong co gi dac biet"
+    )
+}
+
 private fun String.normalizeForMatch(): String {
     return java.text.Normalizer.normalize(lowercase(), java.text.Normalizer.Form.NFD)
         .replace("đ", "d")
@@ -468,19 +429,3 @@ private const val CatalogRelationshipParent = "parent"
 private const val CatalogRelationshipFriend = "friend"
 private const val CatalogRelationshipCoworker = "coworker"
 private const val MinPartialTokenLength = 2
-
-private val RomanticTags = setOf("romantic", "cute", "flower", "memory")
-private val ParentFriendlyTags = setOf("health", "practical", "traditional", "healthy", "warm")
-private val BudgetRegex = Regex("""(\d+)\s*(k|ngh|ngàn|tr|triệu)?""", RegexOption.IGNORE_CASE)
-private val OccasionKeywordMap = mapOf(
-    "sinh nhat" to "birthday",
-    "ky niem" to "anniversary",
-    "valentine" to "valentine",
-    "tet" to "tet",
-    "tan gia" to "housewarming",
-    "mua dong" to "winter",
-    "thang chuc" to "promotion"
-)
-private val StopRequirementTokens = setOf(
-    "khong", "co", "yeu", "cau", "gi", "dac", "biet", "tang", "dip", "ngan", "sach", "bao", "nhieu", "cho", "va", "la", "de"
-)

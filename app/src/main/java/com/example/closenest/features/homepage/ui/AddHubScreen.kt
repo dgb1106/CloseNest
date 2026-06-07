@@ -17,6 +17,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +30,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -36,7 +39,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -79,11 +84,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,14 +98,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -1138,33 +1145,291 @@ private fun AppointmentTimePickerDialog(
     onTimeSelected: (Int, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val calendar = remember {
-        Calendar.getInstance()
+    val calendar = remember { Calendar.getInstance() }
+    var hour by rememberSaveable {
+        mutableStateOf(selectedHour ?: calendar.get(Calendar.HOUR_OF_DAY))
     }
-    val timePickerState = rememberTimePickerState(
-        initialHour = selectedHour ?: calendar.get(Calendar.HOUR_OF_DAY),
-        initialMinute = selectedMinute ?: calendar.get(Calendar.MINUTE),
-        is24Hour = true
-    )
+    var minute by rememberSaveable {
+        mutableStateOf(selectedMinute ?: calendar.get(Calendar.MINUTE))
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(24.dp),
+        title = {
+            Text(
+                text = stringResource(R.string.add_appointment_time_label),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        },
         confirmButton = {
-            TextButton(
-                onClick = { onTimeSelected(timePickerState.hour, timePickerState.minute) }
+            Button(
+                onClick = { onTimeSelected(hour, minute) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(vertical = 14.dp)
             ) {
-                Text(text = stringResource(R.string.add_appointment_time_confirm))
+                Text(
+                    text = stringResource(R.string.add_appointment_time_confirm),
+                    style = MaterialTheme.typography.titleSmall
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(text = stringResource(R.string.profile_logout_cancel_button))
             }
         },
         text = {
-            TimePicker(state = timePickerState)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                val selectedTimeLabel = String.format("%02d:%02d", hour, minute)
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = selectedTimeLabel,
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.add_appointment_hour_label),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "",
+                        modifier = Modifier.weight(0.3f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.add_appointment_minute_label),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        AppointmentWheel(
+                            value = hour,
+                            range = 0..23,
+                            onValueChange = { hour = it }
+                        )
+                    }
+                    Text(
+                        text = ":",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Light,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(0.3f),
+                        textAlign = TextAlign.Center
+                    )
+                    Box(modifier = Modifier.weight(1f)) {
+                        AppointmentWheel(
+                            value = minute,
+                            range = 0..59,
+                            onValueChange = { minute = it }
+                        )
+                    }
+                }
+            }
         }
     )
+}
+
+@Composable
+private fun AppointmentWheel(
+    value: Int,
+    range: IntRange,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val values = remember(range) { range.toList() }
+    val visibleItemsCount = 5
+    val centerItemIndex = visibleItemsCount / 2
+    val itemHeight = 44.dp
+    val itemHeightPx = with(LocalDensity.current) { itemHeight.roundToPx() }
+    val coroutineScope = rememberCoroutineScope()
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = values.indexOf(value).coerceAtLeast(0)
+    )
+    val centeredValue by remember(listState, values) {
+        derivedStateOf {
+            values[calculateCenteredIndex(listState, values.lastIndex, itemHeightPx)]
+        }
+    }
+
+    LaunchedEffect(centeredValue) {
+        if (centeredValue != value) {
+            onValueChange(centeredValue)
+        }
+    }
+
+    LaunchedEffect(value) {
+        val targetIndex = values.indexOf(value).coerceAtLeast(0)
+        val currentIndex = calculateCenteredIndex(listState, values.lastIndex, itemHeightPx)
+        if (currentIndex != targetIndex && !listState.isScrollInProgress) {
+            listState.scrollToItem(targetIndex)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(itemHeight * visibleItemsCount),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(itemHeight)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+        )
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
+            contentPadding = PaddingValues(vertical = itemHeight * centerItemIndex),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            items(values.size) { index ->
+                val itemValue = values[index]
+                val isSelected = itemValue == centeredValue
+                val distanceFromCenter = kotlin.math.abs(index - values.indexOf(centeredValue))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(itemHeight)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            if (listState.firstVisibleItemIndex != index ||
+                                listState.firstVisibleItemScrollOffset != 0
+                            ) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(index)
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "%02d".format(itemValue),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = when {
+                            isSelected -> MaterialTheme.colorScheme.primary
+                            distanceFromCenter == 1 -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            distanceFromCenter == 2 -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                        },
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip
+                    )
+                }
+            }
+        }
+
+        Box(modifier = Modifier.matchParentSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surface,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(itemHeight)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                    MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        )
+                )
+            }
+        }
+    }
+}
+
+private fun calculateCenteredIndex(
+    listState: LazyListState,
+    lastIndex: Int,
+    itemHeightPx: Int
+): Int {
+    val offsetThreshold = itemHeightPx / 2
+    val centeredIndex = if (listState.firstVisibleItemScrollOffset >= offsetThreshold) {
+        listState.firstVisibleItemIndex + 1
+    } else {
+        listState.firstVisibleItemIndex
+    }
+    return centeredIndex.coerceIn(0, lastIndex)
 }
 
 @Composable
@@ -2030,3 +2295,4 @@ private suspend fun <T> com.google.android.gms.tasks.Task<T>.awaitResult(): T =
     }
 
 private val appointmentDateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.forLanguageTag("vi-VN"))
+

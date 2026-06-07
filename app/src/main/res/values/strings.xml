@@ -86,7 +86,6 @@
     <string name="relationship_tag_close_friend">Bạn thân</string>
     <string name="relationship_tag_classmate">Bạn học</string>
     <string name="relationship_tag_coworker">Đồng nghiệp</string>
-    <string name="relationship_tag_mentor">Người hướng dẫn</string>
     <string name="relationship_tag_partner">Người yêu</string>
     <string name="relationship_tag_other">Khác</string>
 
@@ -114,14 +113,14 @@
     <string name="add_relationship_priority_label">Mức độ thân thiết</string>
     <string name="add_relationship_interests_label">Sở thích</string>
     <string name="add_relationship_interests_hint">Ngăn cách nhiều sở thích bằng dấu phẩy.</string>
-    <string name="add_relationship_notes_label">Ghi chú nhẹ</string>
+    <string name="add_relationship_notes_label">Ghi chú khác</string>
     <string name="add_relationship_connection_error">Không kết nối được máy chủ. Bạn kiểm tra mạng của thiết bị rồi thử lại nhé.</string>
     <string name="add_relationship_permission_error">Máy chủ chưa cho phép lưu danh bạ. Bạn kiểm tra quyền ghi dữ liệu rồi thử lại nhé.</string>
     <string name="add_relationship_save_timeout">Máy chủ phản hồi quá lâu. Bạn kiểm tra mạng rồi thử lại nhé.</string>
     <string name="add_relationship_unknown_error">Có lỗi nhỏ khi lưu. Bạn thử lại một lần nữa nhé.</string>
 
     <string name="add_hub_relationship_title">Thêm người mới</string>
-    <string name="add_hub_relationship_body">Lưu hồ sơ một mối quan hệ mới với lượng thông tin tối thiểu.</string>
+    <string name="add_hub_relationship_body">Thêm một mối quan hệ vào trong danh bạ thân thiết của bạn</string>
     <string name="add_reflection_title">Suy ngẫm hôm nay</string>
     <string name="add_reflection_body">Chọn những người bạn đã tương tác hôm nay, rồi ghi lại cảm xúc của mình.</string>
     <string name="add_reflection_contact_title">Bạn đã gặp hoặc trò chuyện với ai?</string>
@@ -163,7 +162,7 @@
     <string name="add_reflection_source_classmate">Bạn học</string>
 
     <string name="add_interaction_title">Lưu kỷ niệm</string>
-    <string name="add_interaction_body">Ghi lại một lần gặp mặt hoặc hỗ trợ để theo dõi nhịp kết nối.</string>
+    <string name="add_interaction_body">Ghi lại một kỷ niệm của bạn với những người thân</string>
     <string name="add_interaction_open">Lưu kỷ niệm</string>
     <string name="add_interaction_screen_title">Lưu kỷ niệm</string>
     <string name="add_interaction_contact_title">Bạn đã có kỷ niệm với ai?</string>
@@ -199,7 +198,7 @@
     <string name="add_interaction_type_other">Khác</string>
 
     <string name="add_appointment_title">Tạo cuộc hẹn mới</string>
-    <string name="add_appointment_body">Chọn một hoặc nhiều người hẹn, rồi thêm địa điểm và chọn ngày tháng năm.</string>
+    <string name="add_appointment_body">Chúng tôi sẽ giúp bạn theo dõi các cuộc hẹn một cách dễ dàng</string>
     <string name="add_appointment_open">Tạo cuộc hẹn</string>
     <string name="add_appointment_screen_title">Tạo cuộc hẹn mới</string>
     <string name="add_appointment_name_label">Người hẹn</string>
@@ -217,6 +216,8 @@
     <string name="add_appointment_all_day">Cả ngày</string>
     <string name="add_appointment_pick_time">Chọn giờ</string>
     <string name="add_appointment_time_confirm">Chọn giờ</string>
+    <string name="add_appointment_hour_label">Giờ</string>
+    <string name="add_appointment_minute_label">Phút</string>
     <string name="add_appointment_done">Lưu cuộc hẹn</string>
     <string name="add_appointment_saving">Đang lưu cuộc hẹn</string>
     <string name="add_appointment_saved">Đã tạo cuộc hẹn mới.</string>

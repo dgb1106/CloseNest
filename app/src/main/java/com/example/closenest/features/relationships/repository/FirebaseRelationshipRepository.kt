@@ -151,7 +151,7 @@ private fun DocumentSnapshot.toRelationshipProfile(defaultUserId: String): Relat
         id = getNullableString(FieldId) ?: id,
         userId = getNullableString(FieldUserId) ?: defaultUserId,
         name = name,
-        tag = getNullableString(FieldTag).toEnumOrNull<RelationshipTag>() ?: RelationshipTag.Friend,
+        tag = getNullableString(FieldTag).toRelationshipTagOrDefault(),
         birthdayIso = getNullableString(FieldBirthdayIso),
         phoneNumber = getNullableString(FieldPhoneNumber),
         email = getNullableString(FieldEmail),
@@ -197,6 +197,13 @@ private suspend fun Task<*>.awaitCompletion() {
 
 private inline fun <reified T : Enum<T>> String?.toEnumOrNull(): T? =
     this?.let { value -> enumValues<T>().firstOrNull { enumValue -> enumValue.name == value } }
+
+private fun String?.toRelationshipTagOrDefault(): RelationshipTag {
+    return when (this) {
+        "Mentor" -> RelationshipTag.Other
+        else -> this.toEnumOrNull<RelationshipTag>() ?: RelationshipTag.Friend
+    }
+}
 
 private const val UsersCollection = "users"
 private const val RelationshipsCollection = "relationships"

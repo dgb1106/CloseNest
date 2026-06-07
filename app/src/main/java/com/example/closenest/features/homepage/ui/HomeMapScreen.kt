@@ -1,4 +1,4 @@
-package com.example.closenest.features.homepage.ui
+﻿package com.example.closenest.features.homepage.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -82,6 +83,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -264,7 +266,7 @@ fun HomeMapScreen(
             }
         }
 
-        // Expanded detail cards – horizontal swipeable pager
+        // Expanded detail cards - horizontal swipeable pager
         AnimatedVisibility(
             visible = expandedAppointments && appointmentList.isNotEmpty(),
             enter = expandVertically() + fadeIn(),
@@ -383,7 +385,7 @@ fun HomeMapScreen(
             title = "Kỷ niệm",
             itemTitle = memory.title,
             subtitle = "Với ${memory.contactName}",
-            subtitleLabel = "V?i",
+            subtitleLabel = "Với",
             location = memory.location,
             note = memory.note,
             photoUri = memory.photoUri,
@@ -612,14 +614,10 @@ private fun AppointmentDetailRow(
 
     val context = LocalContext.current
     val participants = appointment.participantContactNames.zip(appointment.participantContactIds)
-    val displayParticipants: List<Pair<String, String>>
-    val extraCount: Int
-    if (participants.size > 2) {
-        displayParticipants = participants.take(1)
-        extraCount = participants.size - 1
-    } else {
-        displayParticipants = participants
-        extraCount = 0
+    val participantSummary = when (participants.size) {
+        0 -> ""
+        1 -> participants.first().first
+        else -> "${participants.first().first} + ${participants.size - 1} người khác"
     }
 
     fun performContactAction(action: ContactAction, personIndex: Int) {
@@ -695,44 +693,29 @@ private fun AppointmentDetailRow(
         }
 
         // Participants
-        if (displayParticipants.isNotEmpty()) {
-            displayParticipants.forEach { (name, _) ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.People,
-                        contentDescription = null,
-                        tint = Color(0xFF9E9E9E),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF616161)
-                    )
-                }
-            }
-            if (extraCount > 0) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.clickable { showAllParticipants = true }
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.People,
-                        contentDescription = null,
-                        tint = Color(0xFF9E9E9E),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "+$extraCount người khác",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF8B5E34)
-                    )
-                }
+        if (participantSummary.isNotBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = participants.size > 1) { showAllParticipants = true },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.People,
+                    contentDescription = null,
+                    tint = Color(0xFF9E9E9E),
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = participantSummary,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (participants.size > 1) Color(0xFF8B5E34) else Color(0xFF616161),
+                    fontWeight = if (participants.size > 1) FontWeight.Medium else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
 
@@ -788,6 +771,7 @@ private fun AppointmentDetailRow(
                         contactAction = ContactAction.Call
                     }
                 },
+                modifier = Modifier.heightIn(min = 32.dp),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp)
@@ -808,6 +792,7 @@ private fun AppointmentDetailRow(
                         contactAction = ContactAction.Email
                     }
                 },
+                modifier = Modifier.heightIn(min = 32.dp),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
                 contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp)
@@ -824,7 +809,9 @@ private fun AppointmentDetailRow(
                 onClick = {
                     onNavigate(appointment.locationLatitude, appointment.locationLongitude)
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 32.dp),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
@@ -840,6 +827,7 @@ private fun AppointmentDetailRow(
 
             Button(
                 onClick = { showCancelConfirm = true },
+                modifier = Modifier.heightIn(min = 32.dp),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
@@ -1244,6 +1232,11 @@ private fun AppointmentDetailDialog(
 
     val context = LocalContext.current
     val participants = appointment.participantContactNames.zip(appointment.participantContactIds)
+    val participantSummary = when (participants.size) {
+        0 -> ""
+        1 -> participants.first().first
+        else -> "${participants.first().first} + ${participants.size - 1} người khác"
+    }
 
     fun performContactAction(action: ContactAction, personIndex: Int) {
         val (name, contactId) = participants[personIndex]
@@ -1313,24 +1306,27 @@ private fun AppointmentDetailDialog(
                     }
                 }
 
-                if (participants.isNotEmpty()) {
-                    participants.forEach { (name, _) ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.People,
-                                contentDescription = null,
-                                tint = Color(0xFF9E9E9E),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color(0xFF616161)
-                            )
-                        }
+                if (participantSummary.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.People,
+                            contentDescription = null,
+                            tint = Color(0xFF9E9E9E),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = participantSummary,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (participants.size > 1) Color(0xFF8B5E34) else Color(0xFF616161),
+                            fontWeight = if (participants.size > 1) FontWeight.Medium else FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
 
@@ -1345,23 +1341,30 @@ private fun AppointmentDetailDialog(
                         tint = Color(0xFF9E9E9E),
                         modifier = Modifier.size(18.dp)
                     )
-                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Text(
-                            text = dt3.timeLine,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = dt3.dateLine,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    Text(
+                        text = "${dt3.timeLine}, ${dt3.dateLine}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
 
-                DetailRow(label = "Tại", value = appointment.location)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Place,
+                        contentDescription = null,
+                        tint = Color(0xFF9E9E9E),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = appointment.location,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF616161)
+                    )
+                }
 
                 appointment.note?.takeIf { it.isNotBlank() }?.let { noteText ->
                     DetailRow(label = "Nội dung", value = noteText)
@@ -1381,6 +1384,7 @@ private fun AppointmentDetailDialog(
                                 contactAction = ContactAction.Call
                             }
                         },
+                        modifier = Modifier.heightIn(min = 32.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                         contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp)
@@ -1401,6 +1405,7 @@ private fun AppointmentDetailDialog(
                                 contactAction = ContactAction.Email
                             }
                         },
+                        modifier = Modifier.heightIn(min = 32.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
                         contentPadding = PaddingValues(horizontal = 9.dp, vertical = 0.dp)
@@ -1417,7 +1422,9 @@ private fun AppointmentDetailDialog(
                         onClick = {
                             onNavigate(appointment.locationLatitude, appointment.locationLongitude)
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 32.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
@@ -1433,6 +1440,7 @@ private fun AppointmentDetailDialog(
 
                     Button(
                         onClick = { showCancelConfirm = true },
+                        modifier = Modifier.heightIn(min = 32.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,

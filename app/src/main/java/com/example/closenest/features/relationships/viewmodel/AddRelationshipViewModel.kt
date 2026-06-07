@@ -122,6 +122,10 @@ class AddRelationshipViewModel(
         _uiState.update { it.copy(notes = value) }
     }
 
+    fun clearErrorMessage() {
+        _uiState.update { it.copy(errorMessageRes = null) }
+    }
+
     fun onPriorityChanged(value: RelationshipPriority) {
         _uiState.update { it.copy(priority = value) }
     }
@@ -145,7 +149,13 @@ class AddRelationshipViewModel(
                 it.copy(
                     nameError = isNameInvalid,
                     emailError = isEmailInvalid,
-                    birthdayError = isBirthdayInvalid
+                    birthdayError = isBirthdayInvalid,
+                    errorMessageRes = when {
+                        isNameInvalid -> R.string.add_relationship_name_error
+                        isEmailInvalid -> R.string.add_relationship_email_error
+                        isBirthdayInvalid -> R.string.add_relationship_birthday_error
+                        else -> null
+                    }
                 )
             }
             return
