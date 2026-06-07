@@ -29,6 +29,8 @@ class ProfileViewModel(
     // Account detail state management (editable fields)
     private data class AccountEditState(
         val showAccountDetail: Boolean = false,
+        val showSettingsDialog: Boolean = false,
+        val showUiCustomizationDialog: Boolean = false,
         val showLanguageDialog: Boolean = false,
         val isEditingAccount: Boolean = false,
         val firstName: String = "",
@@ -49,6 +51,8 @@ class ProfileViewModel(
     ) { profileState, accountEditState, moodMap ->
         profileState.copy(
             showAccountDetail = accountEditState.showAccountDetail,
+            showSettingsDialog = accountEditState.showSettingsDialog,
+            showUiCustomizationDialog = accountEditState.showUiCustomizationDialog,
             showLanguageDialog = accountEditState.showLanguageDialog,
             isEditingAccount = accountEditState.isEditingAccount,
             accountEditFirstName = accountEditState.firstName,
@@ -92,13 +96,13 @@ class ProfileViewModel(
                 onShowAccountDetail()
             }
             "settings" -> {
-                // TODO: Navigate to settings
+                _accountEditState.update { it.copy(showSettingsDialog = true) }
             }
             "language" -> {
                 _accountEditState.update { it.copy(showLanguageDialog = true) }
             }
             "ui_customization" -> {
-                // TODO: Navigate to UI customization
+                _accountEditState.update { it.copy(showUiCustomizationDialog = true) }
             }
         }
     }
@@ -179,6 +183,14 @@ class ProfileViewModel(
 
     fun onDismissLanguageDialog() {
         _accountEditState.update { it.copy(showLanguageDialog = false) }
+    }
+
+    fun onDismissSettingsDialog() {
+        _accountEditState.update { it.copy(showSettingsDialog = false) }
+    }
+
+    fun onDismissUiCustomizationDialog() {
+        _accountEditState.update { it.copy(showUiCustomizationDialog = false) }
     }
 
     fun onConfirmLogout() {

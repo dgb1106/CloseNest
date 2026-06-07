@@ -272,6 +272,12 @@
     <string name="profile_language_dialog_title">Ngôn ngữ hiện tại</string>
     <string name="profile_language_dialog_message">Ứng dụng hiện đang hỗ trợ một lựa chọn duy nhất là Tiếng Việt.</string>
     <string name="profile_language_dialog_dismiss">Đóng</string>
+    <string name="profile_settings_dialog_title">Cài đặt và quyền riêng tư</string>
+    <string name="profile_settings_dialog_message">Mục này đang được hoàn thiện. Hiện tại bạn đã có thể nhấn để mở tương tác cơ bản.</string>
+    <string name="profile_settings_dialog_dismiss">Đã hiểu</string>
+    <string name="profile_ui_customization_dialog_title">Tùy chỉnh giao diện</string>
+    <string name="profile_ui_customization_dialog_message">Mục này đang được hoàn thiện. Hiện tại bạn đã có thể nhấn để mở tương tác cơ bản.</string>
+    <string name="profile_ui_customization_dialog_dismiss">Đã hiểu</string>
 
     <!-- Profile Sections -->
     <string name="profile_relationships_section">Danh bạ của bạn</string>
