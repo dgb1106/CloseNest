@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -29,6 +32,7 @@ import com.example.closenest.features.homepage.ui.MemoryRoute
 import com.example.closenest.features.homepage.ui.ReflectionRoute
 import com.example.closenest.features.homepage.ui.SectionPlaceholderScreen
 import com.example.closenest.features.homepage.viewmodel.AddHubViewModel
+import com.example.closenest.features.notifications.model.NotificationActionType
 import com.example.closenest.features.notifications.ui.NotificationsRoute
 import com.example.closenest.features.profile.ui.ProfileRoute
 import com.example.closenest.features.relationships.ui.AddRelationshipRoute
@@ -47,8 +51,23 @@ private const val RelationshipIdArgument = "relationshipId"
 private const val RelationshipDetailRoutePattern = "$RelationshipDetailRouteName/{$RelationshipIdArgument}"
 
 @Composable
-fun AppNavigation(onLogout: () -> Unit) {
+fun AppNavigation(
+    onLogout: () -> Unit,
+    openAppointmentId: String? = null,
+    onAppointmentOpened: () -> Unit = {}
+) {
     val navController = rememberNavController()
+    var pendingOpenAppointmentId by remember { mutableStateOf(openAppointmentId) }
+
+    LaunchedEffect(openAppointmentId) {
+        pendingOpenAppointmentId = openAppointmentId
+        if (openAppointmentId != null) {
+            navController.navigate(MainTab.Map.route) {
+                launchSingleTop = true
+            }
+        }
+    }
+
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val selectedTab = MainTab.fromRoute(currentRoute) ?: MainTab.Map
@@ -117,7 +136,14 @@ fun AppNavigation(onLogout: () -> Unit) {
                     .padding(innerPadding)
             ) {
                 composable(MainTab.Map.route) {
-                    HomeMapScreen(modifier = Modifier)
+                    HomeMapScreen(
+                        openAppointmentId = pendingOpenAppointmentId,
+                        onAppointmentOpened = {
+                            pendingOpenAppointmentId = null
+                            onAppointmentOpened()
+                        },
+                        modifier = Modifier
+                    )
                 }
                 composable(MainTab.Relationships.route) {
                     RelationshipsRoute(
@@ -137,9 +163,23 @@ fun AppNavigation(onLogout: () -> Unit) {
                 }
                 composable(MainTab.Notifications.route) {
                     NotificationsRoute(
-                        onNotificationAction = { route ->
-                            navController.navigate(route) {
-                                launchSingleTop = true
+                        onNotificationAction = { notification ->
+                            when (notification.actionType) {
+                                NotificationActionType.VIEW_APPOINTMENT -> {
+                                    pendingOpenAppointmentId = notification.sourceEntityId
+                                    navController.navigate(MainTab.Map.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                                else -> {
+                                    notification.relationshipId?.let { relationshipId ->
+                                        navigateToRelationshipDetail(relationshipId)
+                                    }
+                                }
                             }
                         },
                         modifier = Modifier
