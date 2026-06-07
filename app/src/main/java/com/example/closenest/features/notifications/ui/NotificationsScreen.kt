@@ -281,6 +281,7 @@ private fun NotificationCard(
     val colorScheme = MaterialTheme.colorScheme
     val notificationColor = getNotificationColor(notification.type)
     val timeAgoText = getTimeAgoText(notification.createdAtMillis)
+    val previewText = notification.listPreviewText()
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -363,7 +364,7 @@ private fun NotificationCard(
 
                 // Description (1 line only)
                 Text(
-                    text = notification.description,
+                    text = previewText,
                     style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -401,6 +402,13 @@ private fun LoadingState(
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator()
+    }
+}
+
+private fun NotificationItem.listPreviewText(): String {
+    return when (type) {
+        NotificationType.APPOINTMENT_REMINDER -> title
+        else -> description
     }
 }
 
