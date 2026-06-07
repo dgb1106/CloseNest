@@ -105,7 +105,7 @@ class NotificationsViewModel(
 
     fun onNotificationDismiss(notificationId: String) {
         viewModelScope.launch {
-            repository.dismissNotification(notificationId)
+            repository.deleteNotification(notificationId)
         }
     }
 
