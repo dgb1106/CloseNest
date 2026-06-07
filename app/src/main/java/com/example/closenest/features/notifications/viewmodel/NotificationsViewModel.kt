@@ -9,6 +9,8 @@ import com.example.closenest.features.notifications.model.NotificationFilterType
 import com.example.closenest.features.notifications.model.NotificationItem
 import com.example.closenest.features.notifications.model.NotificationStatus
 import com.example.closenest.features.notifications.model.NotificationSummary
+import com.example.closenest.features.notifications.model.isCreatedToday
+import com.example.closenest.features.notifications.model.startOfDayMillis
 import com.example.closenest.features.notifications.repository.NotificationRepository
 import com.example.closenest.features.notifications.repository.NotificationRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -123,8 +125,7 @@ class NotificationsViewModel(
         notifications: List<NotificationItem>,
         filters: NotificationFilters
     ): List<NotificationItem> {
-        val now = System.currentTimeMillis()
-        val todayStart = now - (now % (24 * 60 * 60 * 1000))
+        val todayStart = startOfDayMillis()
 
         return when (filters.filterType) {
             NotificationFilterType.ALL -> notifications
@@ -132,7 +133,7 @@ class NotificationsViewModel(
                 it.status == NotificationStatus.ACTIVE
             }
             NotificationFilterType.TODAY -> notifications.filter {
-                it.createdAtMillis >= todayStart && it.status == NotificationStatus.ACTIVE
+                it.createdAtMillis >= todayStart
             }
         }
     }
@@ -158,15 +159,9 @@ private data class NotificationRepositoryResult(
 )
 
 private fun List<NotificationItem>.toSummary(): NotificationSummary {
-    val now = System.currentTimeMillis()
-    val todayStart = now - (now % (24 * 60 * 60 * 1000))
-
     return NotificationSummary(
         totalCount = size,
         unreadCount = count { it.status == NotificationStatus.ACTIVE },
-        todayCount = count {
-            it.createdAtMillis >= todayStart &&
-                it.status == NotificationStatus.ACTIVE
-        }
+        todayCount = count { it.isCreatedToday() }
     )
 }
