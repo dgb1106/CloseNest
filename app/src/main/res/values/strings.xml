@@ -351,7 +351,7 @@
     <string name="appointment_reminder_day_before_title">Ngày mai bạn có hẹn với %1$s</string>
     <string name="appointment_reminder_day_before_body">Cuộc hẹn tại %1$s bắt đầu lúc %2$s.</string>
     <string name="appointment_reminder_upcoming_title">Sắp đến giờ hẹn với %1$s</string>
-    <string name="appointment_reminder_upcoming_body">%1$s tại %2$s. Chúc bạn có khoảng thời gian dễ chịu.</string>
+    <string name="appointment_reminder_upcoming_body">%1$s tại %2$s.Hy vọng bạn sẽ có những khoảnh khắc ý nghĩa.</string>
 
     <!-- Notification Detail Screen -->
     <string name="common_close">Đóng</string>
