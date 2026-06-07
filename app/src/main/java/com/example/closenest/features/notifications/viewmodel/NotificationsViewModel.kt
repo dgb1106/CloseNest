@@ -110,7 +110,19 @@ class NotificationsViewModel(
     }
 
     fun selectNotification(notification: NotificationItem) {
-        selectedNotification.value = notification
+        val shouldMarkAsRead =
+            notification.status == com.example.closenest.features.notifications.model.NotificationStatus.ACTIVE
+        selectedNotification.value = if (shouldMarkAsRead) {
+            notification.copy(status = com.example.closenest.features.notifications.model.NotificationStatus.READ)
+        } else {
+            notification
+        }
+
+        if (shouldMarkAsRead) {
+            viewModelScope.launch {
+                repository.markAsRead(notification.id)
+            }
+        }
     }
 
     fun deselectNotification() {

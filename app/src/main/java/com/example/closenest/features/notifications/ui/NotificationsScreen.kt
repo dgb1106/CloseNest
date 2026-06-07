@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -29,10 +28,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -77,7 +74,6 @@ fun NotificationsRoute(
     NotificationsScreen(
         uiState = uiState,
         onFilterSelected = viewModel::onFilterSelected,
-        onNotificationMarkAsRead = viewModel::onNotificationMarkAsRead,
         onNotificationDismiss = viewModel::onNotificationDismiss,
         onNotificationAction = onNotificationAction,
         onNotificationSelected = viewModel::selectNotification,
@@ -90,7 +86,6 @@ fun NotificationsRoute(
 fun NotificationsScreen(
     uiState: NotificationsUiState,
     onFilterSelected: (NotificationFilterType) -> Unit,
-    onNotificationMarkAsRead: (String) -> Unit,
     onNotificationDismiss: (String) -> Unit,
     onNotificationAction: (NotificationItem) -> Unit,
     onNotificationSelected: (NotificationItem) -> Unit,
@@ -178,7 +173,6 @@ fun NotificationsScreen(
                 ) { notification ->
                     NotificationCard(
                         notification = notification,
-                        onMarkAsRead = { onNotificationMarkAsRead(notification.id) },
                         onDismiss = { onNotificationDismiss(notification.id) },
                         onAction = { onNotificationAction(notification) },
                         onCardClick = { onNotificationSelected(notification) }
@@ -192,7 +186,6 @@ fun NotificationsScreen(
         if (uiState.selectedNotification != null) {
             NotificationDetailBottomSheet(
                 notification = uiState.selectedNotification,
-                onMarkAsRead = { onNotificationMarkAsRead(uiState.selectedNotification.id) },
                 onDismiss = { onNotificationDismiss(uiState.selectedNotification.id) },
                 onAction = { onNotificationAction(uiState.selectedNotification) },
                 onClose = { onNotificationDeselected() }
@@ -272,7 +265,6 @@ private fun SummaryStatsCard(
 @Composable
 private fun NotificationCard(
     notification: NotificationItem,
-    onMarkAsRead: () -> Unit,
     onDismiss: () -> Unit,
     onAction: () -> Unit,
     onCardClick: () -> Unit = {},
@@ -591,7 +583,6 @@ private fun NotificationsScreenPreview() {
                     filteredNotifications = mockUiState.notifications
                 ),
                 onFilterSelected = {},
-                onNotificationMarkAsRead = {},
                 onNotificationDismiss = {},
                 onNotificationAction = {},
                 onNotificationSelected = {},
@@ -605,7 +596,6 @@ private fun NotificationsScreenPreview() {
 @Composable
 private fun NotificationDetailBottomSheet(
     notification: NotificationItem,
-    onMarkAsRead: () -> Unit,
     onDismiss: () -> Unit,
     onAction: () -> Unit,
     onClose: () -> Unit,
@@ -626,22 +616,6 @@ private fun NotificationDetailBottomSheet(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Close button
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = 8.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
-                IconButton(onClick = onClose) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = stringResource(R.string.common_close),
-                        tint = colorScheme.onSurface
-                    )
-                }
-            }
-
             // Notification type badge and time
             Row(
                 modifier = Modifier
@@ -672,61 +646,16 @@ private fun NotificationDetailBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Avatar and Title
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .clip(CircleShape)
-                        .background(notificationColor.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (!notification.relationshipName.isNullOrEmpty()) {
-                        Text(
-                            text = notification.relationshipName.take(1).uppercase(),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = notificationColor
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Outlined.NotificationsNone,
-                            contentDescription = null,
-                            tint = notificationColor,
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                }
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (!notification.relationshipName.isNullOrEmpty()) {
-                        Text(
-                            text = notification.relationshipName,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = colorScheme.onSurface
-                        )
-                    }
-                    Text(
-                        text = notification.title,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = colorScheme.onSurface
-                    )
-                }
-            }
+            Text(
+                text = notification.title,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
-            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             Spacer(modifier = Modifier.height(16.dp))
 
             // Full description
@@ -737,58 +666,22 @@ private fun NotificationDetailBottomSheet(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
-            // Expiration info if applicable
-            if (notification.expiresAtMillis != null && notification.expiresAtMillis > System.currentTimeMillis()) {
-                val expiresInDays = (notification.expiresAtMillis - System.currentTimeMillis()) / (24 * 60 * 60 * 1000)
-                if (expiresInDays < 7) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        color = CloseNestAttention.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.notification_expires_soon),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = CloseNestAttention,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = String.format(
-                                    stringResource(R.string.notification_expires_in),
-                                    expiresInDays
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = CloseNestAttention
-                            )
-                        }
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(20.dp))
 
             // Action buttons
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Primary action button
                 if (!notification.actionLabel.isNullOrEmpty() && notification.actionType != NotificationActionType.DISMISS) {
                     Button(
                         onClick = {
                             onAction()
                             onClose()
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = notificationColor
                         )
@@ -800,29 +693,13 @@ private fun NotificationDetailBottomSheet(
                     }
                 }
 
-                // Mark as read button
-                if (notification.status == NotificationStatus.ACTIVE) {
-                    FilledTonalButton(
-                        onClick = {
-                            onMarkAsRead()
-                            onClose()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = stringResource(R.string.notification_mark_as_read),
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                }
-
                 // Dismiss button
                 Button(
                     onClick = {
                         onDismiss()
                         onClose()
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = colorScheme.errorContainer,
                         contentColor = colorScheme.error
