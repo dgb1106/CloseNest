@@ -7,6 +7,7 @@ import com.example.closenest.features.notifications.model.NotificationItem
 import com.example.closenest.features.notifications.model.NotificationStatus
 import com.example.closenest.features.notifications.model.NotificationSummary
 import com.example.closenest.features.notifications.model.NotificationType
+import com.example.closenest.features.notifications.model.isCreatedToday
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,17 +22,10 @@ class InMemoryNotificationRepository : NotificationRepository {
 
     override fun observeNotificationSummary(): Flow<NotificationSummary> =
         notifications.map { notificationList ->
-            val now = System.currentTimeMillis()
-            val todayStart = now - (now % (24 * 60 * 60 * 1000))
-
             NotificationSummary(
                 totalCount = notificationList.size,
                 unreadCount = notificationList.count { it.status == NotificationStatus.ACTIVE },
-                todayCount =
-                    notificationList.count {
-                        it.createdAtMillis >= todayStart &&
-                            it.status == NotificationStatus.ACTIVE
-                    }
+                todayCount = notificationList.count { it.isCreatedToday() }
             )
         }
 

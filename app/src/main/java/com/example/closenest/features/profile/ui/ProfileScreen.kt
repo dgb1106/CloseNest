@@ -107,6 +107,9 @@ fun ProfileRoute(
                 viewModel.onConfirmLogout()
                 onLogout()
             },
+            onDismissSettingsDialog = viewModel::onDismissSettingsDialog,
+            onDismissUiCustomizationDialog = viewModel::onDismissUiCustomizationDialog,
+            onDismissLanguageDialog = viewModel::onDismissLanguageDialog,
             onCancelLogout = viewModel::onCancelLogout,
             modifier = modifier
         )
@@ -119,6 +122,9 @@ fun ProfileScreen(
     showLogoutDialog: Boolean,
     onMenuItemClicked: (String) -> Unit,
     onConfirmLogout: () -> Unit,
+    onDismissSettingsDialog: () -> Unit,
+    onDismissUiCustomizationDialog: () -> Unit,
+    onDismissLanguageDialog: () -> Unit,
     onCancelLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -180,6 +186,24 @@ fun ProfileScreen(
         LogoutConfirmationDialog(
             onConfirm = onConfirmLogout,
             onCancel = onCancelLogout
+        )
+    }
+
+    if (uiState.showSettingsDialog) {
+        SettingsDialog(
+            onDismiss = onDismissSettingsDialog
+        )
+    }
+
+    if (uiState.showUiCustomizationDialog) {
+        UiCustomizationDialog(
+            onDismiss = onDismissUiCustomizationDialog
+        )
+    }
+
+    if (uiState.showLanguageDialog) {
+        LanguageDialog(
+            onDismiss = onDismissLanguageDialog
         )
     }
 }
@@ -475,6 +499,13 @@ fun ProfileMenuItemCard(
                 color = colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
+            if (menuItem.id == "language") {
+                Text(
+                    text = stringResource(R.string.profile_language_current_value),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                )
+            }
         }
     }
 }
@@ -581,6 +612,95 @@ fun LogoutConfirmationDialog(
         dismissButton = {
             TextButton(onClick = onCancel) {
                 Text(stringResource(R.string.profile_logout_cancel_button))
+            }
+        }
+    )
+}
+
+@Composable
+fun LanguageDialog(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.profile_language_dialog_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.profile_language_dialog_message),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.profile_language_current_value))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.profile_language_dialog_dismiss))
+            }
+        }
+    )
+}
+
+@Composable
+fun SettingsDialog(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.profile_settings_dialog_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.profile_settings_dialog_message),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.profile_settings_dialog_dismiss))
+            }
+        }
+    )
+}
+
+@Composable
+fun UiCustomizationDialog(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.profile_ui_customization_dialog_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.profile_ui_customization_dialog_message),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.profile_ui_customization_dialog_dismiss))
             }
         }
     )
@@ -1089,6 +1209,9 @@ private fun ProfileScreenPreview() {
             showLogoutDialog = false,
             onMenuItemClicked = {},
             onConfirmLogout = {},
+            onDismissSettingsDialog = {},
+            onDismissUiCustomizationDialog = {},
+            onDismissLanguageDialog = {},
             onCancelLogout = {}
         )
     }

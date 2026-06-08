@@ -5,6 +5,7 @@ import com.example.closenest.core.notification.appointmentReminderDedupeKey
 import com.example.closenest.features.notifications.model.NotificationItem
 import com.example.closenest.features.notifications.model.NotificationStatus
 import com.example.closenest.features.notifications.model.NotificationSummary
+import com.example.closenest.features.notifications.model.isCreatedToday
 import com.example.closenest.features.notifications.model.toNotificationItem
 import com.example.closenest.features.notifications.model.toMap
 import com.google.firebase.auth.FirebaseAuth
@@ -92,16 +93,10 @@ class FirebaseNotificationRepository(
      */
     override fun observeNotificationSummary(): Flow<NotificationSummary> =
         observeNotifications().map { notificationList ->
-            val now = System.currentTimeMillis()
-            val todayStart = now - (now % (24 * 60 * 60 * 1000))
-
             NotificationSummary(
                 totalCount = notificationList.size,
                 unreadCount = notificationList.count { it.status == NotificationStatus.ACTIVE },
-                todayCount = notificationList.count {
-                    it.createdAtMillis >= todayStart &&
-                        it.status == NotificationStatus.ACTIVE
-                }
+                todayCount = notificationList.count { it.isCreatedToday() }
             )
         }
 

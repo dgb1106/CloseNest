@@ -268,6 +268,16 @@
     <string name="profile_menu_language">Ngôn ngữ</string>
     <string name="profile_menu_ui_customization">Tùy chỉnh giao diện</string>
     <string name="profile_menu_logout">Đăng xuất</string>
+    <string name="profile_language_current_value">Tiếng Việt</string>
+    <string name="profile_language_dialog_title">Ngôn ngữ hiện tại</string>
+    <string name="profile_language_dialog_message">Ứng dụng hiện đang hỗ trợ một lựa chọn duy nhất là Tiếng Việt.</string>
+    <string name="profile_language_dialog_dismiss">Đóng</string>
+    <string name="profile_settings_dialog_title">Cài đặt và quyền riêng tư</string>
+    <string name="profile_settings_dialog_message">Mục này đang được hoàn thiện. Hiện tại bạn đã có thể nhấn để mở tương tác cơ bản.</string>
+    <string name="profile_settings_dialog_dismiss">Đã hiểu</string>
+    <string name="profile_ui_customization_dialog_title">Tùy chỉnh giao diện</string>
+    <string name="profile_ui_customization_dialog_message">Mục này đang được hoàn thiện. Hiện tại bạn đã có thể nhấn để mở tương tác cơ bản.</string>
+    <string name="profile_ui_customization_dialog_dismiss">Đã hiểu</string>
 
     <!-- Profile Sections -->
     <string name="profile_relationships_section">Danh bạ của bạn</string>
@@ -341,7 +351,7 @@
     <string name="appointment_reminder_day_before_title">Ngày mai bạn có hẹn với %1$s</string>
     <string name="appointment_reminder_day_before_body">Cuộc hẹn tại %1$s bắt đầu lúc %2$s.</string>
     <string name="appointment_reminder_upcoming_title">Sắp đến giờ hẹn với %1$s</string>
-    <string name="appointment_reminder_upcoming_body">%1$s tại %2$s. Chúc bạn có khoảng thời gian dễ chịu.</string>
+    <string name="appointment_reminder_upcoming_body">%1$s tại %2$s. Hy vọng bạn sẽ có những khoảnh khắc ý nghĩa.</string>
 
     <!-- Notification Detail Screen -->
     <string name="common_close">Đóng</string>
