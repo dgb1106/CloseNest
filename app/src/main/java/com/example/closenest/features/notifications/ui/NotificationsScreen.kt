@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -602,6 +603,7 @@ private fun NotificationDetailBottomSheet(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val isDarkTheme = colorScheme.background.luminance() < 0.5f
     val notificationColor = getNotificationColor(notification.type)
     val timeAgoText = getTimeAgoText(notification.createdAtMillis)
 
@@ -702,7 +704,7 @@ private fun NotificationDetailBottomSheet(
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = colorScheme.errorContainer,
-                        contentColor = colorScheme.error
+                        contentColor = if (isDarkTheme) Color.White else colorScheme.error
                     )
                 ) {
                     Text(

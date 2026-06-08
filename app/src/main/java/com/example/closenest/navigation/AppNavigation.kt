@@ -24,6 +24,7 @@ import androidx.navigation.navArgument
 import com.example.closenest.R
 import com.example.closenest.core.model.MainTab
 import com.example.closenest.core.ui.components.HomeBottomBar
+import com.example.closenest.core.ui.theme.ThemeMode
 import com.example.closenest.features.chatbot.ui.FloatingChatbotOverlay
 import com.example.closenest.features.homepage.ui.AddHubRoute
 import com.example.closenest.features.homepage.ui.AppointmentRoute
@@ -54,7 +55,9 @@ private const val RelationshipDetailRoutePattern = "$RelationshipDetailRouteName
 fun AppNavigation(
     onLogout: () -> Unit,
     openAppointmentId: String? = null,
-    onAppointmentOpened: () -> Unit = {}
+    onAppointmentOpened: () -> Unit = {},
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit
 ) {
     val navController = rememberNavController()
     var pendingOpenAppointmentId by remember { mutableStateOf(openAppointmentId) }
@@ -195,6 +198,8 @@ fun AppNavigation(
                                 }
                             }
                         },
+                        themeMode = themeMode,
+                        onThemeModeChange = onThemeModeChange,
                         modifier = Modifier
                     )
                 }

@@ -37,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeJoin
@@ -60,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.closenest.R
+import com.example.closenest.core.ui.theme.ThemeMode
 import com.example.closenest.features.profile.model.ProfileMenuItem
 import com.example.closenest.features.profile.model.ProfileUiState
 import com.example.closenest.features.profile.model.RelationshipQuickPreview
@@ -77,6 +80,8 @@ import java.util.TimeZone
 @Composable
 fun ProfileRoute(
     onLogout: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     onMenuItemClicked: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory)
@@ -107,6 +112,8 @@ fun ProfileRoute(
                 viewModel.onConfirmLogout()
                 onLogout()
             },
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
             onDismissSettingsDialog = viewModel::onDismissSettingsDialog,
             onDismissUiCustomizationDialog = viewModel::onDismissUiCustomizationDialog,
             onDismissLanguageDialog = viewModel::onDismissLanguageDialog,
@@ -122,6 +129,8 @@ fun ProfileScreen(
     showLogoutDialog: Boolean,
     onMenuItemClicked: (String) -> Unit,
     onConfirmLogout: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     onDismissSettingsDialog: () -> Unit,
     onDismissUiCustomizationDialog: () -> Unit,
     onDismissLanguageDialog: () -> Unit,
@@ -197,6 +206,8 @@ fun ProfileScreen(
 
     if (uiState.showUiCustomizationDialog) {
         UiCustomizationDialog(
+            selectedThemeMode = themeMode,
+            onThemeModeSelected = onThemeModeChange,
             onDismiss = onDismissUiCustomizationDialog
         )
     }
@@ -289,11 +300,11 @@ fun StreakBadgeSection(
     val colorScheme = MaterialTheme.colorScheme
 
     Column(
-        modifier = Modifier
-            .background(
-                color = Color(0xFFFFF8F6),
-                shape = RoundedCornerShape(28.dp)
-            ),
+//        modifier = Modifier
+//            .background(
+//                color = Color(0xFFFFF8F6),
+//                shape = RoundedCornerShape(28.dp)
+//            ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -348,6 +359,7 @@ fun MoodHeatmap(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val isDarkTheme = colorScheme.background.luminance() < 0.5f
     val cols = 15
     val rows = 4
     val totalCells = cols * rows
@@ -389,7 +401,7 @@ fun MoodHeatmap(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = colorScheme.tertiaryContainer,
+        color = if (isDarkTheme) colorScheme.surface else colorScheme.tertiaryContainer,
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
@@ -419,7 +431,7 @@ fun MoodHeatmap(
                                     .weight(1f)
                                     .aspectRatio(1f)
                                     .clip(RoundedCornerShape(2.dp))
-                                    .background(moodColor(entry?.mood, colorScheme))
+                                    .background(moodColor(entry?.mood, colorScheme, isDarkTheme))
                             )
                         }
                     }
@@ -429,8 +441,18 @@ fun MoodHeatmap(
     }
 }
 
-private fun moodColor(mood: String?, colorScheme: androidx.compose.material3.ColorScheme): Color {
-    if (mood == null) return colorScheme.secondary.copy(alpha = 0.3f)
+private fun moodColor(
+    mood: String?,
+    colorScheme: androidx.compose.material3.ColorScheme,
+    isDarkTheme: Boolean
+): Color {
+    if (mood == null) {
+        return if (isDarkTheme) {
+            colorScheme.surfaceVariant.copy(alpha = 0.9f)
+        } else {
+            colorScheme.secondary.copy(alpha = 0.3f)
+        }
+    }
 
     val moodEnum = ReflectionMood.fromStorageValue(mood)
     return when (moodEnum) {
@@ -439,7 +461,11 @@ private fun moodColor(mood: String?, colorScheme: androidx.compose.material3.Col
         ReflectionMood.Neutral -> colorScheme.primaryContainer
         ReflectionMood.Pleasant -> colorScheme.primary.copy(alpha = 0.45f)
         ReflectionMood.VeryPleasant -> colorScheme.primary
-        null -> colorScheme.secondary.copy(alpha = 0.12f)
+        null -> if (isDarkTheme) {
+            colorScheme.surfaceVariant.copy(alpha = 0.8f)
+        } else {
+            colorScheme.secondary.copy(alpha = 0.12f)
+        }
     }
 }
 
@@ -671,7 +697,7 @@ fun SettingsDialog(
             )
         },
         confirmButton = {
-            Button(onClick = onDismiss) {
+            TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.profile_settings_dialog_dismiss))
             }
         }
@@ -680,6 +706,8 @@ fun SettingsDialog(
 
 @Composable
 fun UiCustomizationDialog(
+    selectedThemeMode: ThemeMode,
+    onThemeModeSelected: (ThemeMode) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -693,10 +721,31 @@ fun UiCustomizationDialog(
             )
         },
         text = {
-            Text(
-                text = stringResource(R.string.profile_ui_customization_dialog_message),
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    text = stringResource(R.string.profile_ui_customization_dialog_message),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                ThemeModeOption(
+                    title = stringResource(R.string.profile_theme_mode_light),
+                    description = stringResource(R.string.profile_theme_mode_light_description),
+                    selected = selectedThemeMode == ThemeMode.LIGHT,
+                    onClick = { onThemeModeSelected(ThemeMode.LIGHT) }
+                )
+                ThemeModeOption(
+                    title = stringResource(R.string.profile_theme_mode_dark),
+                    description = stringResource(R.string.profile_theme_mode_dark_description),
+                    selected = selectedThemeMode == ThemeMode.DARK,
+                    onClick = { onThemeModeSelected(ThemeMode.DARK) }
+                )
+                ThemeModeOption(
+                    title = stringResource(R.string.profile_theme_mode_system),
+                    description = stringResource(R.string.profile_theme_mode_system_description),
+                    selected = selectedThemeMode == ThemeMode.SYSTEM,
+                    onClick = { onThemeModeSelected(ThemeMode.SYSTEM) }
+                )
+            }
         },
         confirmButton = {
             Button(onClick = onDismiss) {
@@ -704,6 +753,51 @@ fun UiCustomizationDialog(
             }
         }
     )
+}
+
+@Composable
+private fun ThemeModeOption(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                )
+            }
+
+            RadioButton(
+                selected = selected,
+                onClick = onClick
+            )
+        }
+    }
 }
 
 // ========================== ACCOUNT DETAIL SCREEN ==========================
@@ -1209,6 +1303,8 @@ private fun ProfileScreenPreview() {
             showLogoutDialog = false,
             onMenuItemClicked = {},
             onConfirmLogout = {},
+            themeMode = ThemeMode.SYSTEM,
+            onThemeModeChange = {},
             onDismissSettingsDialog = {},
             onDismissUiCustomizationDialog = {},
             onDismissLanguageDialog = {},
