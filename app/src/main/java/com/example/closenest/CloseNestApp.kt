@@ -36,6 +36,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.closenest.R
+import com.example.closenest.core.ui.theme.ThemeMode
 import com.example.closenest.features.auth.model.AuthRoute
 import com.example.closenest.features.auth.ui.AuthScreen
 import com.example.closenest.features.auth.ui.RegisterScreen
@@ -47,7 +48,9 @@ import kotlinx.coroutines.delay
 @Composable
 fun CloseNestApp(
     openAppointmentId: String? = null,
-    onAppointmentOpened: () -> Unit = {}
+    onAppointmentOpened: () -> Unit = {},
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit
 ) {
     val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.Factory)
     val authUiState by authViewModel.uiState.collectAsStateWithLifecycle()
@@ -87,6 +90,7 @@ fun CloseNestApp(
                         message = authUiState.message,
                         isLoading = authUiState.isLoading,
                         onLogin = authViewModel::onLogin,
+                        onDismissMessage = authViewModel::clearMessage,
                         onNavigateToRegister = registerViewModel::navigateToRegister,
                         onGoogleLoginClick = authViewModel::loginWithGoogle
                     )
@@ -131,7 +135,9 @@ fun CloseNestApp(
     AppNavigation(
         onLogout = authViewModel::onLogout,
         openAppointmentId = openAppointmentId,
-        onAppointmentOpened = onAppointmentOpened
+        onAppointmentOpened = onAppointmentOpened,
+        themeMode = themeMode,
+        onThemeModeChange = onThemeModeChange
     )
 }
 

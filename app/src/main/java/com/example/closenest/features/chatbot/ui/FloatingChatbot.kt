@@ -76,6 +76,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -660,6 +661,9 @@ private fun QuickRecipientsSection(
     modifier: Modifier = Modifier,
     onRecipientClick: (QuickRecipient) -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+    val isDarkTheme = colorScheme.background.luminance() < 0.5f
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -682,8 +686,8 @@ private fun QuickRecipientsSection(
                     onClick = { onRecipientClick(recipient) },
                     enabled = enabled,
                     colors = AssistChipDefaults.assistChipColors(
-                        containerColor = Color.White,
-                        labelColor = MaterialTheme.colorScheme.onSurface
+                        containerColor = if (isDarkTheme) colorScheme.surfaceVariant else colorScheme.surface,
+                        labelColor = if (isDarkTheme) colorScheme.onSurfaceVariant else colorScheme.onSurface
                     ),
                     label = { Text(text = recipient.name) }
                 )
@@ -1179,12 +1183,15 @@ private fun QuickReplyChip(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+    val isDarkTheme = colorScheme.background.luminance() < 0.5f
+
     AssistChip(
         onClick = onClick,
         enabled = enabled,
         colors = AssistChipDefaults.assistChipColors(
-            containerColor = Color.White,
-            labelColor = MaterialTheme.colorScheme.onSurface
+            containerColor = if (isDarkTheme) colorScheme.surfaceVariant else colorScheme.surface,
+            labelColor = if (isDarkTheme) colorScheme.onSurfaceVariant else colorScheme.onSurface
         ),
         label = { Text(text = label) }
     )

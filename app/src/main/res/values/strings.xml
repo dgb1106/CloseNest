@@ -273,11 +273,17 @@
     <string name="profile_language_dialog_message">Ứng dụng hiện đang hỗ trợ một lựa chọn duy nhất là Tiếng Việt.</string>
     <string name="profile_language_dialog_dismiss">Đóng</string>
     <string name="profile_settings_dialog_title">Cài đặt và quyền riêng tư</string>
-    <string name="profile_settings_dialog_message">Mục này đang được hoàn thiện. Hiện tại bạn đã có thể nhấn để mở tương tác cơ bản.</string>
-    <string name="profile_settings_dialog_dismiss">Đã hiểu</string>
+    <string name="profile_settings_dialog_message">Mục này đang được hoàn thiện. Các lựa chọn giao diện đã được chuyển sang phần Tùy chỉnh giao diện.</string>
+    <string name="profile_settings_dialog_dismiss">Đóng</string>
     <string name="profile_ui_customization_dialog_title">Tùy chỉnh giao diện</string>
-    <string name="profile_ui_customization_dialog_message">Mục này đang được hoàn thiện. Hiện tại bạn đã có thể nhấn để mở tương tác cơ bản.</string>
-    <string name="profile_ui_customization_dialog_dismiss">Đã hiểu</string>
+    <string name="profile_ui_customization_dialog_message">Chọn cách hiển thị giao diện cho toàn bộ ứng dụng.</string>
+    <string name="profile_ui_customization_dialog_dismiss">Xong</string>
+    <string name="profile_theme_mode_light">Sáng</string>
+    <string name="profile_theme_mode_light_description">Luôn dùng giao diện sáng.</string>
+    <string name="profile_theme_mode_dark">Tối</string>
+    <string name="profile_theme_mode_dark_description">Luôn dùng giao diện tối.</string>
+    <string name="profile_theme_mode_system">Theo hệ thống</string>
+    <string name="profile_theme_mode_system_description">Tự động theo cài đặt sáng tối của thiết bị.</string>
 
     <!-- Profile Sections -->
     <string name="profile_relationships_section">Danh bạ của bạn</string>

@@ -31,7 +31,7 @@ class AuthViewModel(
             repository.authState.collect { isLoggedIn ->
                 if (!isLoggedIn) {
                     _uiState.update {
-                        it.copy(isLoggedIn = false, message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.")
+                        it.copy(isLoggedIn = false, isLoading = false)
                     }
                 }
             }
@@ -41,7 +41,9 @@ class AuthViewModel(
     fun onLogin(email: String, password: String) {
         val normalizedEmail = email.trim()
         if (normalizedEmail.isEmpty() || password.isBlank()) {
-            _uiState.update { it.copy(message = "Vui lòng nhập đầy đủ email và mật khẩu.") }
+            _uiState.update {
+                it.copy(message = "Vui l\u00f2ng nh\u1eadp \u0111\u1ea7y \u0111\u1ee7 email v\u00e0 m\u1eadt kh\u1ea9u.")
+            }
             return
         }
 
@@ -53,11 +55,11 @@ class AuthViewModel(
                     onSuccess = {
                         _uiState.update { it.copy(isLoggedIn = true, isLoading = false, message = "") }
                     },
-                    onFailure = { e ->
+                    onFailure = {
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                message = e.localizedMessage ?: "Đăng nhập thất bại."
+                                message = "Sai th\u00f4ng tin \u0111\u0103ng nh\u1eadp. Vui l\u00f2ng ki\u1ec3m tra l\u1ea1i email v\u00e0 m\u1eadt kh\u1ea9u."
                             )
                         }
                     }
@@ -67,7 +69,7 @@ class AuthViewModel(
 
     fun onGoogleLoginClick() {
         viewModelScope.launch {
-            _toastEvent.emit("Tính năng sắp ra mắt")
+            _toastEvent.emit("T\u00ednh n\u0103ng s\u1eafp ra m\u1eaft")
         }
     }
 
@@ -82,11 +84,11 @@ class AuthViewModel(
                             it.copy(isLoggedIn = true, isLoading = false, message = "")
                         }
                     },
-                    onFailure = { e ->
+                    onFailure = {
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
-                                message = e.localizedMessage ?: "Đăng nhập với Google thất bại"
+                                message = "\u0110\u0103ng nh\u1eadp v\u1edbi Google th\u1ea5t b\u1ea1i."
                             )
                         }
                     }
