@@ -1,5 +1,10 @@
-package com.example.closenest.features.notifications.model
+package com.example.closenest.features.notifications
 
+import com.example.closenest.features.notifications.model.NotificationItem
+import com.example.closenest.features.notifications.model.NotificationStatus
+import com.example.closenest.features.notifications.model.NotificationType
+import com.example.closenest.features.notifications.model.isCreatedToday
+import com.example.closenest.features.notifications.model.startOfDayMillis
 import java.util.Calendar
 import java.util.TimeZone
 import org.junit.Assert.assertEquals
@@ -26,11 +31,8 @@ class NotificationDateUtilsTest {
             val createdAtToday = calendarOf(2026, Calendar.JUNE, 7, 0, 15).timeInMillis
             val createdAtYesterday = calendarOf(2026, Calendar.JUNE, 6, 23, 50).timeInMillis
 
-            val todayNotification = notification(createdAtToday)
-            val yesterdayNotification = notification(createdAtYesterday)
-
-            assertTrue(todayNotification.isCreatedToday(nowMillis))
-            assertFalse(yesterdayNotification.isCreatedToday(nowMillis))
+            assertTrue(notification(createdAtToday).isCreatedToday(nowMillis))
+            assertFalse(notification(createdAtYesterday).isCreatedToday(nowMillis))
         }
     }
 
@@ -50,21 +52,6 @@ class NotificationDateUtilsTest {
         set(Calendar.MILLISECOND, 0)
     }
 
-    private fun notification(createdAtMillis: Long) = NotificationItem(
-        id = "id-$createdAtMillis",
-        type = NotificationType.CHECK_IN,
-        status = NotificationStatus.READ,
-        relationshipId = null,
-        relationshipName = null,
-        relationshipAvatarUrl = null,
-        title = "title",
-        description = "description",
-        createdAtMillis = createdAtMillis,
-        expiresAtMillis = null,
-        actionLabel = null,
-        actionType = null
-    )
-
     private fun withDefaultTimeZone(id: String, block: () -> Unit) {
         val original = TimeZone.getDefault()
         TimeZone.setDefault(TimeZone.getTimeZone(id))
@@ -75,3 +62,23 @@ class NotificationDateUtilsTest {
         }
     }
 }
+
+fun notification(
+    createdAtMillis: Long = 1_000L,
+    id: String = "noti-$createdAtMillis",
+    status: NotificationStatus = NotificationStatus.ACTIVE,
+    type: NotificationType = NotificationType.CHECK_IN
+) = NotificationItem(
+    id = id,
+    type = type,
+    status = status,
+    relationshipId = null,
+    relationshipName = null,
+    relationshipAvatarUrl = null,
+    title = "title",
+    description = "description",
+    createdAtMillis = createdAtMillis,
+    expiresAtMillis = null,
+    actionLabel = null,
+    actionType = null
+)
