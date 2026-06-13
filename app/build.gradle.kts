@@ -49,7 +49,6 @@ android {
             )
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", googleMapsApiKey.toBuildConfigString())
             buildConfigField("String", "GEMINI_API_KEY", geminiApiKey.toBuildConfigString())
-            buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
             buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
@@ -58,7 +57,6 @@ android {
         debug {
             buildConfigField("String", "GOOGLE_MAPS_API_KEY", googleMapsApiKey.toBuildConfigString())
             buildConfigField("String", "GEMINI_API_KEY", geminiApiKey.toBuildConfigString())
-            buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$googleMapsApiKey\"")
             buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
             buildConfigField("String", "MAPBOX_ACCESS_TOKEN", "\"$mapboxAccessToken\"")
             resValue("string", "google_maps_key", googleMapsApiKey)
@@ -101,6 +99,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation("androidx.work:work-testing:2.10.5")
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
