@@ -1,6 +1,5 @@
 package com.example.closenest.features.relationships.repository
 
-import com.example.closenest.core.network.FirebaseConnectionException
 import com.example.closenest.features.relationships.model.NewRelationshipRequest
 import com.example.closenest.features.relationships.model.RelationshipPriority
 import com.example.closenest.features.relationships.model.RelationshipProfile
@@ -11,16 +10,12 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import java.net.InetSocketAddress
-import java.net.Socket
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 
 class FirebaseRelationshipRepository(
     private val auth: FirebaseAuth,
@@ -84,8 +79,6 @@ class FirebaseRelationshipRepository(
         val now = System.currentTimeMillis()
         val document = relationshipsCollection(userId).document()
 
-        ensureFirestoreReachable()
-
         document.set(
             mapOf(
                 FieldId to document.id,
@@ -108,11 +101,31 @@ class FirebaseRelationshipRepository(
     override suspend fun deleteRelationship(relationshipId: String) {
         val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
 
-        ensureFirestoreReachable()
-
         relationshipsCollection(userId)
             .document(relationshipId)
             .delete()
+            .awaitCompletion()
+    }
+
+    override suspend fun updateRelationship(relationshipId: String, request: NewRelationshipRequest) {
+        val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
+        val now = System.currentTimeMillis()
+
+        relationshipsCollection(userId)
+            .document(relationshipId)
+            .update(
+                mapOf(
+                    FieldName to request.name,
+                    FieldTag to request.tag.name,
+                    FieldBirthdayIso to request.birthdayIso,
+                    FieldPhoneNumber to request.phoneNumber,
+                    FieldEmail to request.email,
+                    FieldInterests to request.interests,
+                    FieldNotes to request.notes,
+                    FieldPriority to request.priority.name,
+                    FieldUpdatedAtMillis to now
+                )
+            )
             .awaitCompletion()
     }
 
@@ -138,7 +151,7 @@ private fun DocumentSnapshot.toRelationshipProfile(defaultUserId: String): Relat
         id = getNullableString(FieldId) ?: id,
         userId = getNullableString(FieldUserId) ?: defaultUserId,
         name = name,
-        tag = getNullableString(FieldTag).toEnumOrNull<RelationshipTag>() ?: RelationshipTag.Friend,
+        tag = getNullableString(FieldTag).toRelationshipTagOrDefault(),
         birthdayIso = getNullableString(FieldBirthdayIso),
         phoneNumber = getNullableString(FieldPhoneNumber),
         email = getNullableString(FieldEmail),
@@ -182,30 +195,18 @@ private suspend fun Task<*>.awaitCompletion() {
     }
 }
 
-private suspend fun ensureFirestoreReachable() {
-    withContext(Dispatchers.IO) {
-        runCatching {
-            Socket().use { socket ->
-                socket.connect(
-                    InetSocketAddress(FirestoreHost, HttpsPort),
-                    ConnectionCheckTimeoutMillis
-                )
-            }
-        }.onFailure { throwable ->
-            throw FirebaseConnectionException(throwable)
-        }
-    }
-}
-
 private inline fun <reified T : Enum<T>> String?.toEnumOrNull(): T? =
     this?.let { value -> enumValues<T>().firstOrNull { enumValue -> enumValue.name == value } }
 
+private fun String?.toRelationshipTagOrDefault(): RelationshipTag {
+    return when (this) {
+        "Mentor" -> RelationshipTag.Other
+        else -> this.toEnumOrNull<RelationshipTag>() ?: RelationshipTag.Friend
+    }
+}
+
 private const val UsersCollection = "users"
 private const val RelationshipsCollection = "relationships"
-
-private const val FirestoreHost = "firestore.googleapis.com"
-private const val HttpsPort = 443
-private const val ConnectionCheckTimeoutMillis = 5_000
 
 private const val FieldId = "id"
 private const val FieldUserId = "userId"

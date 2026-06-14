@@ -6,7 +6,8 @@ import com.example.closenest.R
 import com.example.closenest.core.ui.theme.CloseNestAttention
 import com.example.closenest.core.ui.theme.CloseNestConnected
 import com.example.closenest.core.ui.theme.CloseNestWarm
-import java.time.Instant
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
 
 data class NotificationItem(
     val id: String,
@@ -20,7 +21,12 @@ data class NotificationItem(
     val createdAtMillis: Long,
     val expiresAtMillis: Long?,
     val actionLabel: String?,
-    val actionType: NotificationActionType?
+    val actionType: NotificationActionType?,
+    val dedupeKey: String? = null,
+    val scheduledAtMillis: Long? = null,
+    val completedAtMillis: Long? = null,
+    val sourceEntityId: String? = null,
+    val sourceEntityType: String? = null
 )
 
 data class NotificationSummary(
@@ -42,7 +48,8 @@ enum class NotificationType(
     BIRTHDAY(R.string.notification_type_birthday, CloseNestConnected),
     STREAK(R.string.notification_type_streak, CloseNestAttention),
     REFLECTION_REMINDER(R.string.notification_type_reflection_reminder, CloseNestWarm),
-    ENCOURAGEMENT(R.string.notification_type_encouragement, CloseNestConnected)
+    ENCOURAGEMENT(R.string.notification_type_encouragement, CloseNestConnected),
+    APPOINTMENT_REMINDER(R.string.notification_type_appointment_reminder, CloseNestWarm)
 }
 
 enum class NotificationStatus {
@@ -58,6 +65,7 @@ enum class NotificationActionType {
     LOG_MEMORY,
     REFLECT,
     VIEW_PROFILE,
+    VIEW_APPOINTMENT,
     MARK_READ,
     DISMISS
 }
@@ -66,4 +74,88 @@ enum class NotificationFilterType {
     ALL,
     UNREAD,
     TODAY
+}
+
+// ========== Extension Functions for Firestore Serialization ==========
+
+/**
+ * Converts NotificationItem to a Map for Firestore storage.
+ * Enums are stored as their String name.
+ * All fields including nullables are included.
+ */
+fun NotificationItem.toMap(): Map<String, Any?> = mapOf(
+    "id" to id,
+    "type" to type.name,
+    "status" to status.name,
+    "relationshipId" to relationshipId,
+    "relationshipName" to relationshipName,
+    "relationshipAvatarUrl" to relationshipAvatarUrl,
+    "title" to title,
+    "description" to description,
+    "createdAtMillis" to createdAtMillis,
+    "expiresAtMillis" to expiresAtMillis,
+    "actionLabel" to actionLabel,
+    "actionType" to actionType?.name,
+    "dedupeKey" to dedupeKey,
+    "scheduledAtMillis" to scheduledAtMillis,
+    "completedAtMillis" to completedAtMillis,
+    "sourceEntityId" to sourceEntityId,
+    "sourceEntityType" to sourceEntityType
+)
+
+/**
+ * Converts a Firestore DocumentSnapshot to a NotificationItem.
+ * Handles missing/null fields gracefully.
+ * Returns null if document doesn't contain essential fields.
+ */
+fun DocumentSnapshot.toNotificationItem(): NotificationItem? {
+    return try {
+        val notificationId = getString("id")?.takeIf { it.isNotBlank() } ?: id
+        val typeStr = getString("type") ?: return null
+        val statusStr = getString("status") ?: return null
+        val title = getString("title") ?: return null
+        val description = getString("description") ?: return null
+        val createdAtMillis = getMillis("createdAtMillis") ?: return null
+
+        val type = typeStr.toEnumOrNull<NotificationType>() ?: return null
+        val status = statusStr.toEnumOrNull<NotificationStatus>() ?: return null
+
+        val actionTypeStr = getString("actionType")
+        val actionType = actionTypeStr?.toEnumOrNull<NotificationActionType>()
+
+        NotificationItem(
+            id = notificationId,
+            type = type,
+            status = status,
+            relationshipId = getString("relationshipId"),
+            relationshipName = getString("relationshipName"),
+            relationshipAvatarUrl = getString("relationshipAvatarUrl"),
+            title = title,
+            description = description,
+            createdAtMillis = createdAtMillis,
+            expiresAtMillis = getMillis("expiresAtMillis"),
+            actionLabel = getString("actionLabel"),
+            actionType = actionType,
+            dedupeKey = getString("dedupeKey"),
+            scheduledAtMillis = getMillis("scheduledAtMillis"),
+            completedAtMillis = getMillis("completedAtMillis"),
+            sourceEntityId = getString("sourceEntityId"),
+            sourceEntityType = getString("sourceEntityType")
+        )
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun DocumentSnapshot.getMillis(field: String): Long? {
+    return when (val value = get(field)) {
+        is Number -> value.toLong()
+        is Timestamp -> value.toDate().time
+        else -> null
+    }
+}
+
+private inline fun <reified T : Enum<T>> String.toEnumOrNull(): T? {
+    val normalized = trim().replace("-", "_").uppercase()
+    return enumValues<T>().firstOrNull { it.name == normalized }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.closenest.features.homepage.repository.ReflectionRepositoryProvider
 import com.example.closenest.features.profile.model.ProfileUiState
 import com.example.closenest.features.profile.repository.ProfileRepository
 import com.example.closenest.features.profile.repository.ProfileRepositoryProvider
@@ -23,9 +24,14 @@ class ProfileViewModel(
     private val _showLogoutDialog = MutableStateFlow(false)
     val showLogoutDialog: StateFlow<Boolean> = _showLogoutDialog
 
+    private val _moodMap = MutableStateFlow(emptyList<com.example.closenest.features.homepage.model.MoodDayEntry>())
+
     // Account detail state management (editable fields)
     private data class AccountEditState(
         val showAccountDetail: Boolean = false,
+        val showSettingsDialog: Boolean = false,
+        val showUiCustomizationDialog: Boolean = false,
+        val showLanguageDialog: Boolean = false,
         val isEditingAccount: Boolean = false,
         val firstName: String = "",
         val lastName: String = "",
@@ -40,23 +46,46 @@ class ProfileViewModel(
     // Combine repository profile state with account edit state
     val uiState: StateFlow<ProfileUiState> = combine(
         repository.observeProfileUiState(),
-        _accountEditState
-    ) { profileState, accountEditState ->
+        _accountEditState,
+        _moodMap
+    ) { profileState, accountEditState, moodMap ->
         profileState.copy(
             showAccountDetail = accountEditState.showAccountDetail,
+            showSettingsDialog = accountEditState.showSettingsDialog,
+            showUiCustomizationDialog = accountEditState.showUiCustomizationDialog,
+            showLanguageDialog = accountEditState.showLanguageDialog,
             isEditingAccount = accountEditState.isEditingAccount,
             accountEditFirstName = accountEditState.firstName,
             accountEditLastName = accountEditState.lastName,
             accountEditEmail = accountEditState.email,
             accountEditPhone = accountEditState.phone,
             accountEditBirthdayIso = accountEditState.birthdayIso,
-            accountEditGender = accountEditState.gender
+            accountEditGender = accountEditState.gender,
+            moodMap = moodMap
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = ProfileUiState(isLoading = true)
     )
+
+    init {
+        loadMoodMap()
+        viewModelScope.launch {
+            repository.observeProfileUiState().collect {
+                loadMoodMap()
+            }
+        }
+    }
+
+    private fun loadMoodMap() {
+        viewModelScope.launch {
+            val result = ReflectionRepositoryProvider.repository.getRecentMoods(60)
+            result.onSuccess { entries ->
+                _moodMap.value = entries
+            }
+        }
+    }
 
     fun onMenuItemClicked(itemId: String) {
         when (itemId) {
@@ -67,13 +96,13 @@ class ProfileViewModel(
                 onShowAccountDetail()
             }
             "settings" -> {
-                // TODO: Navigate to settings
+                _accountEditState.update { it.copy(showSettingsDialog = true) }
             }
             "language" -> {
-                // TODO: Navigate to language selection
+                _accountEditState.update { it.copy(showLanguageDialog = true) }
             }
             "ui_customization" -> {
-                // TODO: Navigate to UI customization
+                _accountEditState.update { it.copy(showUiCustomizationDialog = true) }
             }
         }
     }
@@ -150,6 +179,18 @@ class ProfileViewModel(
 
     fun onBackFromAccountDetail() {
         _accountEditState.update { AccountEditState() }
+    }
+
+    fun onDismissLanguageDialog() {
+        _accountEditState.update { it.copy(showLanguageDialog = false) }
+    }
+
+    fun onDismissSettingsDialog() {
+        _accountEditState.update { it.copy(showSettingsDialog = false) }
+    }
+
+    fun onDismissUiCustomizationDialog() {
+        _accountEditState.update { it.copy(showUiCustomizationDialog = false) }
     }
 
     fun onConfirmLogout() {

@@ -2,6 +2,8 @@
 
 package com.example.closenest.features.relationships.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +32,7 @@ import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.PersonSearch
 import androidx.compose.material.icons.outlined.Phone
@@ -46,6 +50,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,6 +70,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -101,6 +107,7 @@ fun RelationshipsRoute(
 fun RelationshipDetailRoute(
     relationshipId: String,
     onNavigateBack: () -> Unit,
+    onEditRelationship: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RelationshipsViewModel = viewModel(factory = RelationshipsViewModel.Factory)
 ) {
@@ -117,6 +124,7 @@ fun RelationshipDetailRoute(
         uiState = uiState,
         relationship = relationship,
         onNavigateBack = onNavigateBack,
+        onEditRelationship = { onEditRelationship(relationshipId) },
         onDeleteRelationship = { viewModel.deleteRelationship(relationshipId) },
         modifier = modifier
     )
@@ -143,11 +151,10 @@ fun RelationshipsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            HeaderSection(onAddRelationship = onAddRelationship)
-        }
-
-        item {
-            SummaryCard(totalRelationships = uiState.totalRelationships)
+            HeaderSection(
+                totalRelationships = uiState.totalRelationships,
+                onAddRelationship = onAddRelationship
+            )
         }
 
         item {
@@ -160,9 +167,13 @@ fun RelationshipsScreen(
                 leadingIcon = {
                     Icon(Icons.Outlined.Search, contentDescription = null)
                 },
-                label = {
+                placeholder = {
                     Text(stringResource(R.string.relationship_search_label))
-                }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.onPrimary,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.onPrimary
+                )
             )
         }
 
@@ -233,10 +244,12 @@ private fun RelationshipDetailScreen(
     uiState: RelationshipsUiState,
     relationship: RelationshipListItem?,
     onNavigateBack: () -> Unit,
+    onEditRelationship: () -> Unit,
     onDeleteRelationship: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         modifier = modifier,
@@ -295,12 +308,18 @@ private fun RelationshipDetailScreen(
                             DetailRow(
                                 label = stringResource(R.string.relationship_detail_phone_label),
                                 value = relationship.phoneNumber,
-                                icon = Icons.Outlined.Phone
+                                icon = Icons.Outlined.Phone,
+                                onAction = relationship.phoneNumber?.takeIf { it.isNotBlank() }?.let {
+                                    { context.startActivity(Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:$it") }) }
+                                }
                             )
                             DetailRow(
                                 label = stringResource(R.string.relationship_detail_email_label),
                                 value = relationship.email,
-                                icon = Icons.Outlined.Email
+                                icon = Icons.Outlined.Email,
+                                onAction = relationship.email?.takeIf { it.isNotBlank() }?.let {
+                                    { context.startActivity(Intent(Intent.ACTION_SENDTO).apply { data = Uri.parse("mailto:"); putExtra(Intent.EXTRA_EMAIL, arrayOf(it)) }) }
+                                }
                             )
                             DetailRow(
                                 label = stringResource(R.string.relationship_detail_birthday_label),
@@ -332,15 +351,16 @@ private fun RelationshipDetailScreen(
                             DetailRow(
                                 label = stringResource(R.string.relationship_detail_notes_label),
                                 value = relationship.notes,
-                                icon = Icons.AutoMirrored.Outlined.Notes
+//                                icon = Icons.AutoMirrored.Outlined.Notes
                             )
                         }
                     }
 
                     item {
-                        DeleteRelationshipSection(
+                        ActionButtonsSection(
                             isDeleting = uiState.isDeletingRelationship,
                             errorMessageRes = uiState.deleteErrorMessageRes,
+                            onEditClick = onEditRelationship,
                             onDeleteClick = { showDeleteDialog = true }
                         )
                     }
@@ -396,6 +416,7 @@ private fun RelationshipDetailScreen(
 
 @Composable
 private fun HeaderSection(
+    totalRelationships: Int,
     onAddRelationship: () -> Unit
 ) {
     Column(
@@ -403,7 +424,7 @@ private fun HeaderSection(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = stringResource(R.string.relationships_title),
+            text = stringResource(R.string.relationships_title, totalRelationships),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground
         )
@@ -430,37 +451,6 @@ private fun HeaderSection(
 }
 
 @Composable
-private fun SummaryCard(
-    totalRelationships: Int
-) {
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.relationship_summary_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                text = pluralStringResource(
-                    id = R.plurals.relationship_summary_people,
-                    count = totalRelationships,
-                    totalRelationships
-                ),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-    }
-}
-
-@Composable
 private fun FilterChip(
     label: String,
     selected: Boolean,
@@ -476,7 +466,7 @@ private fun FilterChip(
             )
         } else {
             androidx.compose.material3.AssistChipDefaults.assistChipColors(
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = MaterialTheme.colorScheme.onPrimary,
                 labelColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -629,34 +619,47 @@ private fun DetailSection(
 }
 
 @Composable
-private fun DeleteRelationshipSection(
+private fun ActionButtonsSection(
     isDeleting: Boolean,
     errorMessageRes: Int?,
+    onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        errorMessageRes?.let { messageRes ->
+            Text(
+                text = stringResource(messageRes),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            errorMessageRes?.let { messageRes ->
-                Text(
-                    text = stringResource(messageRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error
+            FilledTonalButton(
+                onClick = onEditClick,
+                enabled = !isDeleting,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(vertical = 14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Edit,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
                 )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(R.string.relationship_edit_action))
             }
 
             Button(
                 onClick = onDeleteClick,
                 enabled = !isDeleting,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
@@ -668,7 +671,7 @@ private fun DeleteRelationshipSection(
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.size(8.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource(
                         if (isDeleting) {
@@ -687,7 +690,8 @@ private fun DeleteRelationshipSection(
 private fun DetailRow(
     label: String,
     value: String?,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onAction: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -702,7 +706,10 @@ private fun DetailRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelLarge,
@@ -714,6 +721,19 @@ private fun DetailRow(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
+        }
+        if (onAction != null) {
+            IconButton(
+                onClick = onAction,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = icon ?: Icons.Outlined.Phone,
+                    contentDescription = label,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }

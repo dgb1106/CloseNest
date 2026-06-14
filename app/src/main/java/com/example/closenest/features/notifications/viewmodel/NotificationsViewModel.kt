@@ -10,6 +10,8 @@ import com.example.closenest.features.notifications.model.NotificationFilterType
 import com.example.closenest.features.notifications.model.NotificationItem
 import com.example.closenest.features.notifications.model.NotificationStatus
 import com.example.closenest.features.notifications.model.NotificationSummary
+import com.example.closenest.features.notifications.model.isCreatedToday
+import com.example.closenest.features.notifications.model.startOfDayMillis
 import com.example.closenest.features.notifications.repository.NotificationRepository
 import com.example.closenest.features.notifications.repository.NotificationRepositoryProvider
 import com.example.closenest.features.recommendations.repository.RecommendationRepository
@@ -17,7 +19,9 @@ import com.example.closenest.features.recommendations.repository.RecommendationR
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -44,21 +48,41 @@ class NotificationsViewModel(
     init {
         refreshAiRecommendations()
     }
+    private val notificationResults = repository.observeNotifications()
+        .map { notifications ->
+            NotificationRepositoryResult(notifications = notifications)
+        }
+        .catch { throwable ->
+            emit(
+                NotificationRepositoryResult(
+                    errorMessage = throwable.localizedMessage
+                        ?: "Không thể đồng bộ thông báo từ máy chủ. Bạn thử lại sau nhé."
+                )
+            )
+        }
 
     // Combined UI state: repository notifications + local filter state + summary stats
     val uiState: StateFlow<NotificationsUiState> = combine(
-        repository.observeNotifications(),
-        repository.observeNotificationSummary(),
+        notificationResults,
         filters,
         selectedNotification
-    ) { notifications, summary, currentFilters, selected ->
-        val sortedNotifications = notifications.sortedByDescending { it.createdAtMillis }
+    ) { repositoryResult, currentFilters, selected ->
+        if (repositoryResult.errorMessage != null) {
+            return@combine NotificationsUiState(
+                isLoading = false,
+                selectedFilter = currentFilters.filterType,
+                errorMessage = repositoryResult.errorMessage,
+                selectedNotification = selected
+            )
+        }
+
+        val sortedNotifications = repositoryResult.notifications.sortedByDescending { it.createdAtMillis }
         val filteredNotifications = applyFilters(sortedNotifications, currentFilters)
 
         NotificationsUiState(
             isLoading = false,
             notifications = sortedNotifications,
-            summary = summary,
+            summary = sortedNotifications.toSummary(),
             selectedFilter = currentFilters.filterType,
             filteredNotifications = filteredNotifications,
             errorMessage = null,
@@ -89,12 +113,24 @@ class NotificationsViewModel(
 
     fun onNotificationDismiss(notificationId: String) {
         viewModelScope.launch {
-            repository.dismissNotification(notificationId)
+            repository.deleteNotification(notificationId)
         }
     }
 
     fun selectNotification(notification: NotificationItem) {
-        selectedNotification.value = notification
+        val shouldMarkAsRead =
+            notification.status == com.example.closenest.features.notifications.model.NotificationStatus.ACTIVE
+        selectedNotification.value = if (shouldMarkAsRead) {
+            notification.copy(status = com.example.closenest.features.notifications.model.NotificationStatus.READ)
+        } else {
+            notification
+        }
+
+        if (shouldMarkAsRead) {
+            viewModelScope.launch {
+                repository.markAsRead(notification.id)
+            }
+        }
     }
 
     fun deselectNotification() {
@@ -121,8 +157,7 @@ class NotificationsViewModel(
         notifications: List<NotificationItem>,
         filters: NotificationFilters
     ): List<NotificationItem> {
-        val now = System.currentTimeMillis()
-        val todayStart = now - (now % (24 * 60 * 60 * 1000))
+        val todayStart = startOfDayMillis()
 
         return when (filters.filterType) {
             NotificationFilterType.ALL -> notifications
@@ -130,7 +165,7 @@ class NotificationsViewModel(
                 it.status == NotificationStatus.ACTIVE
             }
             NotificationFilterType.TODAY -> notifications.filter {
-                it.createdAtMillis >= todayStart && it.status == NotificationStatus.ACTIVE
+                it.createdAtMillis >= todayStart
             }
         }
     }
@@ -154,3 +189,15 @@ private data class NotificationFilters(
 )
 
 private const val NotificationsLogTag = "CloseNestNotifications"
+private data class NotificationRepositoryResult(
+    val notifications: List<NotificationItem> = emptyList(),
+    val errorMessage: String? = null
+)
+
+private fun List<NotificationItem>.toSummary(): NotificationSummary {
+    return NotificationSummary(
+        totalCount = size,
+        unreadCount = count { it.status == NotificationStatus.ACTIVE },
+        todayCount = count { it.isCreatedToday() }
+    )
+}

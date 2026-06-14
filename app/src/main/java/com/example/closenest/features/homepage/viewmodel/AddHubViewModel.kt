@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.closenest.R
 import com.example.closenest.core.network.FirebaseConnectionException
+import com.example.closenest.features.homepage.model.AppointmentItem
 import com.example.closenest.features.homepage.model.NewAppointmentRequest
 import com.example.closenest.features.homepage.model.NewMemoryRequest
 import com.example.closenest.features.homepage.model.NewReflectionRequest
@@ -45,7 +46,8 @@ data class AddHubUiState(
     val selectedFeelings: Set<ReflectionFeeling> = emptySet(),
     val selectedSources: Set<ReflectionSource> = emptySet(),
     val isSavingReflection: Boolean = false,
-    val selectedMemoryContactId: String? = null,
+    val selectedMemoryContactIds: Set<String> = emptySet(),
+    val memoryContactQuery: String = "",
     val memoryTitle: String = "",
     val selectedMemoryType: MemoryType = MemoryType.Meetup,
     val memoryNote: String = "",
@@ -54,7 +56,8 @@ data class AddHubUiState(
     val memoryLocationLatitude: Double? = null,
     val memoryLocationLongitude: Double? = null,
     val isSavingMemory: Boolean = false,
-    val appointmentName: String = "",
+    val selectedAppointmentContactIds: Set<String> = emptySet(),
+    val appointmentContactQuery: String = "",
     val appointmentLocation: String = "",
     val appointmentLocationLatitude: Double? = null,
     val appointmentLocationLongitude: Double? = null,
@@ -62,7 +65,9 @@ data class AddHubUiState(
     val isAppointmentAllDay: Boolean = false,
     val appointmentTimeHour: Int? = null,
     val appointmentTimeMinute: Int? = null,
+    val appointmentNote: String = "",
     val isSavingAppointment: Boolean = false,
+    val savedAppointment: AppointmentItem? = null,
     @param:StringRes val contactsErrorMessageRes: Int? = null,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
     @param:StringRes val reflectionSavedMessageRes: Int? = null,
@@ -79,13 +84,20 @@ data class ReflectionContactListItem(
 
 enum class ReflectionMood(
     val storageValue: String,
-    @param:StringRes val labelRes: Int
+    @param:StringRes val labelRes: Int,
+    val drawableRes: Int,
+    val sliderValue: Float
 ) {
-    VeryUnpleasant("Rất khó chịu", R.string.add_reflection_mood_very_unpleasant),
-    Unpleasant("Khó chịu", R.string.add_reflection_mood_unpleasant),
-    Neutral("Bình thường", R.string.add_reflection_mood_neutral),
-    Pleasant("Dễ chịu", R.string.add_reflection_mood_pleasant),
-    VeryPleasant("Rất dễ chịu", R.string.add_reflection_mood_very_pleasant)
+    VeryUnpleasant("Rất khó chịu", R.string.add_reflection_mood_very_unpleasant, R.drawable.mood_very_unpleasant, 0f),
+    Unpleasant("Khó chịu", R.string.add_reflection_mood_unpleasant, R.drawable.mood_unpleasant, 0.25f),
+    Neutral("Bình thường", R.string.add_reflection_mood_neutral, R.drawable.mood_neutral, 0.5f),
+    Pleasant("Dễ chịu", R.string.add_reflection_mood_pleasant, R.drawable.mood_pleasant, 0.75f),
+    VeryPleasant("Rất dễ chịu", R.string.add_reflection_mood_very_pleasant, R.drawable.mood_very_pleasant, 1f);
+
+    companion object {
+        fun fromStorageValue(value: String): ReflectionMood? =
+            entries.find { it.storageValue == value }
+    }
 }
 
 val ReflectionMoodOptions = listOf(
@@ -95,6 +107,14 @@ val ReflectionMoodOptions = listOf(
     ReflectionMood.Pleasant,
     ReflectionMood.VeryPleasant
 )
+
+fun sliderValueToMood(value: Float): ReflectionMood = when {
+    value < 0.125f -> ReflectionMood.VeryUnpleasant
+    value < 0.375f -> ReflectionMood.Unpleasant
+    value < 0.625f -> ReflectionMood.Neutral
+    value < 0.875f -> ReflectionMood.Pleasant
+    else -> ReflectionMood.VeryPleasant
+}
 
 enum class ReflectionFeeling(
     val storageValue: String,
@@ -180,8 +200,7 @@ class AddHubViewModel(
     ) { result, draft ->
         val visibleContactIds = result.contacts.map { contact -> contact.id }.toSet()
         val selectedContactIds = draft.selectedContactIds.intersect(visibleContactIds)
-        val selectedMemoryContactId = draft.selectedMemoryContactId
-            ?.takeIf { contactId -> contactId in visibleContactIds }
+        val selectedMemoryContactIds = draft.selectedMemoryContactIds.intersect(visibleContactIds)
 
         AddHubUiState(
             isLoadingContacts = false,
@@ -191,7 +210,8 @@ class AddHubViewModel(
             selectedFeelings = draft.selectedFeelings,
             selectedSources = draft.selectedSources,
             isSavingReflection = draft.isSavingReflection,
-            selectedMemoryContactId = selectedMemoryContactId,
+            selectedMemoryContactIds = selectedMemoryContactIds,
+            memoryContactQuery = draft.memoryContactQuery,
             memoryTitle = draft.memoryTitle,
             selectedMemoryType = draft.selectedMemoryType,
             memoryNote = draft.memoryNote,
@@ -200,7 +220,8 @@ class AddHubViewModel(
             memoryLocationLatitude = draft.memoryLocationLatitude,
             memoryLocationLongitude = draft.memoryLocationLongitude,
             isSavingMemory = draft.isSavingMemory,
-            appointmentName = draft.appointmentName,
+            selectedAppointmentContactIds = draft.selectedAppointmentContactIds.intersect(visibleContactIds),
+            appointmentContactQuery = draft.appointmentContactQuery,
             appointmentLocation = draft.appointmentLocation,
             appointmentLocationLatitude = draft.appointmentLocationLatitude,
             appointmentLocationLongitude = draft.appointmentLocationLongitude,
@@ -208,7 +229,9 @@ class AddHubViewModel(
             isAppointmentAllDay = draft.isAppointmentAllDay,
             appointmentTimeHour = draft.appointmentTimeHour,
             appointmentTimeMinute = draft.appointmentTimeMinute,
+            appointmentNote = draft.appointmentNote,
             isSavingAppointment = draft.isSavingAppointment,
+            savedAppointment = draft.savedAppointment,
             contactsErrorMessageRes = result.errorMessageRes,
             reflectionErrorMessageRes = draft.reflectionErrorMessageRes,
             reflectionSavedMessageRes = draft.reflectionSavedMessageRes,
@@ -345,10 +368,20 @@ class AddHubViewModel(
         }
     }
 
-    fun onMemoryContactSelected(contactId: String) {
+    fun onMemoryContactToggled(contactId: String) {
         addHubDraft.update { current ->
             current.copy(
-                selectedMemoryContactId = contactId,
+                selectedMemoryContactIds = current.selectedMemoryContactIds.toggle(contactId),
+                memoryErrorMessageRes = null,
+                memorySavedMessageRes = null
+            )
+        }
+    }
+
+    fun onMemoryContactQueryChanged(query: String) {
+        addHubDraft.update { current ->
+            current.copy(
+                memoryContactQuery = query,
                 memoryErrorMessageRes = null,
                 memorySavedMessageRes = null
             )
@@ -427,12 +460,12 @@ class AddHubViewModel(
         val currentState = uiState.value
         if (currentState.isSavingMemory) return
 
-        val selectedContact = currentState.contacts
-            .firstOrNull { contact -> contact.id == currentState.selectedMemoryContactId }
+        val selectedContacts = currentState.contacts
+            .filter { contact -> contact.id in currentState.selectedMemoryContactIds }
         val title = currentState.memoryTitle.trim()
 
         val validationErrorRes = when {
-            selectedContact == null -> R.string.add_interaction_contact_required
+            selectedContacts.isEmpty() -> R.string.add_interaction_contact_required
             title.isBlank() -> R.string.add_memory_title_required
             else -> null
         }
@@ -458,25 +491,29 @@ class AddHubViewModel(
 
             runCatching {
                 withTimeout(SaveTimeoutMillis) {
-                    memoryRepository.addMemory(
-                        NewMemoryRequest(
-                            contactId = selectedContact!!.id,
-                            contactName = selectedContact.name,
-                            title = title,
-                            type = currentState.selectedMemoryType.storageValue,
-                            note = currentState.memoryNote.trim().takeIf { it.isNotEmpty() },
-                            photoUri = currentState.memoryPhotoUri,
-                            location = currentState.memoryLocation.trim().takeIf { it.isNotEmpty() },
-                            locationLatitude = currentState.memoryLocationLatitude,
-                            locationLongitude = currentState.memoryLocationLongitude,
-                            createdAtMillis = System.currentTimeMillis()
+                    val createdAtMillis = System.currentTimeMillis()
+                    selectedContacts.forEach { selectedContact ->
+                        memoryRepository.addMemory(
+                            NewMemoryRequest(
+                                contactId = selectedContact.id,
+                                contactName = selectedContact.name,
+                                title = title,
+                                type = currentState.selectedMemoryType.storageValue,
+                                note = currentState.memoryNote.trim().takeIf { it.isNotEmpty() },
+                                photoUri = currentState.memoryPhotoUri,
+                                location = currentState.memoryLocation.trim().takeIf { it.isNotEmpty() },
+                                locationLatitude = currentState.memoryLocationLatitude,
+                                locationLongitude = currentState.memoryLocationLongitude,
+                                createdAtMillis = createdAtMillis
+                            )
                         )
-                    )
+                    }
                 }
             }.onSuccess {
                 addHubDraft.update { current ->
                         current.copy(
-                            selectedMemoryContactId = null,
+                            selectedMemoryContactIds = emptySet(),
+                            memoryContactQuery = "",
                             memoryTitle = "",
                             selectedMemoryType = MemoryType.Meetup,
                             memoryNote = "",
@@ -510,10 +547,20 @@ class AddHubViewModel(
         }
     }
 
-    fun onAppointmentNameChanged(name: String) {
+    fun onAppointmentContactToggled(contactId: String) {
         addHubDraft.update { current ->
             current.copy(
-                appointmentName = name,
+                selectedAppointmentContactIds = current.selectedAppointmentContactIds.toggle(contactId),
+                appointmentErrorMessageRes = null,
+                appointmentSavedMessageRes = null
+            )
+        }
+    }
+
+    fun onAppointmentContactQueryChanged(query: String) {
+        addHubDraft.update { current ->
+            current.copy(
+                appointmentContactQuery = query,
                 appointmentErrorMessageRes = null,
                 appointmentSavedMessageRes = null
             )
@@ -570,6 +617,16 @@ class AddHubViewModel(
         }
     }
 
+    fun onAppointmentNoteChanged(note: String) {
+        addHubDraft.update { current ->
+            current.copy(
+                appointmentNote = note,
+                appointmentErrorMessageRes = null,
+                appointmentSavedMessageRes = null
+            )
+        }
+    }
+
     fun onAppointmentTimeSelected(hour: Int, minute: Int) {
         addHubDraft.update { current ->
             current.copy(
@@ -585,7 +642,9 @@ class AddHubViewModel(
         val currentState = uiState.value
         if (currentState.isSavingAppointment) return
 
-        val name = currentState.appointmentName.trim()
+        val selectedContacts = currentState.contacts
+            .filter { contact -> contact.id in currentState.selectedAppointmentContactIds }
+        val name = selectedContacts.joinToString(separator = ", ") { it.name }
         val location = currentState.appointmentLocation.trim()
         val locationLatitude = currentState.appointmentLocationLatitude
         val locationLongitude = currentState.appointmentLocationLongitude
@@ -595,7 +654,7 @@ class AddHubViewModel(
         val minute = currentState.appointmentTimeMinute
 
         val validationErrorRes = when {
-            name.isEmpty() -> R.string.add_appointment_name_required
+            selectedContacts.isEmpty() -> R.string.add_appointment_name_required
             location.isEmpty() -> R.string.add_appointment_location_required
             locationLatitude == null || locationLongitude == null ->
                 R.string.add_appointment_location_select_required
@@ -629,6 +688,7 @@ class AddHubViewModel(
             addHubDraft.update { current ->
                 current.copy(
                     isSavingAppointment = true,
+                    savedAppointment = null,
                     appointmentErrorMessageRes = null,
                     appointmentSavedMessageRes = null
                 )
@@ -636,21 +696,26 @@ class AddHubViewModel(
 
             runCatching {
                 withTimeout(SaveTimeoutMillis) {
-                    appointmentRepository.addAppointment(
+                    val savedAppointment = appointmentRepository.addAppointment(
                         NewAppointmentRequest(
                             name = name,
+                            participantContactIds = selectedContacts.map { it.id },
+                            participantContactNames = selectedContacts.map { it.name },
                             location = location,
                             locationLatitude = selectedLocationLatitude,
                             locationLongitude = selectedLocationLongitude,
                             appointmentDateMillis = appointmentDateMillis,
+                            note = currentState.appointmentNote.trim().takeIf { it.isNotEmpty() },
                             createdAtMillis = System.currentTimeMillis()
                         )
                     )
+                    savedAppointment
                 }
             }.onSuccess {
                 addHubDraft.update { current ->
                     current.copy(
-                        appointmentName = "",
+                        selectedAppointmentContactIds = emptySet(),
+                        appointmentContactQuery = "",
                         appointmentLocation = "",
                         appointmentLocationLatitude = null,
                         appointmentLocationLongitude = null,
@@ -658,7 +723,9 @@ class AddHubViewModel(
                         isAppointmentAllDay = false,
                         appointmentTimeHour = null,
                         appointmentTimeMinute = null,
+                        appointmentNote = "",
                         isSavingAppointment = false,
+                        savedAppointment = it,
                         appointmentErrorMessageRes = null,
                         appointmentSavedMessageRes = R.string.add_appointment_saved
                     )
@@ -680,7 +747,8 @@ class AddHubViewModel(
             current.copy(
                 reflectionSavedMessageRes = null,
                 memorySavedMessageRes = null,
-                appointmentSavedMessageRes = null
+                appointmentSavedMessageRes = null,
+                savedAppointment = null
             )
         }
     }
@@ -707,7 +775,8 @@ private data class AddHubDraft(
     val selectedFeelings: Set<ReflectionFeeling> = emptySet(),
     val selectedSources: Set<ReflectionSource> = emptySet(),
     val isSavingReflection: Boolean = false,
-    val selectedMemoryContactId: String? = null,
+    val selectedMemoryContactIds: Set<String> = emptySet(),
+    val memoryContactQuery: String = "",
     val memoryTitle: String = "",
     val selectedMemoryType: MemoryType = MemoryType.Meetup,
     val memoryNote: String = "",
@@ -716,7 +785,8 @@ private data class AddHubDraft(
     val memoryLocationLatitude: Double? = null,
     val memoryLocationLongitude: Double? = null,
     val isSavingMemory: Boolean = false,
-    val appointmentName: String = "",
+    val selectedAppointmentContactIds: Set<String> = emptySet(),
+    val appointmentContactQuery: String = "",
     val appointmentLocation: String = "",
     val appointmentLocationLatitude: Double? = null,
     val appointmentLocationLongitude: Double? = null,
@@ -724,7 +794,9 @@ private data class AddHubDraft(
     val isAppointmentAllDay: Boolean = false,
     val appointmentTimeHour: Int? = null,
     val appointmentTimeMinute: Int? = null,
+    val appointmentNote: String = "",
     val isSavingAppointment: Boolean = false,
+    val savedAppointment: AppointmentItem? = null,
     @param:StringRes val reflectionErrorMessageRes: Int? = null,
     @param:StringRes val reflectionSavedMessageRes: Int? = null,
     @param:StringRes val memoryErrorMessageRes: Int? = null,

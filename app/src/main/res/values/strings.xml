@@ -1,4 +1,4 @@
-<resources>
+﻿<resources>
     <string name="app_name">CloseNest</string>
     <string name="common_saved_title">Đã lưu</string>
 
@@ -42,16 +42,16 @@
     <string name="chatbot_unknown_error">Có lỗi khi trò chuyện. Bạn thử lại một lần nữa nhé.</string>
     <string name="chatbot_delete_error">Không thể xoá cuộc trò chuyện lúc này. Bạn thử lại sau nhé.</string>
 
-    <string name="relationships_title">Danh bạ của bạn</string>
+    <string name="relationships_title">Danh bạ của bạn (%1$d)</string>
     <string name="relationships_subtitle">Lưu lại những người quan trọng cùng thông tin liên hệ cần thiết.</string>
     <string name="relationship_add_person">Thêm người mới</string>
     <string name="relationship_summary_title">Tổng quan danh bạ</string>
-    <string name="relationship_search_label">Tìm theo tên, thư điện tử hoặc số điện thoại</string>
+    <string name="relationship_search_label">Tìm theo tên, email hoặc số điện thoại</string>
     <string name="relationship_card_meta">%1$s · %2$s</string>
     <string name="relationships_empty_title">Chưa có ai trong danh bạ thân quen</string>
     <string name="relationships_empty_body">Bạn có thể bắt đầu thật tối giản: chỉ cần tên và nhóm quan hệ là đủ để lưu lại.</string>
     <string name="relationships_empty_filtered_title">Không thấy kết quả phù hợp</string>
-    <string name="relationships_empty_filtered_body">Thử bỏ bộ lọc hoặc tìm bằng thư điện tử, số điện thoại để thấy đủ hơn.</string>
+    <string name="relationships_empty_filtered_body">Thử bỏ bộ lọc hoặc tìm bằng email, số điện thoại để thấy đủ hơn.</string>
     <string name="relationships_reset_filters">Xóa bộ lọc</string>
     <string name="relationships_sync_error">Không thể đồng bộ danh bạ từ máy chủ. Bạn thử lại sau nhé.</string>
     <string name="relationship_detail_title">Chi tiết liên hệ</string>
@@ -68,6 +68,8 @@
     <string name="relationship_detail_interests_label">Sở thích</string>
     <string name="relationship_detail_notes_label">Ghi chú</string>
     <string name="relationship_detail_empty_value">Chưa có thông tin</string>
+    <string name="relationship_edit_action">Sửa thông tin</string>
+    <string name="relationship_edit_saving">Đang lưu thay đổi…</string>
     <string name="relationship_delete_action">Xoá người dùng</string>
     <string name="relationship_delete_saving">Đang xoá…</string>
     <string name="relationship_delete_confirm_title">Xác nhận xoá</string>
@@ -84,7 +86,6 @@
     <string name="relationship_tag_close_friend">Bạn thân</string>
     <string name="relationship_tag_classmate">Bạn học</string>
     <string name="relationship_tag_coworker">Đồng nghiệp</string>
-    <string name="relationship_tag_mentor">Người hướng dẫn</string>
     <string name="relationship_tag_partner">Người yêu</string>
     <string name="relationship_tag_other">Khác</string>
 
@@ -112,14 +113,14 @@
     <string name="add_relationship_priority_label">Mức độ thân thiết</string>
     <string name="add_relationship_interests_label">Sở thích</string>
     <string name="add_relationship_interests_hint">Ngăn cách nhiều sở thích bằng dấu phẩy.</string>
-    <string name="add_relationship_notes_label">Ghi chú nhẹ</string>
+    <string name="add_relationship_notes_label">Ghi chú khác</string>
     <string name="add_relationship_connection_error">Không kết nối được máy chủ. Bạn kiểm tra mạng của thiết bị rồi thử lại nhé.</string>
     <string name="add_relationship_permission_error">Máy chủ chưa cho phép lưu danh bạ. Bạn kiểm tra quyền ghi dữ liệu rồi thử lại nhé.</string>
     <string name="add_relationship_save_timeout">Máy chủ phản hồi quá lâu. Bạn kiểm tra mạng rồi thử lại nhé.</string>
     <string name="add_relationship_unknown_error">Có lỗi nhỏ khi lưu. Bạn thử lại một lần nữa nhé.</string>
 
     <string name="add_hub_relationship_title">Thêm người mới</string>
-    <string name="add_hub_relationship_body">Lưu hồ sơ một mối quan hệ mới với lượng thông tin tối thiểu.</string>
+    <string name="add_hub_relationship_body">Thêm một mối quan hệ vào trong danh bạ thân thiết của bạn</string>
     <string name="add_reflection_title">Suy ngẫm hôm nay</string>
     <string name="add_reflection_body">Chọn những người bạn đã tương tác hôm nay, rồi ghi lại cảm xúc của mình.</string>
     <string name="add_reflection_contact_title">Bạn đã gặp hoặc trò chuyện với ai?</string>
@@ -161,12 +162,15 @@
     <string name="add_reflection_source_classmate">Bạn học</string>
 
     <string name="add_interaction_title">Lưu kỷ niệm</string>
-    <string name="add_interaction_body">Ghi lại một lần gặp mặt hoặc hỗ trợ để theo dõi nhịp kết nối.</string>
+    <string name="add_interaction_body">Ghi lại một kỷ niệm của bạn với những người thân</string>
     <string name="add_interaction_open">Lưu kỷ niệm</string>
     <string name="add_interaction_screen_title">Lưu kỷ niệm</string>
     <string name="add_interaction_contact_title">Bạn đã có kỷ niệm với ai?</string>
     <string name="add_interaction_empty_contacts">Danh bạ đang trống. Hãy thêm người mới trước khi lưu kỷ niệm.</string>
-    <string name="add_interaction_contact_required">Hãy chọn một người để lưu kỷ niệm.</string>
+    <string name="add_interaction_contact_required">Hãy chọn ít nhất một người để lưu kỷ niệm.</string>
+    <string name="add_interaction_selected_count">Đã chọn %1$d người</string>
+    <string name="add_interaction_search_hint">Tìm theo tên người có kỷ niệm</string>
+    <string name="add_interaction_all_contacts">Danh sách bạn</string>
     <string name="add_interaction_type_question">Kỷ niệm này thuộc loại nào?</string>
     <string name="add_interaction_note_label">Ghi chú ngắn</string>
     <string name="add_interaction_note_hint">Ví dụ: hẹn cà phê cuối tuần, hỗ trợ làm bài hoặc gặp ở câu lạc bộ.</string>
@@ -194,10 +198,15 @@
     <string name="add_interaction_type_other">Khác</string>
 
     <string name="add_appointment_title">Tạo cuộc hẹn mới</string>
-    <string name="add_appointment_body">Nhập tên người hẹn trước, rồi thêm địa điểm và chọn ngày tháng năm.</string>
+    <string name="add_appointment_body">Chúng tôi sẽ giúp bạn theo dõi các cuộc hẹn một cách dễ dàng</string>
     <string name="add_appointment_open">Tạo cuộc hẹn</string>
     <string name="add_appointment_screen_title">Tạo cuộc hẹn mới</string>
-    <string name="add_appointment_name_label">Tên người hẹn</string>
+    <string name="add_appointment_name_label">Người hẹn</string>
+    <string name="add_appointment_pick_manual">Chọn thủ công</string>
+    <string name="add_appointment_pick_search">Tìm rồi chọn</string>
+    <string name="add_appointment_selected_count">Đã chọn %1$d người</string>
+    <string name="add_appointment_search_hint">Tìm theo tên người hẹn</string>
+    <string name="add_appointment_all_contacts">Danh sách bạn</string>
     <string name="add_appointment_location_label">Địa điểm hẹn</string>
     <string name="add_appointment_location_hint">Gõ rồi chọn địa điểm từ danh sách gợi ý.</string>
     <string name="add_appointment_date_label">Ngày hẹn</string>
@@ -207,10 +216,12 @@
     <string name="add_appointment_all_day">Cả ngày</string>
     <string name="add_appointment_pick_time">Chọn giờ</string>
     <string name="add_appointment_time_confirm">Chọn giờ</string>
+    <string name="add_appointment_hour_label">Giờ</string>
+    <string name="add_appointment_minute_label">Phút</string>
     <string name="add_appointment_done">Lưu cuộc hẹn</string>
     <string name="add_appointment_saving">Đang lưu cuộc hẹn</string>
     <string name="add_appointment_saved">Đã tạo cuộc hẹn mới.</string>
-    <string name="add_appointment_name_required">Hãy nhập tên người hẹn.</string>
+    <string name="add_appointment_name_required">Hãy chọn ít nhất một người hẹn.</string>
     <string name="add_appointment_location_required">Hãy nhập địa điểm hẹn.</string>
     <string name="add_appointment_location_select_required">Hãy chọn địa điểm từ danh sách gợi ý.</string>
     <string name="add_appointment_date_required">Hãy chọn ngày hẹn.</string>
@@ -219,6 +230,24 @@
     <string name="add_appointment_permission_error">Máy chủ chưa cho phép lưu cuộc hẹn. Bạn kiểm tra quyền ghi dữ liệu rồi thử lại nhé.</string>
     <string name="add_appointment_save_timeout">Máy chủ phản hồi quá lâu. Bạn kiểm tra mạng rồi thử lại nhé.</string>
     <string name="add_appointment_save_error">Không thể lưu cuộc hẹn lúc này. Bạn thử lại sau nhé.</string>
+    <string name="appointment_navigate">Chỉ đường</string>
+    <string name="appointment_contact">Liên hệ</string>
+    <string name="appointment_cancel">Hủy cuộc hẹn</string>
+    <string name="appointment_cancel_confirm_title">Xác nhận hủy cuộc hẹn</string>
+    <string name="appointment_cancel_confirm_body">Bạn chắc chắn muốn hủy cuộc hẹn \"%1$s\" không?</string>
+    <string name="appointment_cancel_confirm_action">Hủy cuộc hẹn</string>
+    <string name="appointment_cancel_success">Đã hủy cuộc hẹn.</string>
+    <string name="appointment_cancel_error">Không thể hủy cuộc hẹn lúc này. Bạn thử lại sau nhé.</string>
+    <string name="appointment_contact_sheet_title">Liên hệ người hẹn</string>
+    <string name="appointment_contact_call">Gọi điện</string>
+    <string name="appointment_contact_email">Gửi email</string>
+    <string name="appointment_contact_no_phone">%1$s chưa có số điện thoại trong danh bạ.</string>
+    <string name="appointment_contact_no_email">%1$s chưa có địa chỉ email trong danh bạ.</string>
+    <string name="appointment_contact_select_person">Chọn người muốn liên hệ</string>
+
+    <string name="add_appointment_note_label">Nội dung cuộc hẹn</string>
+    <string name="add_appointment_note_hint">Thêm ghi chú cho cuộc hẹn (không bắt buộc)</string>
+    <string name="action_clear_text">Xóa nội dung vừa nhập</string>
 
     <string name="notifications_placeholder_title">Thông báo dịu nhẹ</string>
     <string name="notifications_placeholder_body">Phần thông báo sẽ được hoàn thiện ở các phiên bản sau.</string>
@@ -239,10 +268,27 @@
     <string name="profile_menu_language">Ngôn ngữ</string>
     <string name="profile_menu_ui_customization">Tùy chỉnh giao diện</string>
     <string name="profile_menu_logout">Đăng xuất</string>
+    <string name="profile_language_current_value">Tiếng Việt</string>
+    <string name="profile_language_dialog_title">Ngôn ngữ hiện tại</string>
+    <string name="profile_language_dialog_message">Ứng dụng hiện đang hỗ trợ một lựa chọn duy nhất là Tiếng Việt.</string>
+    <string name="profile_language_dialog_dismiss">Đóng</string>
+    <string name="profile_settings_dialog_title">Cài đặt và quyền riêng tư</string>
+    <string name="profile_settings_dialog_message">Mục này đang được hoàn thiện. Các lựa chọn giao diện đã được chuyển sang phần Tùy chỉnh giao diện.</string>
+    <string name="profile_settings_dialog_dismiss">Đóng</string>
+    <string name="profile_ui_customization_dialog_title">Tùy chỉnh giao diện</string>
+    <string name="profile_ui_customization_dialog_message">Chọn cách hiển thị giao diện cho toàn bộ ứng dụng.</string>
+    <string name="profile_ui_customization_dialog_dismiss">Xong</string>
+    <string name="profile_theme_mode_light">Sáng</string>
+    <string name="profile_theme_mode_light_description">Luôn dùng giao diện sáng.</string>
+    <string name="profile_theme_mode_dark">Tối</string>
+    <string name="profile_theme_mode_dark_description">Luôn dùng giao diện tối.</string>
+    <string name="profile_theme_mode_system">Theo hệ thống</string>
+    <string name="profile_theme_mode_system_description">Tự động theo cài đặt sáng tối của thiết bị.</string>
 
     <!-- Profile Sections -->
     <string name="profile_relationships_section">Danh bạ của bạn</string>
     <string name="profile_streak_label">chuỗi!</string>
+    <string name="profile_mood_heatmap_title">Bản đồ cảm xúc</string>
 
     <!-- Profile Logout Confirmation -->
     <string name="profile_logout_confirm_title">Xác nhận đăng xuất</string>
@@ -292,6 +338,7 @@
     <string name="notification_type_streak">Chuỗi liên tiếp</string>
     <string name="notification_type_reflection_reminder">Nhắc nhở suy ngẫm</string>
     <string name="notification_type_encouragement">Cổ vũ</string>
+    <string name="notification_type_appointment_reminder">Nhắc cuộc hẹn</string>
 
     <!-- Notification Actions -->
     <string name="notification_action_dismiss">Tắt</string>
@@ -302,6 +349,15 @@
     <string name="notification_action_send_gift">Gửi quà</string>
     <string name="notification_action_log">Ghi lại</string>
     <string name="notification_action_reflect">Suy ngẫm</string>
+    <string name="notification_action_view_appointment">Xem cuộc hẹn</string>
+
+    <!-- Appointment Reminder Notifications -->
+    <string name="appointment_reminder_channel_name">Nhắc cuộc hẹn</string>
+    <string name="appointment_reminder_channel_description">Nhắc các cuộc hẹn do bạn tạo trong CloseNest.</string>
+    <string name="appointment_reminder_day_before_title">Ngày mai bạn có hẹn với %1$s</string>
+    <string name="appointment_reminder_day_before_body">Cuộc hẹn tại %1$s bắt đầu lúc %2$s.</string>
+    <string name="appointment_reminder_upcoming_title">Sắp đến giờ hẹn với %1$s</string>
+    <string name="appointment_reminder_upcoming_body">%1$s tại %2$s. Hy vọng bạn sẽ có những khoảnh khắc ý nghĩa.</string>
 
     <!-- Notification Detail Screen -->
     <string name="common_close">Đóng</string>

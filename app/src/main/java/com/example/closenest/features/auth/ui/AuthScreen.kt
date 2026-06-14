@@ -26,10 +26,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +64,7 @@ fun AuthScreen(
     message: String,
     isLoading: Boolean,
     onLogin: (String, String) -> Unit,
+    onDismissMessage: () -> Unit,
     onNavigateToRegister: () -> Unit,
     onGoogleLoginClick: (String) -> Unit
 ) {
@@ -73,6 +76,23 @@ fun AuthScreen(
     val registerAnnotatedString = buildRegisterAnnotatedString()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    if (message.isNotBlank()) {
+        AlertDialog(
+            onDismissRequest = onDismissMessage,
+            confirmButton = {
+                TextButton(onClick = onDismissMessage) {
+                    Text(text = "OK")
+                }
+            },
+            title = {
+                Text(text = "Th\u00f4ng b\u00e1o")
+            },
+            text = {
+                Text(text = message)
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -289,6 +309,7 @@ fun AuthScreenPreview() {
             message = "",
             isLoading = false,
             onLogin = { _, _ -> },
+            onDismissMessage = {},
             onNavigateToRegister = {},
             onGoogleLoginClick = { _ -> }
         )
@@ -303,8 +324,10 @@ fun AuthScreenLoadingPreview() {
             message = "",
             isLoading = true,
             onLogin = { _, _ -> },
+            onDismissMessage = {},
             onNavigateToRegister = {},
             onGoogleLoginClick = { _ -> }
         )
     }
 }
+

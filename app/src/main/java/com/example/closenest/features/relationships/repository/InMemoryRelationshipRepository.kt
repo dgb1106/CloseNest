@@ -45,6 +45,29 @@ class InMemoryRelationshipRepository : RelationshipRepository {
         }
     }
 
+    override suspend fun updateRelationship(relationshipId: String, request: NewRelationshipRequest) {
+        relationships.update { current ->
+            current.map { relationship ->
+                if (relationship.id == relationshipId) {
+                    val now = System.currentTimeMillis()
+                    relationship.copy(
+                        name = request.name,
+                        tag = request.tag,
+                        birthdayIso = request.birthdayIso,
+                        phoneNumber = request.phoneNumber,
+                        email = request.email,
+                        interests = request.interests,
+                        notes = request.notes,
+                        priority = request.priority,
+                        updatedAtMillis = now
+                    )
+                } else {
+                    relationship
+                }
+            }
+        }
+    }
+
     private fun seedRelationships(): List<RelationshipProfile> {
         val now = System.currentTimeMillis()
         return listOf(

@@ -34,6 +34,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,6 +43,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -58,8 +61,11 @@ import com.example.closenest.features.relationships.viewmodel.AddRelationshipVie
 @Composable
 fun AddRelationshipRoute(
     onNavigateBack: () -> Unit,
+    editRelationshipId: String? = null,
     modifier: Modifier = Modifier,
-    viewModel: AddRelationshipViewModel = viewModel(factory = AddRelationshipViewModel.Factory)
+    viewModel: AddRelationshipViewModel = viewModel(
+        factory = AddRelationshipViewModel.factory(editRelationshipId)
+    )
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -71,6 +77,7 @@ fun AddRelationshipRoute(
 
     AddRelationshipScreen(
         uiState = uiState,
+        isEditMode = viewModel.isEditMode,
         onNavigateBack = onNavigateBack,
         onNameChanged = viewModel::onNameChanged,
         onTagChanged = viewModel::onTagChanged,
@@ -81,6 +88,7 @@ fun AddRelationshipRoute(
         onNotesChanged = viewModel::onNotesChanged,
         onPriorityChanged = viewModel::onPriorityChanged,
         onToggleMoreDetails = viewModel::onToggleMoreDetails,
+        onErrorMessageShown = viewModel::clearErrorMessage,
         onSave = viewModel::saveRelationship,
         modifier = modifier
     )
@@ -89,6 +97,7 @@ fun AddRelationshipRoute(
 @Composable
 fun AddRelationshipScreen(
     uiState: AddRelationshipUiState,
+    isEditMode: Boolean = false,
     onNavigateBack: () -> Unit,
     onNameChanged: (String) -> Unit,
     onTagChanged: (RelationshipTag) -> Unit,
@@ -99,16 +108,37 @@ fun AddRelationshipScreen(
     onNotesChanged: (String) -> Unit,
     onPriorityChanged: (RelationshipPriority) -> Unit,
     onToggleMoreDetails: () -> Unit,
+    onErrorMessageShown: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorMessage = uiState.errorMessageRes?.let { stringResource(it) }
+
+    LaunchedEffect(errorMessage) {
+        if (!errorMessage.isNullOrBlank()) {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(errorMessage)
+            onErrorMessageShown()
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        },
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = stringResource(R.string.add_relationship_title))
+                    Text(text = stringResource(
+                        if (isEditMode) {
+                            R.string.relationship_edit_action
+                        } else {
+                            R.string.add_relationship_title
+                        }
+                    ))
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -124,7 +154,7 @@ fun AddRelationshipScreen(
             Surface(
                 shadowElevation = 8.dp,
                 tonalElevation = 8.dp,
-                color = MaterialTheme.colorScheme.surface
+                color = MaterialTheme.colorScheme.onPrimary
             ) {
                 Column(
                     modifier = Modifier
@@ -133,14 +163,6 @@ fun AddRelationshipScreen(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    uiState.errorMessageRes?.let { messageRes ->
-                        Text(
-                            text = stringResource(messageRes),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-
                     Button(
                         onClick = onSave,
                         modifier = Modifier.fillMaxWidth(),
@@ -170,10 +192,6 @@ fun AddRelationshipScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                IntroCard()
-            }
-
-            item {
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface
@@ -183,22 +201,20 @@ fun AddRelationshipScreen(
                         modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        OutlinedTextField(
-                            value = uiState.name,
-                            onValueChange = onNameChanged,
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            shape = RoundedCornerShape(18.dp),
-                            isError = uiState.nameError,
-                            label = {
-                                Text(text = stringResource(R.string.add_relationship_name_label))
-                            },
-                            supportingText = {
-                                if (uiState.nameError) {
-                                    Text(text = stringResource(R.string.add_relationship_name_error))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FieldTitle(text = stringResource(R.string.add_relationship_name_label))
+                            OutlinedTextField(
+                                value = uiState.name,
+                                onValueChange = onNameChanged,
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(18.dp),
+                                isError = uiState.nameError,
+                                placeholder = {
+                                    Text(text = stringResource(R.string.add_relationship_name_label))
                                 }
-                            }
-                        )
+                            )
+                        }
 
                         RelationshipGroupPicker(
                             selectedTag = uiState.selectedTag,
@@ -289,94 +305,92 @@ private fun MoreDetailsForm(
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        OutlinedTextField(
-            value = uiState.phoneNumber,
-            onValueChange = onPhoneNumberChanged,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = RoundedCornerShape(18.dp),
-            label = {
-                Text(text = stringResource(R.string.add_relationship_phone_label))
-            },
-            supportingText = {
-                Text(text = " ")
-            }
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FieldTitle(text = stringResource(R.string.add_relationship_phone_label))
+            OutlinedTextField(
+                value = uiState.phoneNumber,
+                onValueChange = onPhoneNumberChanged,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(18.dp),
+                placeholder = {
+                    Text(text = stringResource(R.string.add_relationship_phone_label))
+                }
+            )
+        }
 
-        OutlinedTextField(
-            value = uiState.email,
-            onValueChange = onEmailChanged,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = RoundedCornerShape(18.dp),
-            isError = uiState.emailError,
-            label = {
-                Text(text = stringResource(R.string.add_relationship_email_label))
-            },
-            supportingText = {
-                Text(
-                    text = if (uiState.emailError) {
-                        stringResource(R.string.add_relationship_email_error)
-                    } else {
-                        " "
-                    }
-                )
-            }
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FieldTitle(text = stringResource(R.string.add_relationship_email_label))
+            OutlinedTextField(
+                value = uiState.email,
+                onValueChange = onEmailChanged,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(18.dp),
+                isError = uiState.emailError,
+                placeholder = {
+                    Text(text = stringResource(R.string.add_relationship_email_label))
+                }
+            )
+        }
 
-        OutlinedTextField(
-            value = uiState.birthday,
-            onValueChange = onBirthdayChanged,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = RoundedCornerShape(18.dp),
-            isError = uiState.birthdayError,
-            label = {
-                Text(text = stringResource(R.string.add_relationship_birthday_label))
-            },
-            supportingText = {
-                Text(
-                    text = stringResource(
-                        if (uiState.birthdayError) {
-                            R.string.add_relationship_birthday_error
-                        } else {
-                            R.string.add_relationship_birthday_hint
-                        }
-                    )
-                )
-            }
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FieldTitle(text = stringResource(R.string.add_relationship_birthday_label))
+            OutlinedTextField(
+                value = uiState.birthday,
+                onValueChange = onBirthdayChanged,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(18.dp),
+                isError = uiState.birthdayError,
+                placeholder = {
+                    Text(text = stringResource(R.string.add_relationship_birthday_label))
+                }
+            )
+        }
 
         RelationshipPriorityPicker(
             selectedPriority = uiState.priority,
             onPriorityChanged = onPriorityChanged
         )
 
-        OutlinedTextField(
-            value = uiState.interests,
-            onValueChange = onInterestsChanged,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            label = {
-                Text(text = stringResource(R.string.add_relationship_interests_label))
-            },
-            supportingText = {
-                Text(text = stringResource(R.string.add_relationship_interests_hint))
-            }
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FieldTitle(text = stringResource(R.string.add_relationship_interests_label))
+            OutlinedTextField(
+                value = uiState.interests,
+                onValueChange = onInterestsChanged,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                placeholder = {
+                    Text(text = stringResource(R.string.add_relationship_interests_label))
+                }
+            )
+        }
 
-        OutlinedTextField(
-            value = uiState.notes,
-            onValueChange = onNotesChanged,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(130.dp),
-            shape = RoundedCornerShape(18.dp),
-            label = {
-                Text(text = stringResource(R.string.add_relationship_notes_label))
-            }
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FieldTitle(text = stringResource(R.string.add_relationship_notes_label))
+            OutlinedTextField(
+                value = uiState.notes,
+                onValueChange = onNotesChanged,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp),
+                shape = RoundedCornerShape(18.dp),
+                placeholder = {
+                    Text(text = stringResource(R.string.add_relationship_notes_label))
+                }
+            )
+        }
     }
+}
+
+@Composable
+private fun FieldTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface
+    )
 }
 
 @Composable
@@ -417,31 +431,6 @@ private fun RelationshipPriorityPicker(
 }
 
 @Composable
-private fun IntroCard() {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.add_relationship_intro_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                text = stringResource(R.string.add_relationship_intro_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-    }
-}
-
-@Composable
 private fun SelectChip(
     label: String,
     selected: Boolean,
@@ -470,6 +459,7 @@ private fun AddRelationshipScreenPreview() {
     AppTheme {
         AddRelationshipScreen(
             uiState = AddRelationshipUiState(showMoreDetails = true),
+            isEditMode = false,
             onNavigateBack = {},
             onNameChanged = {},
             onTagChanged = {},
@@ -480,6 +470,7 @@ private fun AddRelationshipScreenPreview() {
             onNotesChanged = {},
             onPriorityChanged = {},
             onToggleMoreDetails = {},
+            onErrorMessageShown = {},
             onSave = {}
         )
     }

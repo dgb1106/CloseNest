@@ -1,11 +1,13 @@
 package com.example.closenest.features.notifications.repository
 
+import com.example.closenest.core.notification.AppointmentReminderKind
+import com.example.closenest.core.notification.appointmentReminderDedupeKey
 import com.example.closenest.features.notifications.model.NotificationActionType
-import com.example.closenest.features.notifications.model.NotificationFilterType
 import com.example.closenest.features.notifications.model.NotificationItem
 import com.example.closenest.features.notifications.model.NotificationStatus
 import com.example.closenest.features.notifications.model.NotificationSummary
 import com.example.closenest.features.notifications.model.NotificationType
+import com.example.closenest.features.notifications.model.isCreatedToday
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,19 +22,32 @@ class InMemoryNotificationRepository : NotificationRepository {
 
     override fun observeNotificationSummary(): Flow<NotificationSummary> =
         notifications.map { notificationList ->
-            val now = System.currentTimeMillis()
-            val todayStart = now - (now % (24 * 60 * 60 * 1000))
-
             NotificationSummary(
                 totalCount = notificationList.size,
                 unreadCount = notificationList.count { it.status == NotificationStatus.ACTIVE },
-                todayCount =
-                    notificationList.count {
-                        it.createdAtMillis >= todayStart &&
-                            it.status == NotificationStatus.ACTIVE
-                    }
+                todayCount = notificationList.count { it.isCreatedToday() }
             )
         }
+
+    override suspend fun upsertNotification(notification: NotificationItem, userId: String?) {
+        val notificationId = notification.dedupeKey?.takeIf { it.isNotBlank() } ?: notification.id
+        notifications.update { current ->
+            val existing = current.firstOrNull { it.id == notificationId }
+            val notificationToSave = notification.copy(
+                id = notificationId,
+                status = existing?.status ?: notification.status,
+                createdAtMillis = existing?.createdAtMillis ?: notification.createdAtMillis,
+                completedAtMillis = existing?.completedAtMillis ?: notification.completedAtMillis
+            )
+            if (existing == null) {
+                current + notificationToSave
+            } else {
+                current.map { item ->
+                    if (item.id == notificationId) notificationToSave else item
+                }
+            }
+        }
+    }
 
     override suspend fun markAsRead(notificationId: String) {
         notifications.update { current ->
@@ -65,6 +80,15 @@ class InMemoryNotificationRepository : NotificationRepository {
     override suspend fun deleteNotification(notificationId: String) {
         notifications.update { current ->
             current.filter { it.id != notificationId }
+        }
+    }
+
+    override suspend fun deleteAppointmentReminderNotifications(appointmentId: String) {
+        val ids = AppointmentReminderKind.entries
+            .map { kind -> appointmentReminderDedupeKey(appointmentId, kind) }
+            .toSet()
+        notifications.update { current ->
+            current.filter { it.id !in ids }
         }
     }
 
@@ -174,8 +198,4 @@ class InMemoryNotificationRepository : NotificationRepository {
 
     private val Int.hoursInMillis: Long
         get() = this * 60L * 60L * 1_000L
-}
-
-object NotificationRepositoryProvider {
-    val repository: NotificationRepository by lazy { InMemoryNotificationRepository() }
 }

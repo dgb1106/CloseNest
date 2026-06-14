@@ -6,24 +6,31 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import android.location.Address
 import android.location.Geocoder
 import android.location.Location
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -32,9 +39,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,6 +52,7 @@ import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Place
@@ -66,19 +75,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -89,13 +98,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -104,6 +117,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.closenest.R
+import com.example.closenest.core.notification.AppointmentReminderScheduler
 import com.example.closenest.core.ui.theme.AppTheme
 import com.example.closenest.features.homepage.viewmodel.AddHubUiState
 import com.example.closenest.features.homepage.viewmodel.AddHubViewModel
@@ -115,6 +129,7 @@ import com.example.closenest.features.homepage.viewmodel.ReflectionFeelingOption
 import com.example.closenest.features.homepage.viewmodel.ReflectionMood
 import com.example.closenest.features.homepage.viewmodel.ReflectionMoodOptions
 import com.example.closenest.features.homepage.viewmodel.ReflectionSource
+import com.example.closenest.features.homepage.viewmodel.sliderValueToMood
 import com.example.closenest.features.homepage.viewmodel.ReflectionSourceOptions
 import com.example.closenest.core.network.PlacesApiClient
 import com.google.android.gms.location.LocationServices
@@ -239,7 +254,8 @@ fun MemoryRoute(
     MemoryScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
-        onContactSelected = viewModel::onMemoryContactSelected,
+        onContactToggled = viewModel::onMemoryContactToggled,
+        onContactQueryChanged = viewModel::onMemoryContactQueryChanged,
         onTitleChanged = viewModel::onMemoryTitleChanged,
         onTypeSelected = viewModel::onMemoryTypeSelected,
         onNoteChanged = viewModel::onMemoryNoteChanged,
@@ -299,9 +315,14 @@ fun AppointmentRoute(
     viewModel: AddHubViewModel = viewModel(factory = AddHubViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
-    LaunchedEffect(uiState.appointmentSavedMessageRes) {
-        if (uiState.appointmentSavedMessageRes != null) {
+    LaunchedEffect(uiState.savedAppointment) {
+        uiState.savedAppointment?.let { appointment ->
+            AppointmentReminderScheduler.scheduleAppointmentReminders(
+                context = context,
+                appointment = appointment
+            )
             onNavigateBack()
         }
     }
@@ -309,12 +330,14 @@ fun AppointmentRoute(
     AppointmentScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
-        onNameChanged = viewModel::onAppointmentNameChanged,
+        onContactToggled = viewModel::onAppointmentContactToggled,
+        onContactQueryChanged = viewModel::onAppointmentContactQueryChanged,
         onLocationChanged = viewModel::onAppointmentLocationChanged,
         onLocationSelected = viewModel::onAppointmentLocationSelected,
         onDateSelected = viewModel::onAppointmentDateSelected,
         onAllDayToggled = viewModel::onAppointmentAllDayToggled,
         onTimeSelected = viewModel::onAppointmentTimeSelected,
+        onNoteChanged = viewModel::onAppointmentNoteChanged,
         onSave = viewModel::saveAppointment,
         modifier = modifier
     )
@@ -411,18 +434,20 @@ fun AddHubScreen(
 fun AppointmentScreen(
     uiState: AddHubUiState,
     onNavigateBack: () -> Unit,
-    onNameChanged: (String) -> Unit,
+    onContactToggled: (String) -> Unit,
+    onContactQueryChanged: (String) -> Unit,
     onLocationChanged: (String) -> Unit,
     onLocationSelected: (String, Double, Double) -> Unit,
     onDateSelected: (Long) -> Unit,
     onAllDayToggled: (Boolean) -> Unit,
     onTimeSelected: (Int, Int) -> Unit,
+    onNoteChanged: (String) -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
-    val appointmentNameEntered = uiState.appointmentName.isNotBlank()
+    val appointmentContactsSelected = uiState.selectedAppointmentContactIds.isNotEmpty()
     val appointmentLocationSelected = uiState.appointmentLocationLatitude != null &&
         uiState.appointmentLocationLongitude != null
 
@@ -449,7 +474,7 @@ fun AppointmentScreen(
                 savingLabelRes = R.string.add_appointment_saving,
                 saveLabelRes = R.string.add_appointment_done,
                 enabled = !uiState.isSavingAppointment &&
-                    uiState.appointmentName.isNotBlank() &&
+                    appointmentContactsSelected &&
                     uiState.appointmentLocation.isNotBlank() &&
                     appointmentLocationSelected &&
                     uiState.appointmentDateMillis != null &&
@@ -472,73 +497,92 @@ fun AppointmentScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle(text = stringResource(R.string.add_appointment_name_label))
-                    AppointmentNameField(
-                        value = uiState.appointmentName,
+                    AppointmentSelectedContactsSummary(
+                        contacts = uiState.contacts.filter { it.id in uiState.selectedAppointmentContactIds },
+                        onContactToggled = onContactToggled
+                    )
+                    AppointmentContactPicker(
+                        query = uiState.appointmentContactQuery,
                         contacts = uiState.contacts,
-                        onValueChange = onNameChanged
+                        selectedContactIds = uiState.selectedAppointmentContactIds,
+                        onQueryChanged = onContactQueryChanged,
+                        onContactToggled = onContactToggled
                     )
                 }
             }
 
-            if (appointmentNameEntered) {
-                item {
-                    LocationSection(
-                        location = uiState.appointmentLocation,
-                        onLocationChanged = onLocationChanged,
-                        onLocationSelected = onLocationSelected,
-                        context = LocalContext.current
-                    )
-                }
+            item {
+                LocationSection(
+                    location = uiState.appointmentLocation,
+                    onLocationChanged = onLocationChanged,
+                    onLocationSelected = onLocationSelected,
+                    context = LocalContext.current
+                )
+            }
 
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SectionTitle(text = stringResource(R.string.add_appointment_date_label))
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionTitle(text = stringResource(R.string.add_appointment_date_label))
+                    FilledTonalButton(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 14.dp)
+                    ) {
+                        Text(
+                            text = uiState.appointmentDateMillis?.let { dateMillis ->
+                                formatAppointmentDate(dateMillis)
+                            } ?: stringResource(R.string.add_appointment_pick_date)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SectionTitle(text = stringResource(R.string.add_appointment_all_day))
+                        Switch(
+                            checked = uiState.isAppointmentAllDay,
+                            onCheckedChange = onAllDayToggled
+                        )
+                    }
+
+                    if (!uiState.isAppointmentAllDay) {
+                        SectionTitle(text = stringResource(R.string.add_appointment_time_label))
                         FilledTonalButton(
-                            onClick = { showDatePicker = true },
+                            onClick = { showTimePicker = true },
                             modifier = Modifier.fillMaxWidth(),
                             contentPadding = PaddingValues(vertical = 14.dp)
                         ) {
                             Text(
-                                text = uiState.appointmentDateMillis?.let { dateMillis ->
-                                    formatAppointmentDate(dateMillis)
-                                } ?: stringResource(R.string.add_appointment_pick_date)
+                                text = if (uiState.appointmentTimeHour != null &&
+                                    uiState.appointmentTimeMinute != null
+                                ) {
+                                    formatAppointmentTime(
+                                        hour = uiState.appointmentTimeHour,
+                                        minute = uiState.appointmentTimeMinute
+                                    )
+                                } else {
+                                    stringResource(R.string.add_appointment_pick_time)
+                                }
                             )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            SectionTitle(text = stringResource(R.string.add_appointment_all_day))
-                            Switch(
-                                checked = uiState.isAppointmentAllDay,
-                                onCheckedChange = onAllDayToggled
-                            )
-                        }
-
-                        if (!uiState.isAppointmentAllDay) {
-                            SectionTitle(text = stringResource(R.string.add_appointment_time_label))
-                            FilledTonalButton(
-                                onClick = { showTimePicker = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(vertical = 14.dp)
-                            ) {
-                                Text(
-                                    text = if (uiState.appointmentTimeHour != null &&
-                                        uiState.appointmentTimeMinute != null
-                                    ) {
-                                        formatAppointmentTime(
-                                            hour = uiState.appointmentTimeHour,
-                                            minute = uiState.appointmentTimeMinute
-                                        )
-                                    } else {
-                                        stringResource(R.string.add_appointment_pick_time)
-                                    }
-                                )
-                            }
                         }
                     }
+                }
+            }
+
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SectionTitle(text = stringResource(R.string.add_appointment_note_label))
+                    OutlinedTextField(
+                        value = uiState.appointmentNote,
+                        onValueChange = onNoteChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        placeholder = {
+                            Text(text = stringResource(R.string.add_appointment_note_hint))
+                        }
+                    )
                 }
             }
         }
@@ -565,69 +609,6 @@ fun AppointmentScreen(
             },
             onDismiss = { showTimePicker = false }
         )
-    }
-}
-
-@Composable
-private fun AppointmentNameField(
-    value: String,
-    contacts: List<ReflectionContactListItem>,
-    onValueChange: (String) -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf(false) }
-    val query = value.trim()
-    val suggestions = remember(query, contacts) {
-        if (query.isEmpty()) {
-            emptyList()
-        } else {
-            contacts
-                .filter { contact -> contact.name.contains(query, ignoreCase = true) }
-                .take(5)
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = { newValue ->
-                onValueChange(newValue)
-                expanded = newValue.isNotBlank()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    isFocused = focusState.isFocused
-                    expanded = focusState.isFocused && suggestions.isNotEmpty()
-                },
-            singleLine = true,
-            shape = RoundedCornerShape(18.dp),
-            placeholder = {
-                Text(text = stringResource(R.string.add_appointment_name_label))
-            }
-        )
-
-        DropdownMenu(
-            expanded = expanded && isFocused && suggestions.isNotEmpty(),
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            suggestions.forEach { contact ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = contact.name,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    onClick = {
-                        onValueChange(contact.name)
-                        expanded = false
-                    }
-                )
-            }
-        }
     }
 }
 
@@ -821,11 +802,197 @@ private fun AppointmentDatePickerDialog(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AppointmentSelectedContactsSummary(
+    contacts: List<ReflectionContactListItem>,
+    onContactToggled: (String) -> Unit
+) {
+    if (contacts.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.add_appointment_selected_count, contacts.size),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            contacts.forEach { contact ->
+                MultiSelectChip(
+                    label = contact.name,
+                    selected = true,
+                    onClick = { onContactToggled(contact.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppointmentContactPicker(
+    query: String,
+    contacts: List<ReflectionContactListItem>,
+    selectedContactIds: Set<String>,
+    onQueryChanged: (String) -> Unit,
+    onContactToggled: (String) -> Unit
+) {
+    val normalizedQuery = query.trim()
+    val visibleContacts = remember(normalizedQuery, contacts) {
+        if (normalizedQuery.isBlank()) {
+            contacts
+        } else {
+            val matchingContacts = contacts.filter {
+                it.name.contains(normalizedQuery, ignoreCase = true)
+            }
+            val remainingContacts = contacts.filterNot { contact ->
+                contact.name.contains(normalizedQuery, ignoreCase = true)
+            }
+            matchingContacts + remainingContacts
+        }
+    }
+
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChanged,
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        shape = RoundedCornerShape(18.dp),
+        placeholder = {
+            Text(text = stringResource(R.string.add_appointment_search_hint))
+        }
+    )
+
+    when {
+        contacts.isEmpty() -> {
+            Text(
+                text = stringResource(R.string.add_interaction_empty_contacts),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+
+        else -> {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (normalizedQuery.isNotBlank() && visibleContacts.none {
+                        it.name.contains(normalizedQuery, ignoreCase = true)
+                    }) {
+                    Text(
+                        text = stringResource(R.string.relationships_empty_filtered_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                SectionTitle(text = stringResource(R.string.add_appointment_all_contacts))
+                visibleContacts.forEach { contact ->
+                    ContactCheckboxRow(
+                        contact = contact,
+                        checked = contact.id in selectedContactIds,
+                        onContactToggled = onContactToggled
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MemorySelectedContactsSummary(
+    contacts: List<ReflectionContactListItem>,
+    onContactToggled: (String) -> Unit
+) {
+    if (contacts.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.add_interaction_selected_count, contacts.size),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            contacts.forEach { contact ->
+                MultiSelectChip(
+                    label = contact.name,
+                    selected = true,
+                    onClick = { onContactToggled(contact.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MemoryContactPicker(
+    query: String,
+    contacts: List<ReflectionContactListItem>,
+    selectedContactIds: Set<String>,
+    onQueryChanged: (String) -> Unit,
+    onContactToggled: (String) -> Unit
+) {
+    val normalizedQuery = query.trim()
+    val visibleContacts = remember(normalizedQuery, contacts) {
+        if (normalizedQuery.isBlank()) {
+            contacts
+        } else {
+            val matchingContacts = contacts.filter {
+                it.name.contains(normalizedQuery, ignoreCase = true)
+            }
+            val remainingContacts = contacts.filterNot { contact ->
+                contact.name.contains(normalizedQuery, ignoreCase = true)
+            }
+            matchingContacts + remainingContacts
+        }
+    }
+
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChanged,
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        shape = RoundedCornerShape(18.dp),
+        placeholder = {
+            Text(text = stringResource(R.string.add_interaction_search_hint))
+        }
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (normalizedQuery.isNotBlank() && visibleContacts.none {
+                it.name.contains(normalizedQuery, ignoreCase = true)
+            }) {
+            Text(
+                text = stringResource(R.string.relationships_empty_filtered_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        SectionTitle(text = stringResource(R.string.add_interaction_all_contacts))
+        visibleContacts.forEach { contact ->
+            ContactCheckboxRow(
+                contact = contact,
+                checked = contact.id in selectedContactIds,
+                onContactToggled = onContactToggled
+            )
+        }
+    }
+}
+
 @Composable
 fun MemoryScreen(
     uiState: AddHubUiState,
     onNavigateBack: () -> Unit,
-    onContactSelected: (String) -> Unit,
+    onContactToggled: (String) -> Unit,
+    onContactQueryChanged: (String) -> Unit,
     onTitleChanged: (String) -> Unit,
     onTypeSelected: (MemoryType) -> Unit,
     onNoteChanged: (String) -> Unit,
@@ -901,17 +1068,20 @@ fun MemoryScreen(
 
                 else -> {
                     item {
-                        SectionTitle(text = stringResource(R.string.add_interaction_contact_title))
-                    }
-                    items(
-                        items = uiState.contacts,
-                        key = { contact -> contact.id }
-                    ) { contact ->
-                        ContactRadioRow(
-                            contact = contact,
-                            selected = contact.id == uiState.selectedMemoryContactId,
-                            onContactSelected = onContactSelected
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SectionTitle(text = stringResource(R.string.add_interaction_contact_title))
+                            MemorySelectedContactsSummary(
+                                contacts = uiState.contacts.filter { it.id in uiState.selectedMemoryContactIds },
+                                onContactToggled = onContactToggled
+                            )
+                            MemoryContactPicker(
+                                query = uiState.memoryContactQuery,
+                                contacts = uiState.contacts,
+                                selectedContactIds = uiState.selectedMemoryContactIds,
+                                onQueryChanged = onContactQueryChanged,
+                                onContactToggled = onContactToggled
+                            )
+                        }
                     }
                 }
             }
@@ -981,33 +1151,291 @@ private fun AppointmentTimePickerDialog(
     onTimeSelected: (Int, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val calendar = remember {
-        Calendar.getInstance()
+    val calendar = remember { Calendar.getInstance() }
+    var hour by rememberSaveable {
+        mutableStateOf(selectedHour ?: calendar.get(Calendar.HOUR_OF_DAY))
     }
-    val timePickerState = rememberTimePickerState(
-        initialHour = selectedHour ?: calendar.get(Calendar.HOUR_OF_DAY),
-        initialMinute = selectedMinute ?: calendar.get(Calendar.MINUTE),
-        is24Hour = true
-    )
+    var minute by rememberSaveable {
+        mutableStateOf(selectedMinute ?: calendar.get(Calendar.MINUTE))
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(24.dp),
+        title = {
+            Text(
+                text = stringResource(R.string.add_appointment_time_label),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        },
         confirmButton = {
-            TextButton(
-                onClick = { onTimeSelected(timePickerState.hour, timePickerState.minute) }
+            Button(
+                onClick = { onTimeSelected(hour, minute) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(vertical = 14.dp)
             ) {
-                Text(text = stringResource(R.string.add_appointment_time_confirm))
+                Text(
+                    text = stringResource(R.string.add_appointment_time_confirm),
+                    style = MaterialTheme.typography.titleSmall
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(text = stringResource(R.string.profile_logout_cancel_button))
             }
         },
         text = {
-            TimePicker(state = timePickerState)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                val selectedTimeLabel = String.format("%02d:%02d", hour, minute)
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = selectedTimeLabel,
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.add_appointment_hour_label),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "",
+                        modifier = Modifier.weight(0.3f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.add_appointment_minute_label),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        AppointmentWheel(
+                            value = hour,
+                            range = 0..23,
+                            onValueChange = { hour = it }
+                        )
+                    }
+                    Text(
+                        text = ":",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Light,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(0.3f),
+                        textAlign = TextAlign.Center
+                    )
+                    Box(modifier = Modifier.weight(1f)) {
+                        AppointmentWheel(
+                            value = minute,
+                            range = 0..59,
+                            onValueChange = { minute = it }
+                        )
+                    }
+                }
+            }
         }
     )
+}
+
+@Composable
+private fun AppointmentWheel(
+    value: Int,
+    range: IntRange,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val values = remember(range) { range.toList() }
+    val visibleItemsCount = 5
+    val centerItemIndex = visibleItemsCount / 2
+    val itemHeight = 44.dp
+    val itemHeightPx = with(LocalDensity.current) { itemHeight.roundToPx() }
+    val coroutineScope = rememberCoroutineScope()
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = values.indexOf(value).coerceAtLeast(0)
+    )
+    val centeredValue by remember(listState, values) {
+        derivedStateOf {
+            values[calculateCenteredIndex(listState, values.lastIndex, itemHeightPx)]
+        }
+    }
+
+    LaunchedEffect(centeredValue) {
+        if (centeredValue != value) {
+            onValueChange(centeredValue)
+        }
+    }
+
+    LaunchedEffect(value) {
+        val targetIndex = values.indexOf(value).coerceAtLeast(0)
+        val currentIndex = calculateCenteredIndex(listState, values.lastIndex, itemHeightPx)
+        if (currentIndex != targetIndex && !listState.isScrollInProgress) {
+            listState.scrollToItem(targetIndex)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(itemHeight * visibleItemsCount),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(itemHeight)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(12.dp)
+                )
+        )
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
+            contentPadding = PaddingValues(vertical = itemHeight * centerItemIndex),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            items(values.size) { index ->
+                val itemValue = values[index]
+                val isSelected = itemValue == centeredValue
+                val distanceFromCenter = kotlin.math.abs(index - values.indexOf(centeredValue))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(itemHeight)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            if (listState.firstVisibleItemIndex != index ||
+                                listState.firstVisibleItemScrollOffset != 0
+                            ) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(index)
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "%02d".format(itemValue),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = when {
+                            isSelected -> MaterialTheme.colorScheme.primary
+                            distanceFromCenter == 1 -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            distanceFromCenter == 2 -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                        },
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip
+                    )
+                }
+            }
+        }
+
+        Box(modifier = Modifier.matchParentSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surface,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(itemHeight)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                    MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        )
+                )
+            }
+        }
+    }
+}
+
+private fun calculateCenteredIndex(
+    listState: LazyListState,
+    lastIndex: Int,
+    itemHeightPx: Int
+): Int {
+    val offsetThreshold = itemHeightPx / 2
+    val centeredIndex = if (listState.firstVisibleItemScrollOffset >= offsetThreshold) {
+        listState.firstVisibleItemIndex + 1
+    } else {
+        listState.firstVisibleItemIndex
+    }
+    return centeredIndex.coerceIn(0, lastIndex)
 }
 
 @Composable
@@ -1101,11 +1529,12 @@ private fun LocationSection(
     var isSearching by remember { mutableStateOf(false) }
     var showDropdown by remember { mutableStateOf(false) }
     var isFocused by remember { mutableStateOf(false) }
+    var stopAutoSearchUntilUserTypes by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(query) {
         Log.d(tag, "query='$query' focused=$isFocused")
-        if (query.isBlank() || !isFocused) {
+        if (query.isBlank() || !isFocused || stopAutoSearchUntilUserTypes) {
             suggestions = emptyList()
             showDropdown = false
             Log.d(tag, "skip suggest blankOrNoFocus showDropdown=false")
@@ -1147,6 +1576,7 @@ private fun LocationSection(
                     TextField(
                         value = query,
                         onValueChange = { newValue ->
+                            stopAutoSearchUntilUserTypes = false
                             query = newValue
                             onLocationChanged(newValue)
                             showDropdown = newValue.isNotBlank() && isFocused
@@ -1178,6 +1608,24 @@ private fun LocationSection(
                             strokeWidth = 2.dp
                         )
                     }
+                    if (query.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                query = ""
+                                onLocationChanged("")
+                                suggestions = emptyList()
+                                showDropdown = false
+                                stopAutoSearchUntilUserTypes = true
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = stringResource(R.string.action_clear_text),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
 
                 Box(
@@ -1194,6 +1642,9 @@ private fun LocationSection(
                         .clickable {
                             coroutineScope.launch {
                                 context.findCurrentReadableLocation()?.let { (label, latitude, longitude) ->
+                                    stopAutoSearchUntilUserTypes = true
+                                    suggestions = emptyList()
+                                    showDropdown = false
                                     query = label
                                     onLocationSelected(label, latitude, longitude)
                                 }
@@ -1236,8 +1687,12 @@ private fun LocationSection(
                             }
                         },
                         onClick = {
-                            val fullAddress = suggestion.fullAddress.ifBlank { suggestion.placeFormatted }
-                            query = fullAddress
+                            val locationLabel = suggestion.name.ifBlank {
+                                suggestion.placeFormatted.ifBlank { suggestion.fullAddress }
+                            }
+                            stopAutoSearchUntilUserTypes = true
+                            suggestions = emptyList()
+                            query = locationLabel
                             showDropdown = false
                             Log.d(tag, "click suggestion name='${suggestion.name}' mapboxId='${suggestion.mapboxId}'")
                             coroutineScope.launch {
@@ -1248,10 +1703,10 @@ private fun LocationSection(
                                 )
                                 if (result != null) {
                                     Log.d(tag, "retrieve lat=${result.latitude} lon=${result.longitude}")
-                                    onLocationSelected(result.fullAddress, result.latitude, result.longitude)
+                                    onLocationSelected(locationLabel, result.latitude, result.longitude)
                                 } else {
                                     Log.e(tag, "retrieve null for mapboxId='${suggestion.mapboxId}'")
-                                    onLocationChanged(fullAddress)
+                                    onLocationChanged(locationLabel)
                                 }
                             }
                         }
@@ -1521,59 +1976,44 @@ private fun ContactCheckboxRow(
 }
 
 @Composable
-private fun ContactRadioRow(
-    contact: ReflectionContactListItem,
-    selected: Boolean,
-    onContactSelected: (String) -> Unit
-) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .selectable(
-                    selected = selected,
-                    role = Role.RadioButton,
-                    onClick = { onContactSelected(contact.id) }
-                )
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = contact.name,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            RadioButton(
-                selected = selected,
-                onClick = null
-            )
-        }
-    }
-}
-
-@Composable
 private fun MoodSection(
     selectedMood: ReflectionMood,
     onMoodSelected: (ReflectionMood) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle(text = stringResource(R.string.add_reflection_mood_question))
-        ChipRows(options = ReflectionMoodOptions) { mood, chipModifier ->
-            SelectChip(
-                label = stringResource(mood.labelRes),
-                selected = selectedMood == mood,
-                onClick = { onMoodSelected(mood) },
-                modifier = chipModifier
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Image(
+                painter = painterResource(selectedMood.drawableRes),
+                contentDescription = stringResource(selectedMood.labelRes),
+                modifier = Modifier
+                    .size(120.dp)
+                    .padding(bottom = 4.dp)
+            )
+
+            Text(
+                text = stringResource(selectedMood.labelRes),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
+
+        Slider(
+            value = selectedMood.sliderValue,
+            onValueChange = { onMoodSelected(sliderValueToMood(it)) },
+            steps = 3,
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        )
     }
 }
 
@@ -1818,14 +2258,28 @@ private suspend fun Context.reverseGeocode(location: Location): String? =
             null
         }.orEmpty()
 
-        addresses.firstOrNull()?.let { address ->
-            buildList {
-                for (index in 0..address.maxAddressLineIndex) {
-                    address.getAddressLine(index)?.takeIf { it.isNotBlank() }?.let(::add)
-                }
-            }.joinToString(", ").takeIf { it.isNotBlank() }
-        }
+        addresses.firstOrNull()?.toPreferredLocationLabel()
     }
+
+private fun Address.toPreferredLocationLabel(): String? {
+    val preferredName = listOf(
+        featureName,
+        premises,
+        thoroughfare,
+        subLocality,
+        locality
+    ).firstOrNull { !it.isNullOrBlank() }?.trim()
+
+    if (!preferredName.isNullOrBlank()) {
+        return preferredName
+    }
+
+    return buildList {
+        for (index in 0..maxAddressLineIndex) {
+            getAddressLine(index)?.takeIf { it.isNotBlank() }?.let(::add)
+        }
+    }.joinToString(", ").takeIf { it.isNotBlank() }
+}
 
 private suspend fun <T> com.google.android.gms.tasks.Task<T>.awaitResult(): T =
     suspendCancellableCoroutine { continuation ->
@@ -1847,3 +2301,4 @@ private suspend fun <T> com.google.android.gms.tasks.Task<T>.awaitResult(): T =
     }
 
 private val appointmentDateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.forLanguageTag("vi-VN"))
+

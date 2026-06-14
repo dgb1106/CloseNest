@@ -9,6 +9,7 @@ import com.example.closenest.R
 import com.example.closenest.core.network.FirebaseConnectionException
 import com.example.closenest.features.relationships.model.NewRelationshipRequest
 import com.example.closenest.features.relationships.model.RelationshipPriority
+import com.example.closenest.features.relationships.model.RelationshipProfile
 import com.example.closenest.features.relationships.model.RelationshipTag
 import com.example.closenest.features.relationships.repository.RelationshipRepository
 import com.example.closenest.features.relationships.repository.RelationshipRepositoryProvider
@@ -19,6 +20,7 @@ import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.TimeoutCancellationException
@@ -44,10 +46,35 @@ data class AddRelationshipUiState(
 )
 
 class AddRelationshipViewModel(
-    private val repository: RelationshipRepository
+    private val repository: RelationshipRepository,
+    private val editRelationshipId: String?
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AddRelationshipUiState())
     val uiState: StateFlow<AddRelationshipUiState> = _uiState.asStateFlow()
+
+    val isEditMode: Boolean get() = editRelationshipId != null
+
+    init {
+        if (editRelationshipId != null) {
+            viewModelScope.launch {
+                val profile = repository.observeRelationships()
+                    .first { list -> list.any { it.id == editRelationshipId } }
+                    .first { it.id == editRelationshipId }
+                _uiState.update {
+                    it.copy(
+                        name = profile.name,
+                        selectedTag = profile.tag,
+                        phoneNumber = profile.phoneNumber.orEmpty(),
+                        email = profile.email.orEmpty(),
+                        birthday = profile.birthdayIso.toDisplayDate().orEmpty(),
+                        interests = profile.interests.joinToString(", "),
+                        notes = profile.notes.orEmpty(),
+                        priority = profile.priority
+                    )
+                }
+            }
+        }
+    }
 
     fun onNameChanged(value: String) {
         _uiState.update { state ->
@@ -95,6 +122,10 @@ class AddRelationshipViewModel(
         _uiState.update { it.copy(notes = value) }
     }
 
+    fun clearErrorMessage() {
+        _uiState.update { it.copy(errorMessageRes = null) }
+    }
+
     fun onPriorityChanged(value: RelationshipPriority) {
         _uiState.update { it.copy(priority = value) }
     }
@@ -118,7 +149,13 @@ class AddRelationshipViewModel(
                 it.copy(
                     nameError = isNameInvalid,
                     emailError = isEmailInvalid,
-                    birthdayError = isBirthdayInvalid
+                    birthdayError = isBirthdayInvalid,
+                    errorMessageRes = when {
+                        isNameInvalid -> R.string.add_relationship_name_error
+                        isEmailInvalid -> R.string.add_relationship_email_error
+                        isBirthdayInvalid -> R.string.add_relationship_birthday_error
+                        else -> null
+                    }
                 )
             }
             return
@@ -126,25 +163,33 @@ class AddRelationshipViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, errorMessageRes = null) }
-            runCatching {
-                withTimeout(SaveTimeoutMillis) {
-                    repository.addRelationship(
-                        NewRelationshipRequest(
-                            name = trimmedName,
-                            tag = currentState.selectedTag,
-                            birthdayIso = birthdayIso,
-                            phoneNumber = currentState.phoneNumber.trim().ifBlank { null },
-                            email = trimmedEmail.ifBlank { null },
-                            interests = currentState.interests
-                                .split(",")
-                                .map { it.trim() }
-                                .filter { it.isNotEmpty() },
-                            notes = currentState.notes.trim().ifBlank { null },
-                            priority = currentState.priority
-                        )
-                    )
+            val request = NewRelationshipRequest(
+                name = trimmedName,
+                tag = currentState.selectedTag,
+                birthdayIso = birthdayIso,
+                phoneNumber = currentState.phoneNumber.trim().ifBlank { null },
+                email = trimmedEmail.ifBlank { null },
+                interests = currentState.interests
+                    .split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() },
+                notes = currentState.notes.trim().ifBlank { null },
+                priority = currentState.priority
+            )
+            val result = if (editRelationshipId != null) {
+                runCatching {
+                    withTimeout(SaveTimeoutMillis) {
+                        repository.updateRelationship(editRelationshipId, request)
+                    }
                 }
-            }.onSuccess {
+            } else {
+                runCatching {
+                    withTimeout(SaveTimeoutMillis) {
+                        repository.addRelationship(request)
+                    }
+                }
+            }
+            result.onSuccess {
                 _uiState.update { it.copy(isSubmitting = false, isSaved = true) }
             }.onFailure { throwable ->
                 _uiState.update { state ->
@@ -169,10 +214,11 @@ class AddRelationshipViewModel(
     }
 
     companion object {
-        val Factory: ViewModelProvider.Factory = viewModelFactory {
+        fun factory(editRelationshipId: String? = null): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 AddRelationshipViewModel(
-                    repository = RelationshipRepositoryProvider.repository
+                    repository = RelationshipRepositoryProvider.repository,
+                    editRelationshipId = editRelationshipId
                 )
             }
         }
@@ -197,4 +243,13 @@ class AddRelationshipViewModel(
 
         private const val SaveTimeoutMillis = 15_000L
     }
+}
+
+private fun String?.toDisplayDate(): String? {
+    val parts = this?.split("-")
+    if (parts == null || parts.size != 3) return this
+    val year = parts[0]
+    val month = parts[1]
+    val day = parts[2]
+    return "$day/$month/$year"
 }

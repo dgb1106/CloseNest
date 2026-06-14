@@ -1,15 +1,19 @@
 package com.example.closenest.features.homepage.repository
 
 import com.example.closenest.core.network.FirebaseConnectionException
+import com.example.closenest.features.homepage.model.MoodDayEntry
 import com.example.closenest.features.homepage.model.NewReflectionRequest
 import com.google.android.gms.tasks.Task
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
@@ -23,23 +27,111 @@ class FirebaseReflectionRepository(
 
     override suspend fun addReflection(request: NewReflectionRequest) {
         val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
-        val document = reflectionsCollection(userId).document()
+        val todayKey = dateFormatter.format(Date(request.createdAtMillis))
 
         ensureFirestoreReachable()
 
-        document.set(
-            mapOf(
-                FieldId to document.id,
-                FieldUserId to userId,
-                FieldInteractedContactIds to request.interactedContacts.map { contact -> contact.id },
-                FieldInteractedContactNames to request.interactedContacts.map { contact -> contact.name },
-                FieldMood to request.mood,
-                FieldFeelings to request.feelings,
-                FieldSources to request.sources,
-                FieldDateKey to dateFormatter.format(Date(request.createdAtMillis)),
-                FieldCreatedAtMillis to request.createdAtMillis
+        val existingSnapshot = reflectionsCollection(userId)
+            .whereEqualTo(FieldDateKey, todayKey)
+            .limit(1)
+            .get()
+            .awaitResult()
+
+        val reflectionData = mapOf(
+            FieldUserId to userId,
+            FieldInteractedContactIds to request.interactedContacts.map { contact -> contact.id },
+            FieldInteractedContactNames to request.interactedContacts.map { contact -> contact.name },
+            FieldMood to request.mood,
+            FieldFeelings to request.feelings,
+            FieldSources to request.sources,
+            FieldDateKey to todayKey,
+            FieldCreatedAtMillis to request.createdAtMillis
+        )
+
+        if (existingSnapshot != null && !existingSnapshot.isEmpty) {
+            val existingDoc = existingSnapshot.documents[0]
+            existingDoc.reference.update(reflectionData).awaitCompletion()
+        } else {
+            val document = reflectionsCollection(userId).document()
+            val dataWithId = reflectionData + mapOf(FieldId to document.id)
+            document.set(dataWithId).awaitCompletion()
+        }
+
+        updateStreakOnReflection(userId)
+    }
+
+    override suspend fun getRecentMoods(days: Int): Result<List<MoodDayEntry>> {
+        return try {
+            val userId = auth.currentUser?.uid ?: return Result.failure(
+                IllegalStateException("No signed-in Firebase user.")
             )
-        ).awaitCompletion()
+
+            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+            }
+            val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"))
+            cal.add(Calendar.DAY_OF_YEAR, -days + 1)
+            val startDate = formatter.format(cal.time)
+            val endDate = formatter.format(Date())
+
+            val snapshot = reflectionsCollection(userId)
+                .whereGreaterThanOrEqualTo(FieldDateKey, startDate)
+                .whereLessThanOrEqualTo(FieldDateKey, endDate)
+                .get()
+                .awaitResult()
+
+            val entries = snapshot.documents.mapNotNull { doc ->
+                val dateKey = doc.getString(FieldDateKey) ?: return@mapNotNull null
+                val mood = doc.getString(FieldMood) ?: return@mapNotNull null
+                MoodDayEntry(dateKey = dateKey, mood = mood)
+            }
+
+            Result.success(entries)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun updateStreakOnReflection(userId: String) {
+        try {
+            val tz = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+            val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = tz }
+
+            val allReflections = reflectionsCollection(userId)
+                .orderBy(FieldDateKey, com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(100)
+                .get()
+                .awaitResult()
+
+            val dateSet = allReflections.documents
+                .mapNotNull { it.getString(FieldDateKey) }
+                .toSet()
+
+            var streak = 0
+            var cal = Calendar.getInstance(tz)
+            while (true) {
+                val key = fmt.format(cal.time)
+                if (dateSet.contains(key)) {
+                    streak++
+                    cal.add(Calendar.DAY_OF_YEAR, -1)
+                } else {
+                    break
+                }
+            }
+            if (streak == 0) streak = 1
+
+            firestore.collection(UsersCollection)
+                .document(userId)
+                .update(
+                    mapOf(
+                        "lastCheckedIn" to Timestamp.now(),
+                        "streakCount" to streak
+                    )
+                )
+                .awaitCompletion()
+        } catch (_: Exception) {
+            // non-critical
+        }
     }
 
     private fun reflectionsCollection(userId: String) =
@@ -72,6 +164,19 @@ private suspend fun Task<*>.awaitCompletion() {
     }
 }
 
+private suspend fun <T> Task<T>.awaitResult(): T = suspendCancellableCoroutine { continuation ->
+    addOnSuccessListener { result ->
+        if (continuation.isActive) {
+            continuation.resume(result)
+        }
+    }
+    addOnFailureListener { exception ->
+        if (continuation.isActive) {
+            continuation.resumeWithException(exception)
+        }
+    }
+}
+
 private suspend fun ensureFirestoreReachable() {
     withContext(Dispatchers.IO) {
         runCatching {
@@ -87,7 +192,9 @@ private suspend fun ensureFirestoreReachable() {
     }
 }
 
-private val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+private val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+    timeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+}
 
 private const val UsersCollection = "users"
 private const val ReflectionsCollection = "reflections"

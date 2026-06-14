@@ -38,16 +38,18 @@ enum class RelationshipTag(
     CloseFriend(R.string.relationship_tag_close_friend),
     Classmate(R.string.relationship_tag_classmate),
     Coworker(R.string.relationship_tag_coworker),
-    Mentor(R.string.relationship_tag_mentor),
     Partner(R.string.relationship_tag_partner),
     Other(R.string.relationship_tag_other)
 }
 
 val SelectableRelationshipTags = listOf(
     RelationshipTag.Family,
-    RelationshipTag.Friend,
+    RelationshipTag.Partner,
     RelationshipTag.CloseFriend,
-    RelationshipTag.Classmate
+    RelationshipTag.Coworker,
+    RelationshipTag.Classmate,
+    RelationshipTag.Friend,
+    RelationshipTag.Other
 )
 
 enum class RelationshipPriority(

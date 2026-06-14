@@ -18,23 +18,41 @@ class FirebaseAppointmentRepository(
     private val firestore: FirebaseFirestore
 ) : AppointmentRepository {
 
-    override suspend fun addAppointment(request: NewAppointmentRequest) {
+    override suspend fun addAppointment(request: NewAppointmentRequest): AppointmentItem {
         val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
         val document = appointmentsCollection(userId).document()
+        val dateKey = dateFormatter.format(Date(request.appointmentDateMillis))
 
         document.set(
             mapOf(
                 FieldId to document.id,
                 FieldUserId to userId,
                 FieldName to request.name,
+                FieldParticipantContactIds to request.participantContactIds,
+                FieldParticipantContactNames to request.participantContactNames,
                 FieldLocation to request.location,
                 FieldLocationLatitude to request.locationLatitude,
                 FieldLocationLongitude to request.locationLongitude,
                 FieldAppointmentDateMillis to request.appointmentDateMillis,
-                FieldDateKey to dateFormatter.format(Date(request.appointmentDateMillis)),
-                FieldCreatedAtMillis to request.createdAtMillis
+                FieldDateKey to dateKey,
+                FieldCreatedAtMillis to request.createdAtMillis,
+                FieldNote to request.note
             )
         ).awaitCompletion()
+
+        return AppointmentItem(
+            id = document.id,
+            name = request.name,
+            participantContactIds = request.participantContactIds,
+            participantContactNames = request.participantContactNames,
+            location = request.location,
+            locationLatitude = request.locationLatitude,
+            locationLongitude = request.locationLongitude,
+            appointmentDateMillis = request.appointmentDateMillis,
+            dateKey = dateKey,
+            note = request.note,
+            createdAtMillis = request.createdAtMillis
+        )
     }
 
     override suspend fun countUpcomingAppointments(todayMillis: Long): Int {
@@ -62,23 +80,37 @@ class FirebaseAppointmentRepository(
         return snapshot.documents.mapNotNull { doc ->
             val id = doc.getString(FieldId) ?: return@mapNotNull null
             val name = doc.getString(FieldName) ?: return@mapNotNull null
+            val participantContactIds = doc.get(FieldParticipantContactIds) as? List<*>
+            val participantContactNames = doc.get(FieldParticipantContactNames) as? List<*>
             val location = doc.getString(FieldLocation) ?: return@mapNotNull null
             val locationLatitude = doc.getDouble(FieldLocationLatitude) ?: return@mapNotNull null
             val locationLongitude = doc.getDouble(FieldLocationLongitude) ?: return@mapNotNull null
             val appointmentDateMillis = doc.getLong(FieldAppointmentDateMillis) ?: return@mapNotNull null
             val dateKey = doc.getString(FieldDateKey) ?: return@mapNotNull null
             val createdAtMillis = doc.getLong(FieldCreatedAtMillis) ?: return@mapNotNull null
+            val note = doc.getString(FieldNote)
             AppointmentItem(
                 id = id,
                 name = name,
+                participantContactIds = participantContactIds?.filterIsInstance<String>().orEmpty(),
+                participantContactNames = participantContactNames?.filterIsInstance<String>().orEmpty(),
                 location = location,
                 locationLatitude = locationLatitude,
                 locationLongitude = locationLongitude,
                 appointmentDateMillis = appointmentDateMillis,
                 dateKey = dateKey,
+                note = note,
                 createdAtMillis = createdAtMillis
             )
         }
+    }
+
+    override suspend fun deleteAppointment(appointmentId: String) {
+        val userId = auth.currentUser?.uid ?: error("No signed-in Firebase user.")
+        appointmentsCollection(userId)
+            .document(appointmentId)
+            .delete()
+            .awaitCompletion()
     }
 
     private fun startOfDayMillis(todayMillis: Long): Long {
@@ -142,9 +174,12 @@ private const val AppointmentsCollection = "appointments"
 private const val FieldId = "id"
 private const val FieldUserId = "userId"
 private const val FieldName = "name"
+private const val FieldParticipantContactIds = "participantContactIds"
+private const val FieldParticipantContactNames = "participantContactNames"
 private const val FieldLocation = "location"
 private const val FieldLocationLatitude = "locationLatitude"
 private const val FieldLocationLongitude = "locationLongitude"
 private const val FieldAppointmentDateMillis = "appointmentDateMillis"
 private const val FieldDateKey = "dateKey"
+private const val FieldNote = "note"
 private const val FieldCreatedAtMillis = "createdAtMillis"

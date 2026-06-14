@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeJoin
@@ -59,17 +62,26 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.closenest.R
+import com.example.closenest.core.ui.theme.ThemeMode
 import com.example.closenest.features.profile.model.ProfileMenuItem
 import com.example.closenest.features.profile.model.ProfileUiState
 import com.example.closenest.features.profile.model.RelationshipQuickPreview
 import com.example.closenest.features.profile.model.UserProfile
 import com.example.closenest.features.profile.viewmodel.ProfileViewModel
 import com.example.closenest.core.ui.theme.AppTheme
+import com.example.closenest.features.homepage.model.MoodDayEntry
+import com.example.closenest.features.homepage.viewmodel.ReflectionMood
 import com.google.firebase.Timestamp
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun ProfileRoute(
     onLogout: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     onMenuItemClicked: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory)
@@ -100,6 +112,11 @@ fun ProfileRoute(
                 viewModel.onConfirmLogout()
                 onLogout()
             },
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
+            onDismissSettingsDialog = viewModel::onDismissSettingsDialog,
+            onDismissUiCustomizationDialog = viewModel::onDismissUiCustomizationDialog,
+            onDismissLanguageDialog = viewModel::onDismissLanguageDialog,
             onCancelLogout = viewModel::onCancelLogout,
             modifier = modifier
         )
@@ -112,6 +129,11 @@ fun ProfileScreen(
     showLogoutDialog: Boolean,
     onMenuItemClicked: (String) -> Unit,
     onConfirmLogout: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onDismissSettingsDialog: () -> Unit,
+    onDismissUiCustomizationDialog: () -> Unit,
+    onDismissLanguageDialog: () -> Unit,
     onCancelLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -147,6 +169,13 @@ fun ProfileScreen(
         }
 
         item {
+            MoodHeatmap(
+                moodEntries = uiState.moodMap,
+                createdAt = uiState.user?.createdAt
+            )
+        }
+
+        item {
             ProfileMenuSection(
                 onMenuItemClicked = onMenuItemClicked
             )
@@ -166,6 +195,26 @@ fun ProfileScreen(
         LogoutConfirmationDialog(
             onConfirm = onConfirmLogout,
             onCancel = onCancelLogout
+        )
+    }
+
+    if (uiState.showSettingsDialog) {
+        SettingsDialog(
+            onDismiss = onDismissSettingsDialog
+        )
+    }
+
+    if (uiState.showUiCustomizationDialog) {
+        UiCustomizationDialog(
+            selectedThemeMode = themeMode,
+            onThemeModeSelected = onThemeModeChange,
+            onDismiss = onDismissUiCustomizationDialog
+        )
+    }
+
+    if (uiState.showLanguageDialog) {
+        LanguageDialog(
+            onDismiss = onDismissLanguageDialog
         )
     }
 }
@@ -222,7 +271,7 @@ fun ProfileHeaderSection(
             Text(
                 text = user?.email ?: "",
                 style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.outlineVariant,
+                color = colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -230,7 +279,7 @@ fun ProfileHeaderSection(
                 Text(
                     text = user?.phoneNumber ?: "",
                     style = MaterialTheme.typography.labelSmall,
-                    color = colorScheme.outlineVariant,
+                    color = colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -251,11 +300,11 @@ fun StreakBadgeSection(
     val colorScheme = MaterialTheme.colorScheme
 
     Column(
-        modifier = Modifier
-            .background(
-                color = Color(0xFFFFF8F6),
-                shape = RoundedCornerShape(28.dp)
-            ),
+//        modifier = Modifier
+//            .background(
+//                color = Color(0xFFFFF8F6),
+//                shape = RoundedCornerShape(28.dp)
+//            ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -300,6 +349,123 @@ fun StreakBadgeSection(
             color = colorScheme.primary
         )
 
+    }
+}
+
+@Composable
+fun MoodHeatmap(
+    moodEntries: List<MoodDayEntry>,
+    createdAt: Timestamp?,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val isDarkTheme = colorScheme.background.luminance() < 0.5f
+    val cols = 15
+    val rows = 4
+    val totalCells = cols * rows
+
+    val tz = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+    val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+        timeZone = tz
+    }
+
+    fun Calendar.startOfDay(): Calendar {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        return this
+    }
+
+    val today = Calendar.getInstance(tz).startOfDay()
+    val windowStart = (today.clone() as Calendar).apply {
+        add(Calendar.DAY_OF_YEAR, -totalCells + 1)
+    }
+    val startCal = createdAt?.toDate()?.let { date ->
+        Calendar.getInstance(tz).apply {
+            time = date
+            startOfDay()
+        }
+    } ?: today
+    if (startCal.after(windowStart)) {
+        windowStart.timeInMillis = startCal.timeInMillis
+    }
+
+    val dayKeys = List(totalCells) { i ->
+        val cloned = windowStart.clone() as Calendar
+        cloned.add(Calendar.DAY_OF_YEAR, i)
+        if (!cloned.after(today)) dateFormatter.format(cloned.time) else null
+    }
+
+    val moodByDay = moodEntries.associateBy { it.dateKey }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = if (isDarkTheme) colorScheme.surface else colorScheme.tertiaryContainer,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.profile_mood_heatmap_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = colorScheme.onBackground
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (r in 0 until rows) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        for (c in 0 until cols) {
+                            val idx = r * cols + c
+                            val dateKey = dayKeys[idx]
+                            val entry = if (dateKey != null) moodByDay[dateKey] else null
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(moodColor(entry?.mood, colorScheme, isDarkTheme))
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun moodColor(
+    mood: String?,
+    colorScheme: androidx.compose.material3.ColorScheme,
+    isDarkTheme: Boolean
+): Color {
+    if (mood == null) {
+        return if (isDarkTheme) {
+            colorScheme.surfaceVariant.copy(alpha = 0.9f)
+        } else {
+            colorScheme.secondary.copy(alpha = 0.3f)
+        }
+    }
+
+    val moodEnum = ReflectionMood.fromStorageValue(mood)
+    return when (moodEnum) {
+        ReflectionMood.VeryUnpleasant -> colorScheme.onPrimaryContainer
+        ReflectionMood.Unpleasant -> colorScheme.onSurfaceVariant
+        ReflectionMood.Neutral -> colorScheme.primaryContainer
+        ReflectionMood.Pleasant -> colorScheme.primary.copy(alpha = 0.45f)
+        ReflectionMood.VeryPleasant -> colorScheme.primary
+        null -> if (isDarkTheme) {
+            colorScheme.surfaceVariant.copy(alpha = 0.8f)
+        } else {
+            colorScheme.secondary.copy(alpha = 0.12f)
+        }
     }
 }
 
@@ -359,6 +525,13 @@ fun ProfileMenuItemCard(
                 color = colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
+            if (menuItem.id == "language") {
+                Text(
+                    text = stringResource(R.string.profile_language_current_value),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                )
+            }
         }
     }
 }
@@ -468,6 +641,163 @@ fun LogoutConfirmationDialog(
             }
         }
     )
+}
+
+@Composable
+fun LanguageDialog(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.profile_language_dialog_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.profile_language_dialog_message),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.profile_language_current_value))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.profile_language_dialog_dismiss))
+            }
+        }
+    )
+}
+
+@Composable
+fun SettingsDialog(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.profile_settings_dialog_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.profile_settings_dialog_message),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.profile_settings_dialog_dismiss))
+            }
+        }
+    )
+}
+
+@Composable
+fun UiCustomizationDialog(
+    selectedThemeMode: ThemeMode,
+    onThemeModeSelected: (ThemeMode) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        modifier = modifier,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.profile_ui_customization_dialog_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    text = stringResource(R.string.profile_ui_customization_dialog_message),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                ThemeModeOption(
+                    title = stringResource(R.string.profile_theme_mode_light),
+                    description = stringResource(R.string.profile_theme_mode_light_description),
+                    selected = selectedThemeMode == ThemeMode.LIGHT,
+                    onClick = { onThemeModeSelected(ThemeMode.LIGHT) }
+                )
+                ThemeModeOption(
+                    title = stringResource(R.string.profile_theme_mode_dark),
+                    description = stringResource(R.string.profile_theme_mode_dark_description),
+                    selected = selectedThemeMode == ThemeMode.DARK,
+                    onClick = { onThemeModeSelected(ThemeMode.DARK) }
+                )
+                ThemeModeOption(
+                    title = stringResource(R.string.profile_theme_mode_system),
+                    description = stringResource(R.string.profile_theme_mode_system_description),
+                    selected = selectedThemeMode == ThemeMode.SYSTEM,
+                    onClick = { onThemeModeSelected(ThemeMode.SYSTEM) }
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.profile_ui_customization_dialog_dismiss))
+            }
+        }
+    )
+}
+
+@Composable
+private fun ThemeModeOption(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                )
+            }
+
+            RadioButton(
+                selected = selected,
+                onClick = onClick
+            )
+        }
+    }
 }
 
 // ========================== ACCOUNT DETAIL SCREEN ==========================
@@ -973,6 +1303,11 @@ private fun ProfileScreenPreview() {
             showLogoutDialog = false,
             onMenuItemClicked = {},
             onConfirmLogout = {},
+            themeMode = ThemeMode.SYSTEM,
+            onThemeModeChange = {},
+            onDismissSettingsDialog = {},
+            onDismissUiCustomizationDialog = {},
+            onDismissLanguageDialog = {},
             onCancelLogout = {}
         )
     }

@@ -1,6 +1,7 @@
 package com.example.closenest
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -12,23 +13,55 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.example.closenest.core.notification.AppointmentReminderAppointmentIdExtra
 import com.example.closenest.core.ui.theme.AppTheme
+import com.example.closenest.core.ui.theme.ThemePreferences
+import com.example.closenest.core.ui.theme.ThemeMode
 
 class MainActivity : ComponentActivity() {
+    private val appointmentIdToOpen = mutableStateOf<String?>(null)
+    private val themePreferences by lazy { ThemePreferences(this) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        appointmentIdToOpen.value = intent.appointmentIdExtra()
         setContent {
-            CloseNestRoot()
+            var themeMode by remember {
+                mutableStateOf(themePreferences.getThemeMode())
+            }
+
+            CloseNestRoot(
+                openAppointmentId = appointmentIdToOpen.value,
+                onAppointmentOpened = { appointmentIdToOpen.value = null },
+                themeMode = themeMode,
+                onThemeModeChange = { selectedThemeMode ->
+                    themeMode = selectedThemeMode
+                    themePreferences.setThemeMode(selectedThemeMode)
+                }
+            )
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        appointmentIdToOpen.value = intent.appointmentIdExtra()
     }
 }
 
 @Composable
-private fun CloseNestRoot() {
+private fun CloseNestRoot(
+    openAppointmentId: String? = null,
+    onAppointmentOpened: () -> Unit = {},
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit
+) {
     val permissionsToRequest = remember {
         buildList {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -49,18 +82,30 @@ private fun CloseNestRoot() {
         permissionLauncher.launch(permissionsToRequest)
     }
 
-    AppTheme(dynamicColor = false) {
+    AppTheme(
+        themeMode = themeMode,
+        dynamicColor = false
+    ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = androidx.compose.material3.MaterialTheme.colorScheme.background
         ) {
-            CloseNestApp()
+            CloseNestApp(
+                openAppointmentId = openAppointmentId,
+                onAppointmentOpened = onAppointmentOpened,
+                themeMode = themeMode,
+                onThemeModeChange = onThemeModeChange
+            )
         }
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-private fun CloseNestPreview() {
-    CloseNestRoot()
+private fun Intent.appointmentIdExtra(): String? {
+    return getStringExtra(AppointmentReminderAppointmentIdExtra)?.takeIf { it.isNotBlank() }
 }
+
+//@Preview(showBackground = true, showSystemUi = true)
+//@Composable
+//private fun CloseNestPreview() {
+//    CloseNestRoot()
+//}

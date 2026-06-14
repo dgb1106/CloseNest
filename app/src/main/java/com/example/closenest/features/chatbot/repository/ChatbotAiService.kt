@@ -18,6 +18,8 @@ interface ChatbotAiService {
         mode: ChatMode,
         messages: List<ChatMessage>
     ): ChatbotAiReply
+
+    suspend fun generateReplyFromPrompt(prompt: String): ChatbotAiReply
 }
 
 data class ChatbotAiReply(
@@ -43,15 +45,33 @@ class GeminiChatbotAiService(
         }
 
         val requestBody = buildGeminiRequestBody(buildPrompt(mode, messages)).toString()
+        requestReply(requestBody)
+    }
+
+    override suspend fun generateReplyFromPrompt(prompt: String): ChatbotAiReply =
+        withContext(Dispatchers.IO) {
+            val trimmedApiKey = apiKey.trim()
+            if (trimmedApiKey.isBlank()) {
+                throw GeminiApiException(
+                    statusCode = 0,
+                    apiMessage = "Missing GEMINI_API_KEY in local.properties."
+                )
+            }
+
+            val requestBody = buildGeminiRequestBody(prompt).toString()
+            requestReply(requestBody)
+        }
+
+    private fun requestReply(requestBody: String): ChatbotAiReply {
         val candidateModels = (listOf(modelName) + fallbackModelNames).distinct()
         var lastDemandException: GeminiApiException? = null
 
         candidateModels.forEachIndexed { index, candidateModel ->
             try {
-                return@withContext ChatbotAiReply(
+                return ChatbotAiReply(
                     text = requestGeminiReply(
                         modelName = candidateModel,
-                        apiKey = trimmedApiKey,
+                        apiKey = apiKey.trim(),
                         requestBody = requestBody
                     ),
                     modelName = candidateModel
